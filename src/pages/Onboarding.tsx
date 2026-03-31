@@ -12,10 +12,10 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [formData, setFormData] = useState<UserProfile>({
-    age: 25,
-    weight: 70,
-    height: 175,
+  const [formData, setFormData] = useState({
+    age: '' as number | string,
+    weight: '' as number | string,
+    height: '' as number | string,
     goal: 'Hipertrofia',
     level: 'Iniciante',
     days: 4,
@@ -25,11 +25,34 @@ export default function Onboarding() {
   const handleBack = () => setStep(s => s - 1);
 
   const handleSubmit = async () => {
+    if (!formData.age || !formData.weight || !formData.height) {
+      setError('Por favor, preencha todos os campos de medidas.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
-      setProfile(formData);
-      const plan = await generatePlan(formData);
+      const parseNumber = (val: string | number) => {
+        if (typeof val === 'string') {
+          return Number(val.replace(',', '.'));
+        }
+        return val;
+      };
+
+      const profileData: UserProfile = {
+        ...formData,
+        age: parseNumber(formData.age),
+        weight: parseNumber(formData.weight),
+        height: parseNumber(formData.height),
+      };
+      
+      if (isNaN(profileData.age) || isNaN(profileData.weight) || isNaN(profileData.height)) {
+        throw new Error("Valores inválidos. Use apenas números.");
+      }
+
+      setProfile(profileData);
+      const plan = await generatePlan(profileData);
       setPlan(plan);
       startTrial();
       navigate('/dashboard');
@@ -40,7 +63,7 @@ export default function Onboarding() {
     }
   };
 
-  const updateForm = (field: keyof UserProfile, value: string | number) => {
+  const updateForm = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -114,9 +137,11 @@ export default function Onboarding() {
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">Idade</label>
                   <input 
-                    type="number" 
+                    type="text" 
+                    inputMode="numeric"
                     value={formData.age}
-                    onChange={e => updateForm('age', Number(e.target.value))}
+                    onChange={e => updateForm('age', e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="Ex: 30"
                     className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all"
                   />
                 </div>
@@ -124,18 +149,31 @@ export default function Onboarding() {
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">Peso (kg)</label>
                     <input 
-                      type="number" 
+                      type="text" 
+                      inputMode="decimal"
                       value={formData.weight}
-                      onChange={e => updateForm('weight', Number(e.target.value))}
+                      onChange={e => updateForm('weight', e.target.value.replace(/[^0-9.,]/g, ''))}
+                      placeholder="Ex: 75.5"
                       className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Altura (cm)</label>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Altura (m)</label>
                     <input 
-                      type="number" 
+                      type="text" 
+                      inputMode="numeric"
                       value={formData.height}
-                      onChange={e => updateForm('height', Number(e.target.value))}
+                      onChange={e => {
+                        const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                        if (!rawValue) {
+                          updateForm('height', '');
+                          return;
+                        }
+                        const numValue = parseInt(rawValue, 10);
+                        const formatted = (numValue / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        updateForm('height', formatted);
+                      }}
+                      placeholder="Ex: 1,75"
                       className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition-all"
                     />
                   </div>

@@ -72,7 +72,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const calculateIMC = () => {
     if (!profile) return null;
-    const heightInMeters = profile.height / 100;
+    const heightInMeters = profile.height > 3 ? profile.height / 100 : profile.height;
     const imc = profile.weight / (heightInMeters * heightInMeters);
     let category = '';
     if (imc < 18.5) category = 'Abaixo do peso';
@@ -80,7 +80,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     else if (imc < 29.9) category = 'Sobrepeso';
     else category = 'Obesidade';
     
-    return { value: imc.toFixed(1), category };
+    return { value: imc.toFixed(2).replace('.', ','), category };
   };
 
   const logout = () => {

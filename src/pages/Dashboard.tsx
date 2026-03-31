@@ -6,6 +6,8 @@ import { Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, Play
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+import { getExerciseImage } from '../lib/exerciseImages';
+
 export default function Dashboard() {
   const { profile, plan, planType, trialEndsAt, logout, calculateIMC } = useUser();
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution'>('workout');
@@ -241,7 +243,7 @@ export default function Dashboard() {
                             <div key={i} className="flex flex-col sm:flex-row gap-4 py-4 border-b border-white/5 last:border-0">
                               <div className="w-full sm:w-24 h-24 bg-zinc-900 rounded-xl overflow-hidden shrink-0">
                                 <img 
-                                  src={`https://picsum.photos/seed/${ex.imageKeyword || 'gym'}/400/300`} 
+                                  src={getExerciseImage(ex.imageKeyword || ex.name)} 
                                   alt={ex.name}
                                   className="w-full h-full object-cover opacity-80"
                                   referrerPolicy="no-referrer"
