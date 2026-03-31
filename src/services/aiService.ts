@@ -20,7 +20,6 @@ export interface WorkoutPlan {
       sets: number;
       reps: string;
       rest: string;
-      imageKeyword: string;
     }[];
   }[];
   progression: string;
@@ -95,10 +94,9 @@ Seja específico e técnico. Retorne APENAS o JSON válido.`;
                               name: { type: Type.STRING },
                               sets: { type: Type.NUMBER },
                               reps: { type: Type.STRING },
-                              rest: { type: Type.STRING },
-                              imageKeyword: { type: Type.STRING, description: "Palavra-chave curta em inglês para buscar uma imagem do exercício (ex: benchpress, squat, dumbbell, treadmill)" }
+                              rest: { type: Type.STRING }
                             },
-                            required: ["name", "sets", "reps", "rest", "imageKeyword"]
+                            required: ["name", "sets", "reps", "rest"]
                           }
                         }
                       },
