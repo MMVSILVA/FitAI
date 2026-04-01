@@ -26,7 +26,7 @@ export default function Checkout() {
     if (!baseUrl || baseUrl === '#' || !baseUrl.startsWith('http')) {
       setTimeout(() => {
         upgradePlan(plan);
-        navigate('/dashboard');
+        user ? navigate('/dashboard') : navigate('/');
       }, 1500);
       return;
     }
@@ -44,7 +44,7 @@ export default function Checkout() {
       // Simula a aprovação do plano no app para quando o usuário voltar
       setTimeout(() => {
         upgradePlan(plan);
-        navigate('/dashboard');
+        user ? navigate('/dashboard') : navigate('/');
       }, 2000);
       
     } catch (error) {
@@ -52,7 +52,7 @@ export default function Checkout() {
       // Fallback para simulação se a URL for inválida
       setTimeout(() => {
         upgradePlan(plan);
-        navigate('/dashboard');
+        user ? navigate('/dashboard') : navigate('/');
       }, 1500);
     }
   };
@@ -65,10 +65,10 @@ export default function Checkout() {
         
         {/* Resumo do Pedido */}
         <div className="space-y-6">
-          <Link to="/dashboard" className="inline-flex items-center text-gray-400 hover:text-white transition-colors">
+          <button onClick={() => user ? navigate('/dashboard') : navigate('/')} className="inline-flex items-center text-gray-400 hover:text-white transition-colors">
             <ArrowLeft className="w-5 h-5 mr-2" />
             Voltar
-          </Link>
+          </button>
           
           <div>
             <h2 className="text-3xl font-bold mb-2">Assinar FitAI {plan}</h2>

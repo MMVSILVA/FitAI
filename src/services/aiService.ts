@@ -189,6 +189,14 @@ Seja específico e técnico. Retorne APENAS o JSON válido.`;
     return JSON.parse(text) as AIResponse;
   } catch (error: any) {
     console.error("Erro detalhado ao gerar plano:", error);
-    throw new Error(error.message || "Falha ao comunicar com a IA. Verifique sua chave de API.");
+    
+    let errorMessage = error.message || "Falha ao comunicar com a IA.";
+    
+    // Check if it's an API key error
+    if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID")) {
+      errorMessage = "Chave da API do Gemini inválida ou não configurada. Se você está no Vercel, adicione a variável VITE_GEMINI_API_KEY nas configurações do projeto.";
+    }
+    
+    throw new Error(errorMessage);
   }
 }
