@@ -98,7 +98,7 @@ Seja específico e técnico. Retorne APENAS o JSON válido.`;
     // Executar a chamada da API
     const ai = getAI();
     const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -195,6 +195,8 @@ Seja específico e técnico. Retorne APENAS o JSON válido.`;
     // Check if it's an API key error
     if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID")) {
       errorMessage = "Chave da API do Gemini inválida ou não configurada. Se você está no Vercel, adicione a variável VITE_GEMINI_API_KEY nas configurações do projeto.";
+    } else if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("RESOURCE_EXHAUSTED")) {
+      errorMessage = "O limite de uso gratuito da inteligência artificial foi atingido no momento. Por favor, aguarde alguns minutos e tente novamente.";
     }
     
     throw new Error(errorMessage);
