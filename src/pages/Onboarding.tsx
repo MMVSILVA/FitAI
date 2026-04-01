@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { generatePlan, UserProfile } from '../services/aiService';
 import { useUser } from '../store/userStore';
-import { Dumbbell, Loader2, ArrowRight, ChevronLeft } from 'lucide-react';
+import { Dumbbell, Loader2, ArrowRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export default function Onboarding() {
     age: '' as number | string,
     weight: '' as number | string,
     height: '' as number | string,
-    goal: 'Hipertrofia',
+    goal: ['Hipertrofia'] as string[],
     level: 'Iniciante',
     days: 4,
   });
@@ -45,6 +45,7 @@ export default function Onboarding() {
         age: parseNumber(formData.age),
         weight: parseNumber(formData.weight),
         height: parseNumber(formData.height),
+        goal: formData.goal.join(', '),
       };
       
       if (isNaN(profileData.age) || isNaN(profileData.weight) || isNaN(profileData.height)) {
@@ -111,22 +112,42 @@ export default function Onboarding() {
         <div className="bg-zinc-950 border border-white/10 p-6 sm:p-8 rounded-3xl shadow-2xl">
           {step === 1 && (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
-              <h2 className="text-3xl font-bold mb-6">Qual seu objetivo principal?</h2>
-              <div className="space-y-3">
-                {['Emagrecimento', 'Hipertrofia', 'Manutenção', 'Condicionamento'].map(goal => (
-                  <button
-                    key={goal}
-                    onClick={() => { updateForm('goal', goal); handleNext(); }}
-                    className={`w-full p-4 rounded-xl border text-left transition-all ${
-                      formData.goal === goal 
-                        ? 'border-purple-500 bg-purple-500/10 text-white' 
-                        : 'border-white/10 text-gray-400 hover:bg-white/5'
-                    }`}
-                  >
-                    <span className="font-medium text-lg">{goal}</span>
-                  </button>
-                ))}
+              <h2 className="text-3xl font-bold mb-2">Qual seu objetivo principal?</h2>
+              <p className="text-gray-400 mb-6">Você pode escolher mais de uma opção.</p>
+              <div className="space-y-3 mb-8">
+                {['Emagrecimento', 'Hipertrofia', 'Manutenção', 'Condicionamento'].map(goal => {
+                  const isSelected = formData.goal.includes(goal);
+                  return (
+                    <button
+                      key={goal}
+                      onClick={() => {
+                        setFormData(prev => {
+                          const newGoals = isSelected 
+                            ? prev.goal.filter(g => g !== goal)
+                            : [...prev.goal, goal];
+                          // Ensure at least one goal is selected
+                          return { ...prev, goal: newGoals.length > 0 ? newGoals : [goal] };
+                        });
+                      }}
+                      className={`w-full p-4 rounded-xl border text-left transition-all flex justify-between items-center ${
+                        isSelected 
+                          ? 'border-purple-500 bg-purple-500/10 text-white' 
+                          : 'border-white/10 text-gray-400 hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="font-medium text-lg">{goal}</span>
+                      {isSelected && <CheckCircle2 className="w-5 h-5 text-purple-500" />}
+                    </button>
+                  );
+                })}
               </div>
+              <button
+                onClick={handleNext}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                Continuar
+                <ArrowRight className="w-5 h-5" />
+              </button>
             </motion.div>
           )}
 
