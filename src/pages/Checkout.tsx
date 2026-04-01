@@ -37,7 +37,16 @@ export default function Checkout() {
       if (user?.email) {
         url.searchParams.append('prefilled_email', user.email);
       }
-      window.location.href = url.toString();
+      
+      // Abre o Stripe em uma NOVA ABA para evitar bloqueio de iframe (tela em branco)
+      window.open(url.toString(), '_blank');
+      
+      // Simula a aprovação do plano no app para quando o usuário voltar
+      setTimeout(() => {
+        upgradePlan(plan);
+        navigate('/dashboard');
+      }, 2000);
+      
     } catch (error) {
       console.error("Link de pagamento inválido:", error);
       // Fallback para simulação se a URL for inválida

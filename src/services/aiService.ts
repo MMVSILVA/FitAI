@@ -2,10 +2,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const getApiKey = () => {
   try {
-    return process.env.GEMINI_API_KEY;
-  } catch (error) {
-    return import.meta.env.VITE_GEMINI_API_KEY;
-  }
+    if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
+      return process.env.GEMINI_API_KEY;
+    }
+  } catch (e) {}
+  return import.meta.env.VITE_GEMINI_API_KEY;
 };
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
