@@ -70,7 +70,14 @@ export default function Onboarding() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative">
+        <button 
+          onClick={() => { setLoading(false); setStep(1); }}
+          className="absolute top-6 left-6 flex items-center text-gray-400 hover:text-white transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5 mr-1" />
+          Cancelar
+        </button>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
@@ -87,15 +94,23 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative">
       <div className="w-full max-w-md">
-        {step > 1 && (
+        {step > 1 ? (
           <button 
             onClick={handleBack}
             className="flex items-center text-gray-400 hover:text-white mb-8 transition-colors"
           >
             <ChevronLeft className="w-5 h-5 mr-1" />
             Voltar
+          </button>
+        ) : (
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center text-gray-400 hover:text-white mb-8 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 mr-1" />
+            Voltar ao Início
           </button>
         )}
 

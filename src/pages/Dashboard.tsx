@@ -7,7 +7,7 @@ import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
-  const { profile, plan, planType, trialEndsAt, logout, calculateIMC } = useUser();
+  const { profile, plan, planType, trialEndsAt, logout, calculateIMC, updateExerciseWeight } = useUser();
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution'>('workout');
   const navigate = useNavigate();
 
@@ -164,18 +164,26 @@ export default function Dashboard() {
 
       <main className="max-w-5xl mx-auto px-6 pt-8">
         {/* Welcome Section */}
-        <div className="mb-10">
-          <h2 className="text-3xl font-bold mb-2">Seu plano está pronto.</h2>
-          <p className="text-gray-400">
-            Objetivo: <span className="text-white font-medium">{profile.goal}</span> • 
-            Nível: <span className="text-white font-medium">{profile.level}</span>
-          </p>
-          {isFree && trialEndsAt && (
-            <div className="mt-4 inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-4 py-2 rounded-lg text-sm text-purple-300">
-              <Timer className="w-4 h-4" />
-              Seu período de teste grátis termina em: {new Date(trialEndsAt).toLocaleDateString()}
-            </div>
-          )}
+        <div className="mb-10 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Seu plano está pronto.</h2>
+            <p className="text-gray-400">
+              Objetivo: <span className="text-white font-medium">{profile.goal}</span> • 
+              Nível: <span className="text-white font-medium">{profile.level}</span>
+            </p>
+            {isFree && trialEndsAt && (
+              <div className="mt-4 inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-4 py-2 rounded-lg text-sm text-purple-300">
+                <Timer className="w-4 h-4" />
+                Seu período de teste grátis termina em: {new Date(trialEndsAt).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+          <button 
+            onClick={() => navigate('/onboarding')}
+            className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-medium transition-colors text-sm"
+          >
+            Refazer Plano
+          </button>
         </div>
 
         {/* Tabs */}
@@ -241,7 +249,19 @@ export default function Dashboard() {
                             <div key={i} className="flex flex-col sm:flex-row gap-4 py-4 border-b border-white/5 last:border-0">
                               <div className="flex-1 flex flex-col justify-center">
                                 <p className="font-bold text-lg">{ex.name}</p>
-                                <p className="text-gray-400">{ex.sets} séries x {ex.reps}</p>
+                                <div className="flex flex-wrap items-center gap-4 mt-1">
+                                  <p className="text-gray-400">{ex.sets} séries x {ex.reps}</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-500">Carga:</span>
+                                    <input 
+                                      type="text" 
+                                      value={ex.weight || ''} 
+                                      onChange={(e) => updateExerciseWeight(idx, i, e.target.value)}
+                                      placeholder="Ex: 20kg"
+                                      className="bg-white/5 border border-white/10 rounded-md px-2 py-1 text-sm text-white w-24 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all"
+                                    />
+                                  </div>
+                                </div>
                               </div>
                               <div className="flex items-center sm:flex-col justify-between sm:justify-center gap-2">
                                 <span className="text-sm text-gray-400 bg-white/5 px-3 py-1 rounded-md text-center">

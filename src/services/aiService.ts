@@ -48,6 +48,7 @@ export interface WorkoutPlan {
       sets: number;
       reps: string;
       rest: string;
+      weight?: string;
     }[];
   }[];
   progression: string;
@@ -101,6 +102,7 @@ Seja específico e técnico. Retorne APENAS o JSON válido.`;
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
+          temperature: 0.2,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -123,7 +125,8 @@ Seja específico e técnico. Retorne APENAS o JSON válido.`;
                               name: { type: Type.STRING },
                               sets: { type: Type.NUMBER },
                               reps: { type: Type.STRING },
-                              rest: { type: Type.STRING }
+                              rest: { type: Type.STRING },
+                              weight: { type: Type.STRING, description: "Peso inicial sugerido (opcional)" }
                             },
                             required: ["name", "sets", "reps", "rest"]
                           }

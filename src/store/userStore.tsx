@@ -13,6 +13,7 @@ interface UserState {
   setPlan: (plan: AIResponse) => void;
   upgradePlan: (plan: 'PRO' | 'PREMIUM') => void;
   startTrial: () => void;
+  updateExerciseWeight: (dayIndex: number, exerciseIndex: number, weight: string) => void;
   logout: () => void;
   calculateIMC: () => { value: string; category: string } | null;
 }
@@ -78,6 +79,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('fitai_trial_ends', dateString);
   };
 
+  const updateExerciseWeight = (dayIndex: number, exerciseIndex: number, weight: string) => {
+    if (!plan) return;
+    
+    const newPlan = { ...plan };
+    newPlan.workout.days[dayIndex].exercises[exerciseIndex].weight = weight;
+    
+    setPlanState(newPlan);
+    localStorage.setItem('fitai_plan', JSON.stringify(newPlan));
+  };
+
   const calculateIMC = () => {
     if (!profile) return null;
     const heightInMeters = profile.height > 3 ? profile.height / 100 : profile.height;
@@ -103,7 +114,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <UserContext.Provider value={{ user, profile, plan, planType, trialEndsAt, setProfile, setPlan, upgradePlan, startTrial, logout, calculateIMC }}>
+    <UserContext.Provider value={{ user, profile, plan, planType, trialEndsAt, setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, logout, calculateIMC }}>
       {children}
     </UserContext.Provider>
   );
