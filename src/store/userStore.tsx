@@ -30,13 +30,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const [profile, setProfileState] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('fitai_profile');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('fitai_profile');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
   });
 
   const [plan, setPlanState] = useState<AIResponse | null>(() => {
-    const saved = localStorage.getItem('fitai_plan');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('fitai_plan');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
   });
 
   const [planType, setPlanType] = useState<'FREE' | 'PRO' | 'PREMIUM'>(() => {

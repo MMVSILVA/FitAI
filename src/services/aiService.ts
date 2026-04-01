@@ -1,15 +1,34 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 const getApiKey = () => {
+  // 1. Tenta pegar a chave do Vercel (import.meta.env)
+  if (import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+    return import.meta.env.VITE_GEMINI_API_KEY;
+  }
+  // 2. Tenta pegar a chave do AI Studio (process.env)
   try {
+    // @ts-ignore
     if (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) {
+      // @ts-ignore
       return process.env.GEMINI_API_KEY;
     }
   } catch (e) {}
-  return import.meta.env.VITE_GEMINI_API_KEY;
+  
+  return "";
 };
 
-const ai = new GoogleGenAI({ apiKey: getApiKey() });
+let aiInstance: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!aiInstance) {
+    const key = getApiKey();
+    if (!key) {
+      console.warn("Chave da API do Gemini não encontrada. O serviço de IA pode falhar.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey: key || "dummy-key-to-prevent-crash" });
+  }
+  return aiInstance;
+};
 
 export interface UserProfile {
   age: number;
@@ -77,6 +96,7 @@ Seja específico e técnico. Retorne APENAS o JSON válido.`;
     console.log("Iniciando geração de plano com IA...");
     
     // Executar a chamada da API
+    const ai = getAI();
     const response = await ai.models.generateContent({
         model: "gemini-3.1-pro-preview",
         contents: prompt,
