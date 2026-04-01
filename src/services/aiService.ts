@@ -1,8 +1,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Use import.meta.env for Vite compatibility, fallback to process.env for Node environments
-const apiKey = import.meta.env?.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey: apiKey });
+// Use import.meta.env for Vite compatibility (Vercel), fallback to process.env for AI Studio
+let apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+try {
+  apiKey = apiKey || process.env.GEMINI_API_KEY;
+} catch (e) {
+  console.warn("process.env.GEMINI_API_KEY is not available. Ensure VITE_GEMINI_API_KEY is set in your environment.");
+}
+
+const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 
 export interface UserProfile {
   age: number;
