@@ -74,7 +74,7 @@ export interface AIResponse {
   diet: DietPlan;
 }
 
-export async function generatePlan(profile: UserProfile): Promise<AIResponse> {
+export async function generatePlan(profile: UserProfile, retryCount = 0): Promise<AIResponse> {
   const prompt = `Você é um personal trainer e nutricionista profissional.
 
 Baseado nos dados:
@@ -94,7 +94,7 @@ Gere:
 Seja específico e técnico. Retorne APENAS o JSON válido.`;
 
   try {
-    console.log("Iniciando geração de plano com IA...");
+    console.log(`Iniciando geração de plano com IA (Tentativa ${retryCount + 1})...`);
     
     // Executar a chamada da API
     const ai = getAI();
@@ -195,11 +195,20 @@ Seja específico e técnico. Retorne APENAS o JSON válido.`;
     
     let errorMessage = error.message || "Falha ao comunicar com a IA.";
     
+    // Retry logic for 503 errors
+    if ((errorMessage.includes("503") || errorMessage.includes("UNAVAILABLE") || errorMessage.includes("high demand")) && retryCount < 2) {
+      console.log("Servidor ocupado, tentando novamente em 2 segundos...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return generatePlan(profile, retryCount + 1);
+    }
+    
     // Check if it's an API key error
     if (errorMessage.includes("API key not valid") || errorMessage.includes("API_KEY_INVALID")) {
       errorMessage = "Chave da API do Gemini inválida ou não configurada. Se você está no Vercel, adicione a variável VITE_GEMINI_API_KEY nas configurações do projeto.";
     } else if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("RESOURCE_EXHAUSTED")) {
       errorMessage = "O limite de uso gratuito da inteligência artificial foi atingido no momento. Por favor, aguarde alguns minutos e tente novamente.";
+    } else if (errorMessage.includes("503") || errorMessage.includes("UNAVAILABLE") || errorMessage.includes("high demand")) {
+      errorMessage = "Os servidores do Google estão com alta demanda no momento (Erro 503). Por favor, aguarde alguns segundos e clique em 'Gerar' novamente.";
     }
     
     throw new Error(errorMessage);
