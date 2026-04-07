@@ -1,0 +1,30 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#38bdf8" />
+      <stop offset="100%" stopColor="#a855f7" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Dumbbell -->
+  <!-- Left Outer -->
+  <rect x="10" y="45" width="10" height="35" stroke="url(#logoGrad)" stroke-width="6" stroke-linejoin="round" />
+  <!-- Left Inner -->
+  <rect x="20" y="40" width="10" height="45" stroke="url(#logoGrad)" stroke-width="6" stroke-linejoin="round" />
+  
+  <!-- Right Inner -->
+  <rect x="70" y="40" width="10" height="45" stroke="url(#logoGrad)" stroke-width="6" stroke-linejoin="round" />
+  <!-- Right Outer -->
+  <rect x="80" y="45" width="10" height="35" stroke="url(#logoGrad)" stroke-width="6" stroke-linejoin="round" />
+  
+  <!-- Bars -->
+  <line x1="30" y1="55" x2="70" y2="55" stroke="url(#logoGrad)" stroke-width="6" />
+  <line x1="30" y1="65" x2="70" y2="65" stroke="url(#logoGrad)" stroke-width="6" />
+
+  <!-- Big Heart -->
+  <path d="M 45 15 C 30 15 20 25 20 35 C 20 48 40 60 45 63 C 50 60 55 55 60 48" stroke="url(#logoGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 45 15 C 50 15 55 20 55 25 C 55 20 60 15 65 15 C 75 15 80 22 80 30 C 80 35 78 40 75 44" stroke="url(#logoGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Small Heart -->
+  <path d="M 60 35 C 52 35 48 40 48 45 C 48 52 58 60 60 62 C 62 60 72 52 72 45 C 72 40 68 35 60 35 Z" stroke="url(#logoGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="black" />
+</svg>
