@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { generatePlan, UserProfile } from '../services/aiService';
@@ -7,9 +7,15 @@ import { Dumbbell, Loader2, ArrowRight, ChevronLeft, CheckCircle2 } from 'lucide
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { setProfile, setPlan, startTrial } = useUser();
+  const { user, authLoading, setProfile, setPlan, startTrial } = useUser();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login');
+    }
+  }, [user, authLoading, navigate]);
 
   const [formData, setFormData] = useState(() => {
     const saved = localStorage.getItem('fitai_onboarding_form');
@@ -56,6 +62,14 @@ export default function Onboarding() {
       return newData;
     });
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+      </div>
+    );
+  }
 
   const handleSubmit = async () => {
     if (!formData.age || !formData.weight || !formData.height) {

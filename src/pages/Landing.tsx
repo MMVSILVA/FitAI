@@ -10,7 +10,7 @@ export default function Landing() {
       <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-black/50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="https://picsum.photos/seed/fitai-logo/100/100" alt="FitAI Logo" className="w-8 h-8 rounded-lg object-cover" referrerPolicy="no-referrer" />
+            <img src="https://storage.googleapis.com/maca-attachments-prod/user-attachments/09194212-e883-4a6c-941e-624a919e9334/image.png" alt="FitAI Logo" className="w-8 h-8 rounded-lg object-cover" referrerPolicy="no-referrer" />
             <span className="text-xl font-bold tracking-tight">FitAI</span>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">

@@ -5,6 +5,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 
 interface UserState {
   user: User | null;
+  authLoading: boolean;
   profile: UserProfile | null;
   plan: AIResponse | null;
   planType: 'FREE' | 'PRO' | 'PREMIUM';
@@ -22,10 +23,12 @@ const UserContext = createContext<UserState | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -114,7 +117,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <UserContext.Provider value={{ user, profile, plan, planType, trialEndsAt, setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, logout, calculateIMC }}>
+    <UserContext.Provider value={{ user, authLoading, profile, plan, planType, trialEndsAt, setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, logout, calculateIMC }}>
       {children}
     </UserContext.Provider>
   );

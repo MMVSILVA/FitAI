@@ -8,23 +8,27 @@ import { useUser } from '../store/userStore';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { user } = useUser();
+  const { user, profile, plan } = useUser();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      if (!profile || !plan) {
+        navigate('/onboarding');
+      } else {
+        navigate('/dashboard');
+      }
     }
-  }, [user, navigate]);
+  }, [user, profile, plan, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/dashboard');
+      // Navigation is handled by useEffect
     } catch (err: any) {
       setError('Erro ao fazer login. Verifique suas credenciais.');
     }
@@ -34,9 +38,9 @@ export default function Login() {
     setError('');
     try {
       await signInWithGoogle();
-      navigate('/dashboard');
+      // Navigation is handled by useEffect
     } catch (err: any) {
-      setError('Erro ao fazer login com Google.');
+      setError(`Erro ao fazer login com Google: ${err.message || 'Erro desconhecido'}`);
     }
   };
 
@@ -45,7 +49,7 @@ export default function Login() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[100px] -z-10" />
 
       <Link to="/" className="absolute top-8 left-8 flex items-center gap-2">
-        <img src="https://picsum.photos/seed/fitai-logo/100/100" alt="FitAI Logo" className="w-8 h-8 rounded-lg object-cover" referrerPolicy="no-referrer" />
+        <img src="https://storage.googleapis.com/maca-attachments-prod/user-attachments/09194212-e883-4a6c-941e-624a919e9334/image.png" alt="FitAI Logo" className="w-8 h-8 rounded-lg object-cover" referrerPolicy="no-referrer" />
         <span className="text-xl font-bold tracking-tight">FitAI</span>
       </Link>
 

@@ -140,7 +140,7 @@ export default function Dashboard() {
       <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="https://picsum.photos/seed/fitai-logo/100/100" alt="FitAI Logo" className="w-10 h-10 rounded-xl object-cover shadow-[0_0_15px_rgba(168,85,247,0.4)]" referrerPolicy="no-referrer" />
+            <img src="https://storage.googleapis.com/maca-attachments-prod/user-attachments/09194212-e883-4a6c-941e-624a919e9334/image.png" alt="FitAI Logo" className="w-10 h-10 rounded-xl object-cover shadow-[0_0_15px_rgba(168,85,247,0.4)]" referrerPolicy="no-referrer" />
             <div>
               <h1 className="text-xl font-bold tracking-tight">FitAI</h1>
               <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {planType}</p>
