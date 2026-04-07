@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Brain, Dumbbell, Apple, Zap, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Logo } from '../components/Logo';
 
 export default function Landing() {
   return (
@@ -10,7 +11,7 @@ export default function Landing() {
       <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-black/50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="https://storage.googleapis.com/maca-attachments-prod/user-attachments/09194212-e883-4a6c-941e-624a919e9334/image.png" alt="FitAI Logo" className="w-8 h-8 rounded-lg object-cover" referrerPolicy="no-referrer" />
+            <Logo className="w-8 h-8" />
             <span className="text-xl font-bold tracking-tight">FitAI</span>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">

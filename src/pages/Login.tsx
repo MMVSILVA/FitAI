@@ -3,12 +3,14 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, ArrowRight, LogIn } from 'lucide-react';
 import { signInWithGoogle, auth } from '../firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useUser } from '../store/userStore';
+import { Logo } from '../components/Logo';
 
 export default function Login() {
   const navigate = useNavigate();
   const { user, profile, plan } = useUser();
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -23,14 +25,24 @@ export default function Login() {
     }
   }, [user, profile, plan, navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      if (isSignUp) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
       // Navigation is handled by useEffect
     } catch (err: any) {
-      setError('Erro ao fazer login. Verifique suas credenciais.');
+      if (err.code === 'auth/email-already-in-use') {
+        setError('Este email já está em uso.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('A senha deve ter pelo menos 6 caracteres.');
+      } else {
+        setError(isSignUp ? 'Erro ao criar conta. Verifique os dados.' : 'Erro ao fazer login. Verifique suas credenciais.');
+      }
     }
   };
 
@@ -40,7 +52,11 @@ export default function Login() {
       await signInWithGoogle();
       // Navigation is handled by useEffect
     } catch (err: any) {
-      setError(`Erro ao fazer login com Google: ${err.message || 'Erro desconhecido'}`);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('O login foi cancelado. Por favor, tente novamente.');
+      } else {
+        setError(`Erro ao fazer login com Google: ${err.message || 'Erro desconhecido'}`);
+      }
     }
   };
 
@@ -49,7 +65,7 @@ export default function Login() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[100px] -z-10" />
 
       <Link to="/" className="absolute top-8 left-8 flex items-center gap-2">
-        <img src="https://storage.googleapis.com/maca-attachments-prod/user-attachments/09194212-e883-4a6c-941e-624a919e9334/image.png" alt="FitAI Logo" className="w-8 h-8 rounded-lg object-cover" referrerPolicy="no-referrer" />
+        <Logo className="w-8 h-8" />
         <span className="text-xl font-bold tracking-tight">FitAI</span>
       </Link>
 
@@ -58,8 +74,12 @@ export default function Login() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md bg-zinc-950 border border-white/10 p-6 sm:p-8 rounded-3xl shadow-2xl"
       >
-        <h2 className="text-3xl font-bold mb-2 text-center">Bem-vindo de volta</h2>
-        <p className="text-gray-400 text-center mb-8">Acesse seu plano de treino e dieta.</p>
+        <h2 className="text-3xl font-bold mb-2 text-center">
+          {isSignUp ? 'Crie sua conta' : 'Bem-vindo de volta'}
+        </h2>
+        <p className="text-gray-400 text-center mb-8">
+          {isSignUp ? 'Comece sua jornada fitness com IA.' : 'Acesse seu plano de treino e dieta.'}
+        </p>
 
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 text-sm text-center">
@@ -77,7 +97,7 @@ export default function Login() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
           </svg>
-          Entrar com Google
+          {isSignUp ? 'Cadastrar com Google' : 'Entrar com Google'}
         </button>
 
         <div className="flex items-center gap-4 mb-6">
@@ -86,7 +106,7 @@ export default function Login() {
           <div className="flex-1 h-px bg-white/10"></div>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleAuth} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
             <input 
@@ -114,16 +134,22 @@ export default function Login() {
             type="submit"
             className="w-full bg-purple-600 text-white p-4 rounded-xl font-bold hover:bg-purple-500 transition-colors flex items-center justify-center gap-2 mt-4"
           >
-            Entrar <ArrowRight className="w-5 h-5" />
+            {isSignUp ? 'Criar conta' : 'Entrar'} <ArrowRight className="w-5 h-5" />
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-gray-400 text-sm">
-            Ainda não tem uma conta?{' '}
-            <Link to="/onboarding" className="text-purple-400 hover:text-purple-300 font-medium">
-              Comece grátis
-            </Link>
+            {isSignUp ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}
+            <button 
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError('');
+              }} 
+              className="text-purple-400 hover:text-purple-300 font-medium ml-2"
+            >
+              {isSignUp ? 'Entrar' : 'Cadastre-se'}
+            </button>
           </p>
         </div>
       </motion.div>

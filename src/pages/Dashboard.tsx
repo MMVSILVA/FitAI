@@ -5,6 +5,7 @@ import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Logo } from '../components/Logo';
 
 export default function Dashboard() {
   const { profile, plan, planType, trialEndsAt, logout, calculateIMC, updateExerciseWeight } = useUser();
@@ -134,13 +135,62 @@ export default function Dashboard() {
     </div>
   );
 
+  if (isTrialExpired) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6">
+          <Lock className="w-8 h-8 text-red-500" />
+        </div>
+        <h2 className="text-3xl font-bold mb-4">Seu período de teste acabou</h2>
+        <p className="text-gray-400 max-w-md mb-8">
+          Para continuar acessando seus treinos, dietas e evolução, escolha um de nossos planos.
+        </p>
+
+        <div className="grid sm:grid-cols-2 gap-6 w-full max-w-3xl">
+          <div className="bg-zinc-900 border border-white/10 p-8 rounded-3xl flex flex-col items-center">
+            <h3 className="text-2xl font-bold mb-2">Pro</h3>
+            <p className="text-4xl font-bold text-purple-400 mb-6">R$ 39,90<span className="text-sm text-gray-500 font-normal">/mês</span></p>
+            <ul className="text-left space-y-3 mb-8 w-full">
+              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Treinos ilimitados</li>
+              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Dieta completa</li>
+              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Evolução detalhada</li>
+            </ul>
+            <Link to="/checkout?plan=PRO" className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-xl font-bold transition-colors mt-auto">
+              Assinar Pro
+            </Link>
+          </div>
+
+          <div className="bg-purple-900/20 border border-purple-500 p-8 rounded-3xl flex flex-col items-center relative">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-xs font-bold uppercase tracking-wider py-1.5 px-4 rounded-full">
+              Recomendado
+            </div>
+            <h3 className="text-2xl font-bold mb-2">Premium</h3>
+            <p className="text-4xl font-bold text-purple-400 mb-6">R$ 59,90<span className="text-sm text-gray-500 font-normal">/mês</span></p>
+            <ul className="text-left space-y-3 mb-8 w-full">
+              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Tudo do plano Pro</li>
+              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Chat 24h com Coach IA</li>
+              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Ajustes diários de treino</li>
+            </ul>
+            <Link to="/checkout?plan=PREMIUM" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-xl font-bold transition-colors mt-auto">
+              Assinar Premium
+            </Link>
+          </div>
+        </div>
+
+        <button onClick={handleLogout} className="mt-12 text-gray-500 hover:text-white transition-colors flex items-center gap-2">
+          <LogOut className="w-4 h-4" /> Sair da conta
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-purple-500/30 pb-20">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="https://storage.googleapis.com/maca-attachments-prod/user-attachments/09194212-e883-4a6c-941e-624a919e9334/image.png" alt="FitAI Logo" className="w-10 h-10 rounded-xl object-cover shadow-[0_0_15px_rgba(168,85,247,0.4)]" referrerPolicy="no-referrer" />
+            <Logo className="w-10 h-10 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
             <div>
               <h1 className="text-xl font-bold tracking-tight">FitAI</h1>
               <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {planType}</p>
