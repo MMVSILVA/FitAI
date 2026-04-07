@@ -8,21 +8,54 @@ import { Dumbbell, Loader2, ArrowRight, ChevronLeft, CheckCircle2 } from 'lucide
 export default function Onboarding() {
   const navigate = useNavigate();
   const { setProfile, setPlan, startTrial } = useUser();
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [formData, setFormData] = useState({
-    age: '' as number | string,
-    weight: '' as number | string,
-    height: '' as number | string,
-    goal: ['Hipertrofia'] as string[],
-    level: 'Iniciante',
-    days: 4,
+  const [formData, setFormData] = useState(() => {
+    const saved = localStorage.getItem('fitai_onboarding_form');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {
+      age: '' as number | string,
+      weight: '' as number | string,
+      height: '' as number | string,
+      goal: ['Hipertrofia'] as string[],
+      level: 'Iniciante',
+      days: 4,
+    };
   });
 
-  const handleNext = () => setStep(s => s + 1);
-  const handleBack = () => setStep(s => s - 1);
+  const [step, setStep] = useState(() => {
+    const savedStep = localStorage.getItem('fitai_onboarding_step');
+    return savedStep ? parseInt(savedStep, 10) : 1;
+  });
+
+  const handleNext = () => {
+    setStep(s => {
+      const next = s + 1;
+      localStorage.setItem('fitai_onboarding_step', next.toString());
+      return next;
+    });
+  };
+  
+  const handleBack = () => {
+    setStep(s => {
+      const prev = s - 1;
+      localStorage.setItem('fitai_onboarding_step', prev.toString());
+      return prev;
+    });
+  };
+
+  const updateForm = (field: string, value: string | number | string[]) => {
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      localStorage.setItem('fitai_onboarding_form', JSON.stringify(newData));
+      return newData;
+    });
+  };
 
   const handleSubmit = async () => {
     if (!formData.age || !formData.weight || !formData.height) {
@@ -62,10 +95,6 @@ export default function Onboarding() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const updateForm = (field: string, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   if (loading) {

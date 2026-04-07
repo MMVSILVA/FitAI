@@ -45,9 +45,7 @@ export default function Login() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[100px] -z-10" />
 
       <Link to="/" className="absolute top-8 left-8 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center">
-          <Zap className="w-5 h-5 text-white" />
-        </div>
+        <img src="https://picsum.photos/seed/fitai-logo/100/100" alt="FitAI Logo" className="w-8 h-8 rounded-lg object-cover" referrerPolicy="no-referrer" />
         <span className="text-xl font-bold tracking-tight">FitAI</span>
       </Link>
 

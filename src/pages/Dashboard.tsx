@@ -2,19 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '../store/userStore';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
-import { Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, Play, Pause, X, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
   const { profile, plan, planType, trialEndsAt, logout, calculateIMC, updateExerciseWeight } = useUser();
-  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution'>('workout');
+  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal'>('workout');
   const navigate = useNavigate();
 
   // Timer State
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [showTimer, setShowTimer] = useState(false);
+
+  // Routine State
+  const [routineData, setRoutineData] = useState({ sleep: '', water: '', stress: '' });
+  const [routineSuccess, setRoutineSuccess] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -24,7 +28,6 @@ export default function Dashboard() {
       }, 1000);
     } else if (timeLeft === 0 && timerActive) {
       setTimerActive(false);
-      // alert('Tempo esgotado!'); // Not using alert as per instructions, using UI instead
     }
     return () => clearInterval(interval);
   }, [timerActive, timeLeft]);
@@ -52,7 +55,33 @@ export default function Dashboard() {
   }
 
   const isFree = planType === 'FREE';
+  const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
   const imcData = calculateIMC();
+
+  if (isTrialExpired) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mb-6">
+          <Lock className="w-10 h-10 text-red-500" />
+        </div>
+        <h2 className="text-3xl font-bold mb-4">Seu período de teste acabou</h2>
+        <p className="text-gray-400 max-w-md mb-8">
+          Você aproveitou seus 7 dias gratuitos. Para continuar acessando seu plano e evoluindo, escolha um de nossos planos.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+           <Link to="/checkout?plan=PRO" className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold transition-colors">
+             Assinar Pro
+           </Link>
+           <Link to="/checkout?plan=PREMIUM" className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold transition-colors">
+             Assinar Premium
+           </Link>
+        </div>
+        <button onClick={handleLogout} className="mt-8 text-gray-500 hover:text-white transition-colors">
+          Sair
+        </button>
+      </div>
+    );
+  }
 
   // Mock data for evolution chart
   const chartData = [
@@ -111,9 +140,7 @@ export default function Dashboard() {
       <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.4)]">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
+            <img src="https://picsum.photos/seed/fitai-logo/100/100" alt="FitAI Logo" className="w-10 h-10 rounded-xl object-cover shadow-[0_0_15px_rgba(168,85,247,0.4)]" referrerPolicy="no-referrer" />
             <div>
               <h1 className="text-xl font-bold tracking-tight">FitAI</h1>
               <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {planType}</p>
@@ -190,7 +217,7 @@ export default function Dashboard() {
         <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto">
           <button 
             onClick={() => setActiveTab('workout')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base ${
+            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
               activeTab === 'workout' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
@@ -199,7 +226,7 @@ export default function Dashboard() {
           </button>
           <button 
             onClick={() => setActiveTab('diet')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base ${
+            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
               activeTab === 'diet' ? 'bg-green-500 text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
@@ -208,13 +235,33 @@ export default function Dashboard() {
           </button>
           <button 
             onClick={() => setActiveTab('evolution')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base ${
+            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
               activeTab === 'evolution' ? 'bg-blue-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
             <TrendingUp className="w-5 h-5" />
             Evolução
           </button>
+          <button 
+            onClick={() => setActiveTab('routine')}
+            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
+              activeTab === 'routine' ? 'bg-orange-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            Rotina Diária
+          </button>
+          {planType === 'PREMIUM' && (
+            <button 
+              onClick={() => setActiveTab('personal')}
+              className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'personal' ? 'bg-purple-900 border border-purple-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              <Users className="w-5 h-5" />
+              Personal Trainer
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -415,6 +462,104 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+          {activeTab === 'routine' && (
+            <div className="space-y-8">
+              <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-orange-400" />
+                  Registro de Rotina Diária
+                </h3>
+                <p className="text-gray-400 mb-8">
+                  Registre sua rotina para que a IA possa entender seu contexto e ajustar seu plano de forma mais inteligente (Engenharia Social para IA).
+                </p>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Horas de sono na última noite</label>
+                    <input 
+                      type="text" 
+                      value={routineData.sleep}
+                      onChange={e => setRoutineData({...routineData, sleep: e.target.value})}
+                      placeholder="Ex: 7 horas"
+                      className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-orange-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Água consumida hoje</label>
+                    <input 
+                      type="text" 
+                      value={routineData.water}
+                      onChange={e => setRoutineData({...routineData, water: e.target.value})}
+                      placeholder="Ex: 2 litros"
+                      className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-orange-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Nível de estresse (1-10)</label>
+                    <input 
+                      type="text" 
+                      value={routineData.stress}
+                      onChange={e => setRoutineData({...routineData, stress: e.target.value})}
+                      placeholder="Ex: 4"
+                      className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-orange-500 outline-none transition-all"
+                    />
+                  </div>
+                  
+                  <button 
+                    onClick={() => {
+                      setRoutineSuccess(true);
+                      setRoutineData({ sleep: '', water: '', stress: '' });
+                      setTimeout(() => setRoutineSuccess(false), 3000);
+                    }}
+                    className="w-full bg-orange-500 text-white p-4 rounded-xl font-bold hover:bg-orange-600 transition-colors"
+                  >
+                    Salvar Rotina
+                  </button>
+                  {routineSuccess && (
+                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 text-sm text-center">
+                      Rotina registrada com sucesso! A IA usará esses dados para otimizar seu próximo treino.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'personal' && planType === 'PREMIUM' && (
+            <div className="space-y-8">
+              <div className="bg-zinc-950 border border-purple-500/30 rounded-3xl p-8 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px] -z-10" />
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-400" />
+                  Seu Personal Trainer
+                </h3>
+                <p className="text-gray-300 mb-8 leading-relaxed">
+                  Como assinante Premium, você tem acesso a um personal trainer afiliado ao app. Ele analisará seus dados, sua rotina diária e montará um treino 100% específico para você, além de tirar dúvidas no chat.
+                </p>
+                
+                <div className="bg-black border border-white/10 rounded-2xl p-6 mb-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-16 h-16 rounded-full bg-purple-900 flex items-center justify-center">
+                      <span className="text-2xl font-bold">PT</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg">Personal Trainer (IA / Afiliado)</h4>
+                      <p className="text-sm text-green-400 flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span> Online
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-gray-400 text-sm">
+                    "Olá! Estou analisando seu perfil e sua rotina recente. Em breve enviarei um ajuste no seu treino focado no seu objetivo de {profile.goal}."
+                  </p>
+                </div>
+                
+                <button className="w-full bg-purple-600 text-white p-4 rounded-xl font-bold hover:bg-purple-500 transition-colors flex items-center justify-center gap-2">
+                  Solicitar Novo Treino Específico
+                </button>
               </div>
             </div>
           )}
