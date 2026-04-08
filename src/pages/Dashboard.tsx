@@ -8,7 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Logo } from '../components/Logo';
 
 export default function Dashboard() {
-  const { profile, plan, planType, trialEndsAt, logout, calculateIMC, updateExerciseWeight } = useUser();
+  const { user, profile, plan, planType, trialEndsAt, logout, calculateIMC, updateExerciseWeight, resetAccount } = useUser();
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal'>('workout');
   const navigate = useNavigate();
 
@@ -197,9 +197,18 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/5">
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-4">
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt={user.displayName || 'User'} className="w-10 h-10 rounded-full object-cover border border-white/20" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-purple-600/20 flex items-center justify-center border border-purple-500/30 text-purple-400 font-bold">
+                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
+              </div>
+            )}
+            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/5">
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -617,7 +626,7 @@ export default function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-white/10 py-8 px-6 text-center text-gray-500 text-sm">
+      <footer className="mt-12 border-t border-white/10 py-8 px-6 flex flex-col items-center gap-4 text-gray-500 text-sm">
         <p>© 2026 FitAI. by Márcio Vinícius</p>
       </footer>
     </div>

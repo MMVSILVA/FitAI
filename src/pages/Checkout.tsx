@@ -17,43 +17,39 @@ export default function Checkout() {
   const stripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO || '#';
   const stripeLinkPremium = import.meta.env.VITE_STRIPE_LINK_PREMIUM || '#';
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     setLoading(true);
     
-    const baseUrl = plan === 'PRO' ? stripeLinkPro : stripeLinkPremium;
-    
-    // Se não houver link configurado ou for inválido, simula o pagamento para testes
-    if (!baseUrl || baseUrl === '#' || !baseUrl.startsWith('http')) {
-      setTimeout(() => {
-        upgradePlan(plan);
-        user ? navigate('/dashboard') : navigate('/');
-      }, 1500);
-      return;
-    }
-
-    // Adiciona o email de forma segura, verificando se a URL já tem parâmetros
     try {
-      const url = new URL(baseUrl);
-      if (user?.email) {
-        url.searchParams.append('prefilled_email', user.email);
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          plan,
+          userId: user?.uid,
+          email: user?.email
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        // Stripe Checkout doesn't allow being embedded in an iframe (like the AI Studio preview)
+        if (window.top !== window.self) {
+          window.open(data.url, '_blank');
+          alert("O checkout do Stripe foi aberto em uma nova aba de forma segura.");
+        } else {
+          window.location.href = data.url;
+        }
+      } else {
+        throw new Error(data.error || 'Erro ao criar sessão de pagamento');
       }
-      
-      // Abre o Stripe em uma NOVA ABA para evitar bloqueio de iframe (tela em branco)
-      window.open(url.toString(), '_blank');
-      
-      // Simula a aprovação do plano no app para quando o usuário voltar
-      setTimeout(() => {
-        upgradePlan(plan);
-        user ? navigate('/dashboard') : navigate('/');
-      }, 2000);
-      
     } catch (error) {
-      console.error("Link de pagamento inválido:", error);
-      // Fallback para simulação se a URL for inválida
-      setTimeout(() => {
-        upgradePlan(plan);
-        user ? navigate('/dashboard') : navigate('/');
-      }, 1500);
+      console.error("Erro no pagamento:", error);
+      alert("Ocorreu um erro ao processar o pagamento. Verifique se o Stripe está configurado corretamente.");
+      setLoading(false);
     }
   };
 

@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, AIResponse } from '../services/aiService';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 interface UserState {
   user: User | null;
@@ -17,6 +18,7 @@ interface UserState {
   updateExerciseWeight: (dayIndex: number, exerciseIndex: number, weight: string) => void;
   logout: () => void;
   calculateIMC: () => { value: string; category: string } | null;
+  resetAccount: () => Promise<void>;
 }
 
 const UserContext = createContext<UserState | undefined>(undefined);
@@ -25,53 +27,112 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  const [profile, setProfileState] = useState<UserProfile | null>(null);
+  const [plan, setPlanState] = useState<AIResponse | null>(null);
+  const [planType, setPlanType] = useState<'FREE' | 'PRO' | 'PREMIUM'>('FREE');
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    let unsubscribeSnapshot: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        const docRef = doc(db, 'users', currentUser.uid);
+        
+        // Initial migration check
+        try {
+          const docSnap = await getDoc(docRef);
+          let firestoreData = docSnap.exists() ? docSnap.data() : null;
+          
+          if (!firestoreData?.profile) {
+            const localProfile = localStorage.getItem('fitai_profile');
+            const localPlan = localStorage.getItem('fitai_plan');
+            const localPlanType = localStorage.getItem('fitai_plan_type');
+            const localTrialEnds = localStorage.getItem('fitai_trial_ends');
+            
+            if (localProfile && localPlan) {
+              const migrationData = {
+                profile: JSON.parse(localProfile),
+                plan: JSON.parse(localPlan),
+                planType: localPlanType || 'FREE',
+                trialEndsAt: localTrialEnds || null
+              };
+              
+              await setDoc(docRef, migrationData, { merge: true });
+              
+              localStorage.removeItem('fitai_profile');
+              localStorage.removeItem('fitai_plan');
+              localStorage.removeItem('fitai_plan_type');
+              localStorage.removeItem('fitai_trial_ends');
+            }
+          }
+        } catch (error) {
+          console.error("Error during migration check:", error);
+        }
+
+        // Listen for real-time updates (important for Stripe webhooks)
+        import('firebase/firestore').then(({ onSnapshot }) => {
+          unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              if (data.profile) setProfileState(data.profile);
+              if (data.plan) setPlanState(data.plan);
+              if (data.planType) setPlanType(data.planType);
+              if (data.trialEndsAt) setTrialEndsAt(data.trialEndsAt);
+            } else {
+              setProfileState(null);
+              setPlanState(null);
+              setPlanType('FREE');
+              setTrialEndsAt(null);
+            }
+          }, (error) => {
+            console.error("Firestore snapshot error:", error);
+          });
+        });
+
+      } else {
+        if (unsubscribeSnapshot) {
+          unsubscribeSnapshot();
+          unsubscribeSnapshot = null;
+        }
+        setProfileState(null);
+        setPlanState(null);
+        setPlanType('FREE');
+        setTrialEndsAt(null);
+      }
       setAuthLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+    };
   }, []);
 
-  const [profile, setProfileState] = useState<UserProfile | null>(() => {
+  const saveToFirestore = async (data: any) => {
+    if (!user) return;
     try {
-      const saved = localStorage.getItem('fitai_profile');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
+      const docRef = doc(db, 'users', user.uid);
+      await setDoc(docRef, data, { merge: true });
+    } catch (error) {
+      console.error("Error saving to Firestore:", error);
     }
-  });
-
-  const [plan, setPlanState] = useState<AIResponse | null>(() => {
-    try {
-      const saved = localStorage.getItem('fitai_plan');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-
-  const [planType, setPlanType] = useState<'FREE' | 'PRO' | 'PREMIUM'>(() => {
-    return (localStorage.getItem('fitai_plan_type') as any) || 'FREE';
-  });
-
-  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(() => {
-    return localStorage.getItem('fitai_trial_ends');
-  });
+  };
 
   const setProfile = (newProfile: UserProfile) => {
     setProfileState(newProfile);
-    localStorage.setItem('fitai_profile', JSON.stringify(newProfile));
+    saveToFirestore({ profile: newProfile });
   };
 
   const setPlan = (newPlan: AIResponse) => {
     setPlanState(newPlan);
-    localStorage.setItem('fitai_plan', JSON.stringify(newPlan));
+    saveToFirestore({ plan: newPlan });
   };
 
   const upgradePlan = (newPlan: 'PRO' | 'PREMIUM') => {
     setPlanType(newPlan);
-    localStorage.setItem('fitai_plan_type', newPlan);
+    saveToFirestore({ planType: newPlan });
   };
 
   const startTrial = () => {
@@ -79,7 +140,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     endDate.setDate(endDate.getDate() + 7);
     const dateString = endDate.toISOString();
     setTrialEndsAt(dateString);
-    localStorage.setItem('fitai_trial_ends', dateString);
+    setPlanType('FREE'); // Ensure it starts as FREE
+    saveToFirestore({ trialEndsAt: dateString, planType: 'FREE' });
   };
 
   const updateExerciseWeight = (dayIndex: number, exerciseIndex: number, weight: string) => {
@@ -89,7 +151,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newPlan.workout.days[dayIndex].exercises[exerciseIndex].weight = weight;
     
     setPlanState(newPlan);
-    localStorage.setItem('fitai_plan', JSON.stringify(newPlan));
+    saveToFirestore({ plan: newPlan });
   };
 
   const calculateIMC = () => {
@@ -105,19 +167,41 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { value: imc.toFixed(2).replace('.', ','), category };
   };
 
+  const resetAccount = async () => {
+    if (!user) return;
+    try {
+      const docRef = doc(db, 'users', user.uid);
+      await setDoc(docRef, {
+        profile: null,
+        plan: null,
+        planType: 'FREE',
+        trialEndsAt: null,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      
+      setProfileState(null);
+      setPlanState(null);
+      setPlanType('FREE');
+      setTrialEndsAt(null);
+      
+      localStorage.removeItem('fitai_profile');
+      localStorage.removeItem('fitai_plan');
+      localStorage.removeItem('fitai_plan_type');
+      localStorage.removeItem('fitai_trial_ends');
+    } catch (error) {
+      console.error("Error resetting account:", error);
+    }
+  };
+
   const logout = () => {
     setProfileState(null);
     setPlanState(null);
     setPlanType('FREE');
     setTrialEndsAt(null);
-    localStorage.removeItem('fitai_profile');
-    localStorage.removeItem('fitai_plan');
-    localStorage.removeItem('fitai_plan_type');
-    localStorage.removeItem('fitai_trial_ends');
   };
 
   return (
-    <UserContext.Provider value={{ user, authLoading, profile, plan, planType, trialEndsAt, setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, logout, calculateIMC }}>
+    <UserContext.Provider value={{ user, authLoading, profile, plan, planType, trialEndsAt, setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, logout, calculateIMC, resetAccount }}>
       {children}
     </UserContext.Provider>
   );

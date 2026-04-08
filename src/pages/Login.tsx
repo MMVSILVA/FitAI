@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap, ArrowRight, LogIn } from 'lucide-react';
-import { signInWithGoogle, auth } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { Zap, ArrowRight, LogIn, Camera, Loader2 } from 'lucide-react';
+import { signInWithGoogle, auth, db, storage } from '../firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useUser } from '../store/userStore';
 import { Logo } from '../components/Logo';
 
@@ -13,7 +15,13 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -25,12 +33,52 @@ export default function Login() {
     }
   }, [user, profile, plan, navigate]);
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUser = userCredential.user;
+        
+        let photoURL = '';
+        if (photoFile) {
+          try {
+            const storageRef = ref(storage, `profile_photos/${newUser.uid}`);
+            await uploadBytes(storageRef, photoFile);
+            photoURL = await getDownloadURL(storageRef);
+          } catch (uploadError) {
+            console.error("Erro ao fazer upload da foto:", uploadError);
+            // Continua mesmo se a foto falhar
+          }
+        }
+
+        await updateProfile(newUser, {
+          displayName: name,
+          photoURL: photoURL || null
+        });
+
+        await setDoc(doc(db, 'users', newUser.uid), {
+          name,
+          email,
+          phone,
+          photoURL,
+          createdAt: new Date().toISOString()
+        });
+
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -43,6 +91,8 @@ export default function Login() {
       } else {
         setError(isSignUp ? 'Erro ao criar conta. Verifique os dados.' : 'Erro ao fazer login. Verifique suas credenciais.');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,6 +157,62 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
+          {isSignUp && (
+            <>
+              <div className="flex flex-col items-center mb-6">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={handlePhotoChange}
+                />
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-24 h-24 rounded-full bg-zinc-900 border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-purple-500 transition-colors overflow-hidden relative group"
+                >
+                  {photoPreview ? (
+                    <>
+                      <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Camera className="w-6 h-6 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center text-gray-500 group-hover:text-purple-400 transition-colors">
+                      <Camera className="w-8 h-8 mb-1" />
+                      <span className="text-[10px] font-medium uppercase tracking-wider">Foto</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Nome Completo</label>
+                <input 
+                  type="text" 
+                  required
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Seu nome"
+                  className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Telefone</label>
+                <input 
+                  type="tel" 
+                  required
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all"
+                />
+              </div>
+            </>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
             <input 
@@ -132,9 +238,16 @@ export default function Login() {
 
           <button 
             type="submit"
-            className="w-full bg-purple-600 text-white p-4 rounded-xl font-bold hover:bg-purple-500 transition-colors flex items-center justify-center gap-2 mt-4"
+            disabled={loading}
+            className="w-full bg-purple-600 text-white p-4 rounded-xl font-bold hover:bg-purple-500 transition-colors flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSignUp ? 'Criar conta' : 'Entrar'} <ArrowRight className="w-5 h-5" />
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                {isSignUp ? 'Criar conta' : 'Entrar'} <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </button>
         </form>
 
