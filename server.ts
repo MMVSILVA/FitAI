@@ -7,22 +7,30 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Initialize Firebase Admin
-// If FIREBASE_SERVICE_ACCOUNT_KEY is provided, use it. Otherwise, initialize without credentials (might fail if not in GCP)
-try {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-    initializeApp({
-      credential: cert(serviceAccount)
-    });
-  } else {
-    initializeApp();
-  }
-} catch (error) {
-  console.error("Firebase Admin initialization error:", error);
-}
+// Lazy Initialize Firebase Admin
+let dbInstance: FirebaseFirestore.Firestore | null = null;
 
-const db = getFirestore();
+function getDb() {
+  if (!dbInstance) {
+    try {
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        // Handle potential formatting issues with the JSON string from environment variables
+        let keyString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        const serviceAccount = JSON.parse(keyString);
+        initializeApp({
+          credential: cert(serviceAccount)
+        });
+      } else {
+        initializeApp();
+      }
+      dbInstance = getFirestore();
+    } catch (error) {
+      console.error("Firebase Admin initialization error:", error);
+      throw new Error("Failed to initialize Firebase Admin. Check FIREBASE_SERVICE_ACCOUNT_KEY.");
+    }
+  }
+  return dbInstance;
+}
 
 // Lazy Initialize Stripe
 let stripeClient: Stripe | null = null;
@@ -71,7 +79,8 @@ app.post("/api/webhook", express.raw({ type: "application/json" }), async (req, 
 
     if (userId) {
       try {
-        await db.collection("users").doc(userId).set({
+        const database = getDb();
+        await database.collection("users").doc(userId).set({
           planType: plan,
           updatedAt: new Date().toISOString()
         }, { merge: true });
