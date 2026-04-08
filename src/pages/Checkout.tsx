@@ -46,9 +46,9 @@ export default function Checkout() {
       } else {
         throw new Error(data.error || 'Erro ao criar sessão de pagamento');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro no pagamento:", error);
-      alert("Ocorreu um erro ao processar o pagamento. Verifique se o Stripe está configurado corretamente.");
+      alert(`Erro: ${error.message || "Verifique se o Stripe está configurado corretamente."}`);
       setLoading(false);
     }
   };
