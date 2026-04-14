@@ -23,6 +23,11 @@ interface UserState {
 
 const UserContext = createContext<UserState | undefined>(undefined);
 
+const ADMIN_EMAILS = [
+  'vinidoctor@gmail.com',
+  'nangelicaalcantara@gmail.com'
+];
+
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -38,6 +43,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        const isAdmin = currentUser.email ? ADMIN_EMAILS.includes(currentUser.email) : false;
         const docRef = doc(db, 'users', currentUser.uid);
         
         // Initial migration check
@@ -55,7 +61,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const migrationData = {
                 profile: JSON.parse(localProfile),
                 plan: JSON.parse(localPlan),
-                planType: localPlanType || 'FREE',
+                planType: isAdmin ? 'PREMIUM' : (localPlanType || 'FREE'),
                 trialEndsAt: localTrialEnds || null
               };
               
@@ -78,12 +84,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const data = docSnap.data();
               if (data.profile) setProfileState(data.profile);
               if (data.plan) setPlanState(data.plan);
-              if (data.planType) setPlanType(data.planType);
+              
+              if (isAdmin) {
+                setPlanType('PREMIUM');
+              } else if (data.planType) {
+                setPlanType(data.planType);
+              } else {
+                setPlanType('FREE');
+              }
+              
               if (data.trialEndsAt) setTrialEndsAt(data.trialEndsAt);
             } else {
               setProfileState(null);
               setPlanState(null);
-              setPlanType('FREE');
+              setPlanType(isAdmin ? 'PREMIUM' : 'FREE');
               setTrialEndsAt(null);
             }
           }, (error) => {

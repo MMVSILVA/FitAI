@@ -163,8 +163,8 @@ async function startServer() {
   });
 }
 
-// Only start the server if this file is run directly (not imported by Vercel)
-if (process.env.NODE_ENV !== 'production' || process.env.START_SERVER === 'true') {
+// Only start the server if we are not in a Vercel serverless environment
+if (!process.env.VERCEL) {
   startServer();
 }
 
