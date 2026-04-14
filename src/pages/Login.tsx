@@ -114,9 +114,12 @@ export default function Login() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[100px] -z-10" />
 
-      <Link to="/" className="absolute top-8 left-8 flex items-center gap-2">
-        <Logo className="w-8 h-8" />
-        <span className="text-xl font-bold tracking-tight">FitAI</span>
+      <Link to="/" className="absolute top-8 left-8 flex items-center gap-3">
+        <Logo className="w-12 h-12" />
+        <span className="text-3xl font-black tracking-tight">
+          <span className="text-[#39ff14] drop-shadow-[0_0_8px_rgba(57,255,20,0.6)]">Fit</span>
+          <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
+        </span>
       </Link>
 
       <motion.div 

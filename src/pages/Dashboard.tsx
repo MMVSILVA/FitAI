@@ -2,15 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '../store/userStore';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
-import { Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users } from 'lucide-react';
+import { Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, Download } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Logo } from '../components/Logo';
 
 export default function Dashboard() {
-  const { user, profile, plan, planType, trialEndsAt, logout, calculateIMC, updateExerciseWeight, resetAccount } = useUser();
+  const { user, profile, plan, planType, trialEndsAt, logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan } = useUser();
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal'>('workout');
   const navigate = useNavigate();
+
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   // Timer State
   const [timerActive, setTimerActive] = useState(false);
@@ -20,6 +42,40 @@ export default function Dashboard() {
   // Routine State
   const [routineData, setRoutineData] = useState({ sleep: '', water: '', stress: '' });
   const [routineSuccess, setRoutineSuccess] = useState(false);
+
+  // Premium State
+  const [premiumGoals, setPremiumGoals] = useState('');
+  const [premiumGoalsSuccess, setPremiumGoalsSuccess] = useState(false);
+  const [ptRequestSuccess, setPtRequestSuccess] = useState(false);
+  const [ptMessage, setPtMessage] = useState('');
+  const [isGeneratingPT, setIsGeneratingPT] = useState(false);
+
+  const handleGeneratePersonalPlan = async () => {
+    if (!ptMessage.trim() && !premiumGoals.trim()) return;
+    
+    setIsGeneratingPT(true);
+    try {
+      const { generatePlan } = await import('../services/aiService');
+      
+      const customProfile = {
+        ...profile,
+        goal: `${profile.goal}. Pedido específico para o personal: ${ptMessage}. Metas adicionais: ${premiumGoals}`
+      };
+      
+      const newPlan = await generatePlan(customProfile);
+      
+      // Use the setPlan from the component's useUser hook
+      setPlan(newPlan);
+      
+      setPtRequestSuccess(true);
+      setPtMessage('');
+      setTimeout(() => setPtRequestSuccess(false), 4000);
+    } catch (error) {
+      console.error("Error generating PT plan:", error);
+    } finally {
+      setIsGeneratingPT(false);
+    }
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -190,14 +246,25 @@ export default function Dashboard() {
       <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Logo className="w-10 h-10 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
+            <Logo className="w-12 h-12 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
             <div>
-              <h1 className="text-xl font-bold tracking-tight">FitAI</h1>
+              <h1 className="text-2xl font-black tracking-tight">
+                <span className="text-[#39ff14] drop-shadow-[0_0_8px_rgba(57,255,20,0.6)]">Fit</span>
+                <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
+              </h1>
               <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {planType}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
+            {deferredPrompt && (
+              <button 
+                onClick={handleInstallClick} 
+                className="hidden sm:flex items-center gap-2 bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 px-4 py-2 rounded-full text-sm font-bold transition-colors"
+              >
+                <Download className="w-4 h-4" /> Instalar App
+              </button>
+            )}
             {user?.photoURL ? (
               <img src={user.photoURL} alt={user.displayName || 'User'} className="w-10 h-10 rounded-full object-cover border border-white/20" />
             ) : (
@@ -589,6 +656,40 @@ export default function Dashboard() {
 
           {activeTab === 'personal' && planType === 'PREMIUM' && (
             <div className="space-y-8">
+              {/* Premium Goals */}
+              <div className="bg-zinc-950 border border-purple-500/30 rounded-3xl p-8">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                  Metas Específicas (Premium)
+                </h3>
+                <p className="text-gray-400 mb-6">
+                  Defina metas detalhadas para que seu personal e a IA possam focar exatamente no que você deseja alcançar.
+                </p>
+                <div className="space-y-4">
+                  <textarea 
+                    value={premiumGoals}
+                    onChange={e => setPremiumGoals(e.target.value)}
+                    placeholder="Ex: Quero focar em hipertrofia nas pernas e melhorar meu condicionamento cardiovascular para uma corrida de 5km no mês que vem..."
+                    className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition-all min-h-[120px] resize-none"
+                  />
+                  <button 
+                    onClick={() => {
+                      setPremiumGoalsSuccess(true);
+                      setTimeout(() => setPremiumGoalsSuccess(false), 3000);
+                    }}
+                    className="w-full bg-purple-600 text-white p-4 rounded-xl font-bold hover:bg-purple-500 transition-colors"
+                  >
+                    Salvar Metas
+                  </button>
+                  {premiumGoalsSuccess && (
+                    <div className="p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 text-sm text-center">
+                      Metas salvas com sucesso! Seu personal foi notificado.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Personal Trainer */}
               <div className="bg-zinc-950 border border-purple-500/30 rounded-3xl p-8 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[80px] -z-10" />
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -596,7 +697,7 @@ export default function Dashboard() {
                   Seu Personal Trainer
                 </h3>
                 <p className="text-gray-300 mb-8 leading-relaxed">
-                  Como assinante Premium, você tem acesso a um personal trainer afiliado ao app. Ele analisará seus dados, sua rotina diária e montará um treino 100% específico para você, além de tirar dúvidas no chat.
+                  Como assinante Premium, você tem acesso a um personal trainer afiliado ao app. Ele analisará seus dados, suas metas e montará um treino 100% específico para você.
                 </p>
                 
                 <div className="bg-black border border-white/10 rounded-2xl p-6 mb-6">
@@ -616,9 +717,33 @@ export default function Dashboard() {
                   </p>
                 </div>
                 
-                <button className="w-full bg-purple-600 text-white p-4 rounded-xl font-bold hover:bg-purple-500 transition-colors flex items-center justify-center gap-2">
-                  Solicitar Novo Treino Específico
-                </button>
+                <div className="space-y-4">
+                  <textarea 
+                    value={ptMessage}
+                    onChange={e => setPtMessage(e.target.value)}
+                    placeholder="Envie uma mensagem ou solicite um treino específico (ex: 'Preciso de um treino para fazer em casa apenas com halteres')"
+                    className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition-all min-h-[100px] resize-none"
+                  />
+                  <button 
+                    onClick={handleGeneratePersonalPlan}
+                    disabled={isGeneratingPT}
+                    className="w-full bg-purple-600 text-white p-4 rounded-xl font-bold hover:bg-purple-500 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGeneratingPT ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Gerando Novo Treino...
+                      </>
+                    ) : (
+                      'Solicitar Novo Treino Específico'
+                    )}
+                  </button>
+                  {ptRequestSuccess && (
+                    <div className="p-4 bg-purple-500/10 border border-purple-500/50 rounded-xl text-purple-400 text-sm text-center">
+                      Solicitação enviada! O Personal está montando seu treino e você receberá uma notificação em breve.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

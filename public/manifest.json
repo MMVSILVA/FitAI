@@ -1,0 +1,16 @@
+{
+  "name": "FitAI - Personal & Nutri",
+  "short_name": "FitAI",
+  "description": "Seu personal trainer e nutricionista com Inteligência Artificial.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#a855f7",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

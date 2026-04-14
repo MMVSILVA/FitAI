@@ -10,9 +10,12 @@ export default function Landing() {
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-black/50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Logo className="w-8 h-8" />
-            <span className="text-xl font-bold tracking-tight">FitAI</span>
+          <div className="flex items-center gap-3">
+            <Logo className="w-12 h-12" />
+            <span className="text-3xl font-black tracking-tight">
+              <span className="text-[#39ff14] drop-shadow-[0_0_8px_rgba(57,255,20,0.6)]">Fit</span>
+              <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
+            </span>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">
             <Link to="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
@@ -52,7 +55,7 @@ export default function Landing() {
               Treino e dieta ajustados por <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">IA</span>
             </h1>
             <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto">
-              Sem pagar caro por personal. O FitAI cria, ajusta e evolui seu plano de treino e nutrição automaticamente baseado nos seus resultados.
+              Transforme seu corpo e supere seus limites. O FitAI cria, adapta e evolui sua rotina de treinos e nutrição com inteligência artificial para você alcançar resultados extraordinários.
             </p>
           </motion.div>
 
