@@ -25,6 +25,7 @@ const UserContext = createContext<UserState | undefined>(undefined);
 
 const ADMIN_EMAILS = [
   'vinidoctor@gmail.com',
+  'vinisilva02@hotmail.com',
   'nangelicaalcantara@gmail.com'
 ];
 

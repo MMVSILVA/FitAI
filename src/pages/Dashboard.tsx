@@ -252,7 +252,12 @@ export default function Dashboard() {
                 <span className="text-[#39ff14] drop-shadow-[0_0_8px_rgba(57,255,20,0.6)]">Fit</span>
                 <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
               </h1>
-              <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {planType}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {planType}</p>
+                {['vinidoctor@gmail.com', 'vinisilva02@hotmail.com', 'nangelicaalcantara@gmail.com'].includes(user?.email || '') && (
+                  <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 font-bold uppercase tracking-tighter">Admin</span>
+                )}
+              </div>
             </div>
           </div>
           

@@ -102,8 +102,13 @@ export default function Login() {
       await signInWithGoogle();
       // Navigation is handled by useEffect
     } catch (err: any) {
+      console.error("Erro detalhado do Google Login:", err);
       if (err.code === 'auth/popup-closed-by-user') {
         setError('O login foi cancelado. Por favor, tente novamente.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('Este domínio não está autorizado no Firebase. Por favor, adicione este domínio à lista de domínios autorizados no Console do Firebase.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('O login com Google não está ativado no Firebase. Por favor, ative-o no Console do Firebase.');
       } else {
         setError(`Erro ao fazer login com Google: ${err.message || 'Erro desconhecido'}`);
       }

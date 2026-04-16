@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, browserPopupRedirectResolver } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -15,10 +15,12 @@ googleProvider.setCustomParameters({
 
 export const signInWithGoogle = async () => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro no login com Google:", error);
+    // Se o erro for relacionado a popups bloqueados, podemos sugerir o uso de redirect
+    // Mas por enquanto vamos apenas logar e relançar
     throw error;
   }
 };
