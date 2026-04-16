@@ -1,12 +1,73 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight, Brain, Dumbbell, Apple, Zap, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, Brain, Dumbbell, Apple, Zap, CheckCircle2, Download, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 
 export default function Landing() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // Show banner after a short delay
+      setTimeout(() => setShowInstallBanner(true), 2000);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setShowInstallBanner(false);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-purple-500/30">
+      {/* PWA Install Banner */}
+      <AnimatePresence>
+        {showInstallBanner && deferredPrompt && (
+          <motion.div 
+            initial={{ opacity: 0, y: -100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -100 }}
+            className="fixed top-20 left-6 right-6 z-[60] bg-purple-600 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4 md:max-w-md md:left-auto"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                <Download className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">Instale o FitAI</p>
+                <p className="text-xs text-purple-100">Acesse seus treinos direto da tela inicial.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleInstallClick}
+                className="bg-white text-purple-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-50 transition-colors"
+              >
+                Instalar
+              </button>
+              <button 
+                onClick={() => setShowInstallBanner(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 border-b border-white/10 bg-black/50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -72,6 +133,16 @@ export default function Landing() {
               Gerar meu plano agora
               <ArrowRight className="w-5 h-5" />
             </Link>
+            
+            {deferredPrompt && (
+              <button
+                onClick={handleInstallClick}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/5 border border-white/10 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-white/10 transition-all"
+              >
+                <Download className="w-5 h-5 text-purple-400" />
+                Baixar App
+              </button>
+            )}
           </motion.div>
         </div>
       </section>
