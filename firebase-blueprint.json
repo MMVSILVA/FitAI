@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["USER", "TRAINER"] },
+        "planType": { "type": "string", "enum": ["FREE", "PRO", "PREMIUM"] },
+        "trialEndsAt": { "type": "string" },
+        "linkedTrainerId": { "type": "string" },
+        "clients": { 
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "UserProfile" },
+      "description": "User profiles and workout plans"
+    }
+  }
+}
