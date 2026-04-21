@@ -26,35 +26,19 @@ function ExerciseRow({
   key?: any;
 }) {
   const { updateExerciseWeight } = useUser();
-  const [imageUrl, setImageUrl] = useState(exercise.imageUrl);
-
-  useEffect(() => {
-    if (!exercise.imageUrl || exercise.imageUrl.includes('loremflickr')) {
-      const searchGif = async () => {
-        try {
-          const rawKeyword = exercise.imageKeyword || exercise.name;
-          const keyword = ptToEnSearch(rawKeyword);
-          
-          const searchUrl = `/api/exercises/search?name=${encodeURIComponent(keyword)}&limit=1`;
-          const res = await fetch(searchUrl);
-          const data = await res.json();
-          if (data.success && data.data && data.data.length > 0) {
-            setImageUrl(data.data[0].gifUrl);
-          }
-        } catch (e) {
-          console.error("Failed to fetch GIF for", exercise.name);
-        }
-      };
-      searchGif();
-    }
-  }, [exercise.name, exercise.imageKeyword, exercise.imageUrl]);
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 py-4 border-b border-white/5 last:border-0">
       <div className="flex-1 flex flex-col justify-center">
-        <p className="font-bold text-lg">{translateExerciseName(exercise.name)}</p>
+        <div className="flex items-center justify-between">
+          <p className="font-bold text-lg">{translateExerciseName(exercise.name)}</p>
+          <span className="text-xs text-gray-400 bg-white/5 px-3 py-1 rounded-md text-center">
+            {exercise.rest} rest
+          </span>
+        </div>
+        
         <div className="flex flex-wrap items-center gap-4 mt-1">
-          <p className="text-gray-400">{exercise.sets} séries x {exercise.reps}</p>
+          <p className="text-gray-400 font-medium">{exercise.sets} séries x {exercise.reps}</p>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">Carga:</span>
             <input 
@@ -66,35 +50,48 @@ function ExerciseRow({
             />
           </div>
         </div>
-        <div className="mt-3 space-y-2 bg-white/5 p-3 rounded-lg border border-white/10">
-          {exercise.tips && <p className="text-sm text-gray-300"><strong className="text-purple-400">Dica:</strong> {exercise.tips}</p>}
-          {exercise.breathing && <p className="text-sm text-gray-300"><strong className="text-blue-400">Respiração:</strong> {exercise.breathing}</p>}
-          {exercise.cadence && <p className="text-sm text-gray-300"><strong className="text-green-400">Cadência:</strong> {exercise.cadence}</p>}
+
+        {/* Descrição Técnica no lugar da foto */}
+        {exercise.technicalDescription && (
+          <div className="mt-4 p-4 bg-purple-500/5 border border-purple-500/10 rounded-xl">
+            <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+              <Activity className="w-3 h-3" /> Execução Técnica
+            </p>
+            <p className="text-sm text-gray-300 leading-relaxed italic">
+              "{exercise.technicalDescription}"
+            </p>
+          </div>
+        )}
+
+        <div className="mt-3 grid sm:grid-cols-3 gap-2">
+          {exercise.tips && (
+            <div className="bg-white/5 p-2 rounded-lg border border-white/10">
+              <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">Dica</p>
+              <p className="text-xs text-gray-400">{exercise.tips}</p>
+            </div>
+          )}
+          {exercise.breathing && (
+            <div className="bg-white/5 p-2 rounded-lg border border-white/10">
+              <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Respiração</p>
+              <p className="text-xs text-gray-400">{exercise.breathing}</p>
+            </div>
+          )}
+          {exercise.cadence && (
+            <div className="bg-white/5 p-2 rounded-lg border border-white/10">
+              <p className="text-[10px] font-bold text-green-400 uppercase mb-1">Cadência</p>
+              <p className="text-xs text-gray-400">{exercise.cadence}</p>
+            </div>
+          )}
         </div>
       </div>
+
       <div className="flex flex-col items-center justify-center gap-3">
-        {(imageUrl || exercise.imageKeyword || exercise.name) ? (
-          <div className="w-24 h-24 rounded-lg overflow-hidden border border-white/10 relative bg-white/5">
-            <img 
-              src={imageUrl || `https://loremflickr.com/400/400/gym,workout,bodybuilding,${(exercise.imageKeyword || exercise.name).toLowerCase().replace(/\s/g, '_')}`} 
-              alt={exercise.name} 
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=400&fit=crop'; }}
-            />
-          </div>
-        ) : null}
-        <div className="flex items-center sm:flex-col justify-between sm:justify-center gap-2">
-          <span className="text-sm text-gray-400 bg-white/5 px-3 py-1 rounded-md text-center">
-            {exercise.rest} rest
-          </span>
-          <button 
-            onClick={() => onStartRest(restSeconds)}
-            className="text-xs bg-purple-600/20 text-purple-400 hover:bg-purple-600 hover:text-white px-3 py-1.5 rounded-md transition-colors flex items-center gap-1"
-          >
-            <Timer className="w-3 h-3" /> Iniciar
-          </button>
-        </div>
+        <button 
+          onClick={() => onStartRest(restSeconds)}
+          className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20"
+        >
+          <Timer className="w-5 h-5" /> Iniciar Descanso
+        </button>
       </div>
     </div>
   );

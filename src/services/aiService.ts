@@ -74,6 +74,7 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
                 "tips": "Dica de técnica", 
                 "breathing": "Dica respiração", 
                 "cadence": "2:0:2", 
+                "technicalDescription": "Descrição técnica detalhada e profissional da execução correta deste exercício em português.",
                 "imageKeyword": "nome técnico em inglês (Ex: barbell squat, bench press, deadlift, bicep curl)", 
                 "imageUrl": "URL de imagem placeholder (Ex: https://loremflickr.com/400/400/gym,workout,bodybuilding,bench_press)",
                 "rest": "60s" 
@@ -101,30 +102,6 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
   // Clean potential markdown code blocks
   const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
   const plan = JSON.parse(jsonString);
-
-  // Post-process to get real ExerciseDB images
-  if (plan.workout && plan.workout.days) {
-    for (const day of plan.workout.days) {
-      if (day.exercises) {
-        await Promise.all(day.exercises.map(async (ex: any) => {
-          const rawKeyword = ex.imageKeyword || ex.name;
-          if (rawKeyword) {
-            try {
-              const keyword = ptToEnSearch(rawKeyword);
-              const searchUrl = `/api/exercises/search?name=${encodeURIComponent(keyword)}&limit=1`;
-              const res = await fetch(searchUrl);
-              const data = await res.json();
-              if (data.success && data.data && data.data.length > 0) {
-                ex.imageUrl = data.data[0].gifUrl;
-              }
-            } catch (error) {
-              console.error("ExerciseDB proxy fetch error:", error);
-            }
-          }
-        }));
-      }
-    }
-  }
 
   return plan;
 }

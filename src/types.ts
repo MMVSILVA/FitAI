@@ -40,6 +40,7 @@ export interface Exercise {
   cadence?: string;
   imageKeyword?: string;
   imageUrl?: string;
+  technicalDescription: string;
   rest: string;
   loadHistory?: { weight: string; date: string }[];
 }
