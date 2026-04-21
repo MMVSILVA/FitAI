@@ -2,34 +2,77 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {userId}
-    // Fields:
-    //   - uid: string (required) - User ID
-    //   - email: string (required) - User email
-    //   - planType: string (optional) - User's subscription plan
-    //   - trialEndsAt: string (optional) - Trial expiration date
-    //
-    // ===============================================================
-
-    // Helper Functions
-    function isAuthenticated() {
-       return request.auth != null;
+    // Identifica se o usuário é Admin baseado no e-mail
+    function isAdmin() {
+      return request.auth != null && 
+             request.auth.token.email in [
+               'vinidoctor@gmail.com',
+               'vinisilva02@hotmail.com',
+               'nangelicaalcantara@gmail.com'
+             ];
     }
-    
+
+    // Identifica se o usuário é um Trainer baseado no campo 'role' no documento do usuário
+    // Nota: Em regras de larga escala, preferimos ler o documento do usuário
+    function isTrainer() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer';
+    }
+
+    // Identifica se o usuário é dono do recurso
     function isOwner(userId) {
-       return isAuthenticated() && request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
 
+    // Regras para Coleção de Usuários
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if false; // Users shouldn't be deleted directly from client
+      allow read: if isOwner(userId) || isAdmin() || isTrainer(); // Trainers podem ver perfis para vincular
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+    }
+
+    // Regras para Treinadores
+    match /trainers/{trainerId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin() || isOwner(trainerId);
+    }
+
+    // Regras para Treinos (Workouts)
+    match /workouts/{workoutId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        isTrainer() || 
+        isAdmin()
+      );
+      allow create, update: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid || 
+        isTrainer() || 
+        isAdmin()
+      );
+    }
+
+    // Regras para Progresso
+    match /progress/{progressId} {
+      allow read, write: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        isAdmin()
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Regras para Mensagens
+    match /messages/{messageId} {
+      allow read: if request.auth != null && (
+        resource.data.fromId == request.auth.uid || 
+        resource.data.toId == request.auth.uid || 
+        isAdmin()
+      );
+      allow create: if request.auth != null && request.resource.data.fromId == request.auth.uid;
+    }
+
+    // Negar tudo por padrão para segurança máxima
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
   }
 }

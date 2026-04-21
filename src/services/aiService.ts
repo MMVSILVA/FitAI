@@ -1,0 +1,156 @@
+import { WorkoutPlan, UserProfile } from '../types';
+import { GoogleGenAI } from "@google/genai";
+import { ptToEnSearch } from '../lib/exerciseTranslations';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+export interface DietPlan {
+  // ... existing ...
+}
+
+export interface AIResponse {
+  workout: WorkoutPlan;
+  diet?: DietPlan;
+}
+
+export async function generatePlan(userData: Partial<UserProfile>): Promise<AIResponse> {
+  const prompt = `
+    Você é um Personal Trainer e Nutricionista de elite. Sua missão é criar um plano de treino e estratégias de consistência rigorosamente baseadas no protocolo FITAI.
+
+    DADOS DO USUÁRIO:
+    Idade: ${userData.age}
+    Sexo: ${userData.gender}
+    Peso: ${userData.weight}kg
+    Altura: ${userData.height}cm
+    Objetivos: ${Array.isArray(userData.objective) ? userData.objective.join(', ') : userData.objective}
+    Nível: ${userData.fitnessLevel}
+    Dias por semana: ${userData.daysPerWeek}
+    Tempo por treino: ${userData.workoutTime} min
+    Local: ${userData.location}
+    Equipamentos: ${userData.equipment}
+    Restrições: ${userData.restrictions}
+    Dieta: ${userData.dietHistory}
+    Sono: ${userData.sleepQuality}
+    Histórico: ${userData.fitnessHistory}
+
+    PROTOCOLO DE FREQUÊNCIA:
+    - Se dias <= 2: FULL BODY
+    - Se dias == 3: ABC
+    - Se dias entre 4 e 5: DIVISÃO POR GRUPOS MUSCULARES
+    - Se dias >= 6: PERIODIZAÇÃO AVANÇADA
+
+    PROTOCOLO DE LOCAL:
+    - Se academia: Exercícios completos com máquinas e pesos livres.
+    - Se casa: Adaptar para peso corporal e equipamentos simples.
+    - Se pouco_equipamento: Priorizar exercícios funcionais + peso corporal.
+
+    ESTILO POR OBJETIVO:
+    - Hipertrofia: Volume + sobrecarga progressiva.
+    - Emagrecimento: Intensidade + gasto calórico + cardio.
+    - Performance: Força + resistência + explosão.
+
+    PROTOCOLO DE SEGURANÇA:
+    - Respeitar lesões SEMPRE.
+    - Evitar exercícios de risco.
+    - Ajustar intensidade ao nível.
+
+    FORMATO DE RESPOSTA (JSON OBRIGATÓRIO):
+    {
+      "workout": {
+        "title": "Protocolo FITAI Personalizado",
+        "objective": "Resumo do Objetivo",
+        "structure": "FULL BODY | ABC | GRUPOS MUSCULARES | AVANÇADA",
+        "frequency": "${userData.daysPerWeek} dias/semana",
+        "duration": "${userData.workoutTime} min/sessão",
+        "days": [
+          {
+            "day": "Dia 1",
+            "focus": "Músculos Alvo",
+            "exercises": [
+              { 
+                "name": "Nome (Ex: Supino Reto)", 
+                "sets": 3, 
+                "reps": "12", 
+                "tips": "Dica de técnica", 
+                "breathing": "Dica respiração", 
+                "cadence": "2:0:2", 
+                "imageKeyword": "nome técnico em inglês (Ex: barbell squat, bench press, deadlift, bicep curl)", 
+                "imageUrl": "URL de imagem placeholder (Ex: https://loremflickr.com/400/400/gym,workout,bodybuilding,bench_press)",
+                "rest": "60s" 
+              }
+            ]
+          }
+        ],
+        "progression": "Estratégia de projeção de carga para este plano",
+        "consistencyScore": 100,
+        "strategies": ["Estratégia 1", "Estratégia 2"]
+      }
+    }
+
+    Responda apenas com o JSON puro, sem markdown.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+  });
+
+  const text = response.text;
+  if (!text) throw new Error("No response from AI");
+
+  // Clean potential markdown code blocks
+  const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  const plan = JSON.parse(jsonString);
+
+  // Post-process to get real ExerciseDB images
+  if (plan.workout && plan.workout.days) {
+    for (const day of plan.workout.days) {
+      if (day.exercises) {
+        await Promise.all(day.exercises.map(async (ex: any) => {
+          const rawKeyword = ex.imageKeyword || ex.name;
+          if (rawKeyword) {
+            try {
+              const keyword = ptToEnSearch(rawKeyword);
+              const searchUrl = `/api/exercises/search?name=${encodeURIComponent(keyword)}&limit=1`;
+              const res = await fetch(searchUrl);
+              const data = await res.json();
+              if (data.success && data.data && data.data.length > 0) {
+                ex.imageUrl = data.data[0].gifUrl;
+              }
+            } catch (error) {
+              console.error("ExerciseDB proxy fetch error:", error);
+            }
+          }
+        }));
+      }
+    }
+  }
+
+  return plan;
+}
+
+export async function translateInstructions(instructions: string[]): Promise<string[]> {
+  try {
+    const textToTranslate = instructions.join('\n');
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Traduza estas instruções técnicas de exercícios físicos de Inglês para Português do Brasil.
+Mantenha o tom profissional e instrutivo. 
+Retorne APENAS os passos traduzidos, um por linha.
+Não adicione números ou prefixos extras como "Passo 1:". 
+Instruções:
+${textToTranslate}`,
+    });
+
+    const translatedText = response.text;
+    if (!translatedText) return instructions;
+
+    return translatedText
+      .split('\n')
+      .map((l: string) => l.replace(/^\d+\.\s*/, '').replace(/^Passo\s*\d+:\s*/, '').trim())
+      .filter((l: string) => l !== '');
+  } catch (error) {
+    console.error("Translation AI error:", error);
+    throw error;
+  }
+}

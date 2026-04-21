@@ -2,27 +2,91 @@
   "entities": {
     "UserProfile": {
       "title": "UserProfile",
-      "description": "User profile data",
+      "description": "Comprehensive user data for SaaS",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["USER", "TRAINER"] },
-        "planType": { "type": "string", "enum": ["FREE", "PRO", "PREMIUM"] },
-        "trialEndsAt": { "type": "string" },
-        "linkedTrainerId": { "type": "string" },
-        "clients": { 
-          "type": "array",
-          "items": { "type": "string" }
-        }
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "premium_user", "trainer", "admin"] },
+        "planType": { "type": "string", "enum": ["FREE", "PRO", "PREMIUM", "ELITE"] },
+        "weight": { "type": "number" },
+        "height": { "type": "number" },
+        "objective": { "type": "string" },
+        "fitnessLevel": { "type": "string" },
+        "trainerId": { "type": "string" },
+        "stripeCustomerId": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "email"]
+      "required": ["uid", "email", "role"]
+    },
+    "Trainer": {
+      "title": "Trainer",
+      "description": "Professional trainer data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "clientsIds": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Workout": {
+      "title": "Workout",
+      "description": "Training plan structure",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "createdBy": { "type": "string", "enum": ["IA", "Trainer"] },
+        "structure": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Progress": {
+      "title": "Progress",
+      "description": "User physical evolution records",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "weight": { "type": "number" },
+        "bodyFat": { "type": "number" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "date": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message data",
+      "type": "object",
+      "properties": {
+        "fromId": { "type": "string" },
+        "toId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "UserProfile" },
-      "description": "User profiles and workout plans"
+      "description": "Main user records"
+    },
+    "/trainers/{trainerId}": {
+      "schema": { "$ref": "Trainer" },
+      "description": "Trainer profiles"
+    },
+    "/workouts/{workoutId}": {
+      "schema": { "$ref": "Workout" },
+      "description": "Generated or assigned workout plans"
+    },
+    "/progress/{progressId}": {
+      "schema": { "$ref": "Progress" },
+      "description": "Historical progress data"
+    },
+    "/messages/{messageId}": {
+      "schema": { "$ref": "Message" },
+      "description": "Real-time communication"
     }
   }
 }

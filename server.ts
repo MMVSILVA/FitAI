@@ -1,148 +1,26 @@
 import express from "express";
-import Stripe from "stripe";
 import path from "path";
-import { initializeApp, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import dotenv from "dotenv";
+import apiRoutes from "./src/server/routes/index";
+import { handleWebhook } from "./src/server/controllers/paymentController";
 
 dotenv.config();
 
-// Lazy Initialize Firebase Admin
-let dbInstance: FirebaseFirestore.Firestore | null = null;
-
-function getDb() {
-  if (!dbInstance) {
-    try {
-      if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-        // Handle potential formatting issues with the JSON string from environment variables
-        let keyString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        const serviceAccount = JSON.parse(keyString);
-        initializeApp({
-          credential: cert(serviceAccount)
-        });
-      } else {
-        initializeApp();
-      }
-      dbInstance = getFirestore();
-    } catch (error) {
-      console.error("Firebase Admin initialization error:", error);
-      throw new Error("Failed to initialize Firebase Admin. Check FIREBASE_SERVICE_ACCOUNT_KEY.");
-    }
-  }
-  return dbInstance;
-}
-
-// Lazy Initialize Stripe
-let stripeClient: Stripe | null = null;
-
-function getStripe(): Stripe {
-  if (!stripeClient) {
-    const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) {
-      throw new Error("STRIPE_SECRET_KEY environment variable is required");
-    }
-    stripeClient = new Stripe(key, {
-      apiVersion: "2024-06-20" as any,
-    });
-  }
-  return stripeClient;
-}
-
 const app = express();
 
-// Webhook endpoint needs raw body
-app.post("/api/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-  const sig = req.headers["stripe-signature"];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+// Stripe Webhook MUST stay before general JSON middleware to receive raw body
+app.post("/api/webhook", express.raw({ type: "application/json" }), handleWebhook);
 
-  if (!sig || !endpointSecret) {
-    return res.status(400).send("Missing signature or secret");
-  }
-
-  let event;
-
-  try {
-    const stripe = getStripe();
-    event = stripe.webhooks.constructEvent(req.body, sig as any, endpointSecret);
-  } catch (err: any) {
-    console.error("Webhook Error:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  // Handle the event
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const userId = session.client_reference_id;
-    
-    // Get plan from metadata
-    const plan = session.metadata?.plan || "PRO";
-
-    if (userId) {
-      try {
-        const database = getDb();
-        await database.collection("users").doc(userId).set({
-          planType: plan,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-        console.log(`Successfully updated user ${userId} to plan ${plan}`);
-      } catch (error) {
-        console.error("Error updating user in Firestore:", error);
-      }
-    }
-  }
-
-  res.json({ received: true });
-});
-
-// Standard middleware for other routes
+// General Middleware
 app.use(express.json());
 
-app.post("/api/create-checkout-session", async (req, res) => {
-  try {
-    const { plan, userId, email } = req.body;
-
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return res.status(500).json({ error: "Stripe is not configured" });
-    }
-
-    const priceId = plan === "PREMIUM" 
-      ? process.env.STRIPE_PRICE_ID_PREMIUM 
-      : process.env.STRIPE_PRICE_ID_PRO;
-
-    if (!priceId) {
-      return res.status(500).json({ error: "Price ID not configured" });
-    }
-
-    const stripe = getStripe();
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: "subscription",
-      success_url: `${req.protocol}://${req.get("host")}/dashboard?success=true`,
-      cancel_url: `${req.protocol}://${req.get("host")}/checkout?plan=${plan}&canceled=true`,
-      client_reference_id: userId,
-      customer_email: email,
-      metadata: {
-        plan: plan
-      }
-    });
-
-    res.json({ url: session.url });
-  } catch (error: any) {
-    console.error("Error creating checkout session:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// API Routes
+app.use("/api", apiRoutes);
 
 async function startServer() {
   const PORT = process.env.PORT || 3000;
 
-  // Vite middleware for development
+  // Vite integration for dev/prod
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
@@ -159,11 +37,10 @@ async function startServer() {
   }
 
   app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`FITAI Server running on port ${PORT}`);
   });
 }
 
-// Only start the server if we are not in a Vercel serverless environment
 if (!process.env.VERCEL) {
   startServer();
 }
