@@ -665,7 +665,7 @@ export default function Dashboard() {
                 </h3>
                 
                 <div className="grid gap-4">
-                  {plan.workout.days.map((day, idx) => (
+                  {plan.days.map((day, idx) => (
                     <div key={idx} className="bg-black border border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-colors">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-lg font-bold text-purple-400">{day.day}</h4>
@@ -699,7 +699,7 @@ export default function Dashboard() {
                   ) : (
                     <div className="space-y-4">
                       <p className="text-gray-300 text-sm leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
-                        {plan.workout.progression}
+                        {plan.progression}
                       </p>
                       <div className="p-4 bg-purple-900/20 rounded-xl border border-purple-500/30">
                         <p className="text-xs font-bold text-purple-400 uppercase mb-2">Projeção Próximo Ciclo</p>
@@ -1097,9 +1097,9 @@ export default function Dashboard() {
                             </p>
                           </div>
                           
-                          {clientData.plan.workout.days.map((day: any, dIdx: number) => (
+                          {clientData.plan.days.map((day: any, dIdx: number) => (
                             <div key={dIdx} className="bg-black border border-white/5 rounded-2xl p-6">
-                              <h5 className="font-bold text-lg mb-4 text-purple-400">{day.day} - {day.muscleGroup}</h5>
+                              <h5 className="font-bold text-lg mb-4 text-purple-400">{day.day} - {day.focus}</h5>
                               <div className="space-y-4">
                                 {day.exercises.map((ex: any, eIdx: number) => (
                                   <div key={eIdx} className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-white/5 rounded-xl">
