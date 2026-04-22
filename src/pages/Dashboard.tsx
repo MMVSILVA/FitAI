@@ -108,10 +108,9 @@ export default function Dashboard() {
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser 
   } = useUser();
   
-  const isAdminUser = ['vinidoctor@gmail.com', 'vinisilva02@hotmail.com', 'nangelicaalcantara@gmail.com'].includes(user?.email || '');
-  const isFree = planType === 'FREE' && !isAdminUser;
+  const isFree = planType === 'FREE' && !isAdmin;
   const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
-  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdminUser && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdmin && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
   const isBlocked = isTrialExpired || isSubscriptionExpired;
 
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library'>('workout');
@@ -221,6 +220,64 @@ export default function Dashboard() {
   const [ptMessage, setPtMessage] = useState('');
   const [isGeneratingPT, setIsGeneratingPT] = useState(false);
 
+  // Admin Modal State
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+  const [adminFeedback, setAdminFeedback] = useState({ type: '', msg: '' });
+  const [updateMsgInput, setUpdateMsgInput] = useState('Nova versão disponível com melhorias e correções!');
+
+  const handleAdminPlanChange = async (newPlan: PlanType) => {
+    if (!isAdmin || !user) return;
+    setAdminActionLoading(true);
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      await updateDoc(doc(db, 'users', user.uid), {
+        planType: newPlan,
+        isPremium: newPlan === 'PREMIUM',
+        updatedAt: new Date().toISOString()
+      });
+      
+      if (newPlan !== 'FREE') {
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 30);
+        await updateDoc(doc(db, 'users', user.uid), {
+          subscriptionEndsAt: futureDate.toISOString()
+        });
+      }
+      setAdminFeedback({ type: 'success', msg: `Plano alterado para ${newPlan}` });
+    } catch (error) {
+      console.error("Error updating admin plan:", error);
+      setAdminFeedback({ type: 'error', msg: 'Erro ao atualizar plano' });
+    } finally {
+      setAdminActionLoading(false);
+      setTimeout(() => setAdminFeedback({ type: '', msg: '' }), 3000);
+    }
+  };
+
+  const handleBroadcastUpdate = async () => {
+    if (!isAdmin) return;
+    if (!updateMsgInput.trim()) return;
+
+    setAdminActionLoading(true);
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      await setDoc(doc(db, 'system', 'config'), {
+        latestVersion: APP_VERSION,
+        updateMessage: updateMsgInput,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      setAdminFeedback({ type: 'success', msg: 'Notificação enviada com sucesso!' });
+    } catch (error) {
+      console.error("Error broadcasting update:", error);
+      setAdminFeedback({ type: 'error', msg: 'Erro ao enviar notificação' });
+    } finally {
+      setAdminActionLoading(false);
+      setTimeout(() => setAdminFeedback({ type: '', msg: '' }), 3000);
+    }
+  };
+
   const handleGeneratePersonalPlan = async () => {
     if (!ptMessage.trim() && !premiumGoals.trim()) return;
     
@@ -262,7 +319,7 @@ export default function Dashboard() {
 
   // Subscription expiration check and auto-reversion
   useEffect(() => {
-    const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdminUser && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+    const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdmin && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
     
     if (isSubscriptionExpired && user) {
       const revertToFree = async () => {
@@ -282,7 +339,7 @@ export default function Dashboard() {
       };
       revertToFree();
     }
-  }, [planType, subscriptionEndsAt, user, isAdminUser]);
+  }, [planType, subscriptionEndsAt, user, isAdmin]);
 
   const startRest = (seconds: number) => {
     setTimeLeft(seconds);
@@ -300,49 +357,6 @@ export default function Dashboard() {
     await logoutFirebase();
     logout();
     navigate('/login');
-  };
-
-  const handleAdminPlanChange = async (plan: PlanType) => {
-    if (!isAdminUser || !user) return;
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('../firebase');
-      await updateDoc(doc(db, 'users', user.uid), {
-        planType: plan,
-        isPremium: plan === 'PREMIUM',
-        updatedAt: new Date().toISOString()
-      });
-      // Logic for subscription simulation if needed
-      if (plan !== 'FREE') {
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + 30);
-        await updateDoc(doc(db, 'users', user.uid), {
-          subscriptionEndsAt: futureDate.toISOString()
-        });
-      }
-    } catch (error) {
-      console.error("Error updating admin plan:", error);
-    }
-  };
-
-  const handleBroadcastUpdate = async () => {
-    if (!isAdminUser) return;
-    const msg = window.prompt("Digite a mensagem da atualização:", "Nova versão disponível com melhorias e correções!");
-    if (!msg) return;
-
-    try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      const { db } = await import('../firebase');
-      await setDoc(doc(db, 'system', 'config'), {
-        latestVersion: APP_VERSION,
-        updateMessage: msg,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      alert("Notificação de atualização enviada para todos os usuários!");
-    } catch (error) {
-      console.error("Error broadcasting update:", error);
-      alert("Erro ao enviar notificação.");
-    }
   };
 
   if (!profile || !plan) {
@@ -491,27 +505,14 @@ export default function Dashboard() {
                 <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
               </h1>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {isAdminUser ? 'ADMIN' : planType}</p>
-                {isAdminUser && (
-                  <div className="flex items-center gap-2 ml-2">
-                    <select 
-                      value={planType}
-                      onChange={(e) => handleAdminPlanChange(e.target.value as PlanType)}
-                      className="bg-red-500/10 text-red-400 text-[10px] border border-red-500/20 rounded px-2 py-0.5 font-bold outline-none"
-                    >
-                      <option value="FREE">FREE</option>
-                      <option value="PRO">PRO</option>
-                      <option value="PREMIUM">PREMIUM</option>
-                    </select>
-                    <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 font-bold uppercase tracking-tighter">Admin View</span>
-                    <button 
-                      onClick={handleBroadcastUpdate}
-                      className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 text-[10px] border border-yellow-500/30 rounded px-2 py-0.5 font-bold flex items-center gap-1 transition-colors"
-                      title="Notificar usuários sobre nova versão"
-                    >
-                      <Sparkles className="w-3 h-3" /> PUSH UPDATE
-                    </button>
-                  </div>
+                <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {isAdmin ? 'ADMIN' : planType}</p>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setShowAdminModal(true)}
+                    className="ml-2 bg-red-600 hover:bg-red-500 text-white text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-red-600/20 transition-all border border-red-500/50"
+                  >
+                    <Users className="w-3 h-3" /> Painel Admin
+                  </button>
                 )}
               </div>
             </div>
@@ -1403,6 +1404,113 @@ export default function Dashboard() {
       <footer className="mt-12 border-t border-white/10 py-8 px-6 flex flex-col items-center gap-4 text-gray-500 text-sm">
         <p>© 2026 FitAI. Desenvolvido por NVM Project Management</p>
       </footer>
+
+      {/* Admin Panel Modal */}
+      <AnimatePresence>
+        {showAdminModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAdminModal(false)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-zinc-900 border border-red-500/30 rounded-3xl p-8 shadow-[0_0_50px_rgba(239,68,68,0.2)] overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent" />
+              
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center border border-red-500/30">
+                    <Users className="w-6 h-6 text-red-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">Painel de Controle</h3>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-widest">Acesso Restrito</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowAdminModal(false)}
+                  className="p-2 hover:bg-white/5 rounded-full text-gray-500 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {adminFeedback.msg && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className={`mb-6 p-4 rounded-xl text-sm font-bold text-center border ${
+                    adminFeedback.type === 'success' 
+                      ? 'bg-green-500/10 border-green-500/30 text-green-400' 
+                      : 'bg-red-500/10 border-red-500/30 text-red-400'
+                  }`}
+                >
+                  {adminFeedback.msg}
+                </motion.div>
+              )}
+
+              <div className="space-y-8">
+                {/* Alterar Plano */}
+                <section>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Simular Plano do Usuário</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {['FREE', 'PRO', 'PREMIUM'].map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => handleAdminPlanChange(p as PlanType)}
+                        disabled={adminActionLoading}
+                        className={`py-3 rounded-xl font-bold text-sm transition-all border ${
+                          planType === p 
+                            ? 'bg-white text-black border-white shadow-lg shadow-white/10' 
+                            : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <div className="h-px bg-white/5" />
+
+                {/* Push Update */}
+                <section>
+                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Notificar Atualização (Sistema)</label>
+                  <textarea
+                    value={updateMsgInput}
+                    onChange={(e) => setUpdateMsgInput(e.target.value)}
+                    placeholder="Digite a mensagem da nova versão..."
+                    className="w-full bg-black border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all h-24 resize-none mb-4"
+                  />
+                  <button
+                    onClick={handleBroadcastUpdate}
+                    disabled={adminActionLoading || !updateMsgInput.trim()}
+                    className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-600/20"
+                  >
+                    {adminActionLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5" /> Enviar Notificação Push
+                      </>
+                    )}
+                  </button>
+                  <p className="text-[10px] text-gray-600 mt-4 text-center leading-relaxed">
+                    Esta ação enviará uma notificação para todos os usuários que acessarem a plataforma na versão {APP_VERSION}.
+                  </p>
+                </section>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

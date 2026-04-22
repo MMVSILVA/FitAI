@@ -61,9 +61,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
-        const isAdmin = currentUser.email ? ADMIN_EMAILS.includes(currentUser.email) : false;
-        const docRef = doc(db, 'users', currentUser.uid);
+      
+      // Ensure we process any pending redirect results (Mobile/PWA)
+      try {
+        const { getRedirectResult } = await import('firebase/auth');
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult?.user) {
+          setUser(redirectResult.user);
+        }
+      } catch (redirectError) {
+        console.error("UserStore redirect error:", redirectError);
+      }
+
+      if (currentUser || auth.currentUser) {
+        const loggedUser = currentUser || auth.currentUser;
+        const isAdmin = loggedUser?.email ? ADMIN_EMAILS.includes(loggedUser.email) : false;
+        const docRef = doc(db, 'users', loggedUser!.uid);
         
         // Initial migration check
         try {

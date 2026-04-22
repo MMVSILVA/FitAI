@@ -11,7 +11,7 @@ import { Logo } from '../components/Logo';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { user, profile, plan, role } = useUser();
+  const { user, profile, plan, role, authLoading } = useUser();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,31 +21,37 @@ export default function Login() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Verificar resultado de redirecionamento (Mobile/PWA)
     const checkRedirect = async () => {
+      if (!isRedirecting) setIsRedirecting(true);
       try {
         const { getRedirectResult } = await import('firebase/auth');
         const result = await getRedirectResult(auth);
-        if (result) {
-          // O login de redirecionamento foi bem-sucedido
-          // A navegação será tratada pelo outro useEffect que observa 'user'
-        }
+        console.log("Redirect Result:", result ? "User logged in" : "No result");
       } catch (err: any) {
         console.error("Erro ao processar redirecionamento:", err);
         if (err.code === 'auth/unauthorized-domain') {
           setError(`Domínio não autorizado. Adicione "${window.location.hostname}" nos domínios autorizados do Firebase Console.`);
+        } else if (err.code === 'auth/popup-blocked') {
+          setError("O redirecionamento foi bloqueado pelo seu navegador.");
         } else {
           setError(`Erro no link com Google: ${err.message}`);
         }
+      } finally {
+        setIsRedirecting(false);
       }
     };
 
     checkRedirect();
+  }, []);
 
-    if (user && role) {
+  useEffect(() => {
+    if (!authLoading && user && role) {
+      console.log("User detected, navigating...", { role, profileExists: !!profile });
       if (role === 'trainer') {
         navigate('/trainer');
       } else if (!profile || !plan) {
@@ -54,7 +60,7 @@ export default function Login() {
         navigate('/dashboard');
       }
     }
-  }, [user, profile, plan, role, navigate]);
+  }, [user, profile, plan, role, authLoading, navigate]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -148,6 +154,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {(authLoading || isRedirecting) && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+            <p className="text-purple-400 font-medium animate-pulse text-lg">Validando acesso...</p>
+          </div>
+        </div>
+      )}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[100px] -z-10" />
 
       <Link to="/" className="absolute top-8 left-8 flex items-center gap-3">
