@@ -4,16 +4,22 @@ import { RefreshCw, X, Sparkles } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { APP_VERSION } from '../constants';
+import { useUser } from '../store/userStore';
 
 export function UpdateNotification() {
+  const { user, authLoading } = useUser();
   const [updateInfo, setUpdateInfo] = useState<{ version: string; message: string } | null>(null);
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    // Listen to system config for updates
+    // Stable listener for versioning (Public rule: allow read: if true)
+    // We use an empty dependency array to prevent redundant listener cycles during auth transitions
+    console.log("Initializing UpdateNotification listener...");
+    
     const unsubscribe = onSnapshot(doc(db, 'system', 'config'), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
+        console.log("System config data received:", data.latestVersion);
         if (data.latestVersion && data.latestVersion !== APP_VERSION) {
           setUpdateInfo({
             version: data.latestVersion,
@@ -22,10 +28,16 @@ export function UpdateNotification() {
           setShow(true);
         }
       }
+    }, (error) => {
+      // If we hit a permission error (e.g. backend rules hasn't updated), we log it but don't crash
+      console.warn("UpdateNotification snapshot error (likely transient):", error.message);
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      console.log("Unsubscribing from UpdateNotification...");
+      unsubscribe();
+    };
+  }, []); // Empty array is key to stability here
 
   const handleUpdate = () => {
     window.location.reload();
