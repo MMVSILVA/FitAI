@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '../store/userStore';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
-import { UserRole } from '../types';
-import { Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, Download, Loader2 } from 'lucide-react';
+import { UserRole, PlanType } from '../types';
+import { 
+  Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
+  Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, 
+  Download, Loader2, Heart 
+} from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Logo } from '../components/Logo';
