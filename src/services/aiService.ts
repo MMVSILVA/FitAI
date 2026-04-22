@@ -2,15 +2,7 @@ import { WorkoutPlan, UserProfile } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { ptToEnSearch } from '../lib/exerciseTranslations';
 
-const getApiKey = () => {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    console.warn("GEMINI_API_KEY not found in environment variables.");
-  }
-  return key || 'MISSING_KEY';
-};
-
-const ai = new GoogleGenAI({ apiKey: getApiKey() });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 const MODEL_NAME = "gemini-3.1-pro-preview"; // Using Pro for more stability and complex reasoning
 
