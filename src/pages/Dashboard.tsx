@@ -102,6 +102,13 @@ export default function Dashboard() {
     user, profile, plan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser 
   } = useUser();
+  
+  const isAdminUser = ['vinidoctor@gmail.com', 'vinisilva02@hotmail.com', 'nangelicaalcantara@gmail.com'].includes(user?.email || '');
+  const isFree = planType === 'FREE' && !isAdminUser;
+  const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
+  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdminUser && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+  const isBlocked = isTrialExpired || isSubscriptionExpired;
+
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library'>('workout');
   const [trainerEmail, setTrainerEmail] = useState('');
   const [targetUserEmail, setTargetUserEmail] = useState('');
@@ -294,12 +301,6 @@ export default function Dashboard() {
     return <Navigate to="/onboarding" />;
   }
 
-  const isAdminUser = ['vinidoctor@gmail.com', 'vinisilva02@hotmail.com', 'nangelicaalcantara@gmail.com'].includes(user?.email || '');
-  const isFree = planType === 'FREE' && !isAdminUser;
-  const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
-  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdminUser && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
-  const isBlocked = isTrialExpired || isSubscriptionExpired;
-  
   const imcData = calculateIMC();
 
   // Mock data for evolution chart
