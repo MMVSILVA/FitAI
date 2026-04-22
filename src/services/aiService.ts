@@ -4,7 +4,7 @@ import { ptToEnSearch } from '../lib/exerciseTranslations';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
-const MODEL_NAME = "gemini-3.1-pro-preview"; // Using Pro for more stability and complex reasoning
+const MODEL_NAME = "gemini-3-flash-preview"; // Switching to Flash for higher quota limits on free tier
 
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: any;
