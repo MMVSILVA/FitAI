@@ -59,10 +59,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      
-      // Ensure we process any pending redirect results (Mobile/PWA)
+    const checkRedirect = async () => {
       try {
         const { getRedirectResult } = await import('firebase/auth');
         const redirectResult = await getRedirectResult(auth);
@@ -72,7 +69,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (redirectError) {
         console.error("UserStore redirect error:", redirectError);
       }
+    };
 
+    checkRedirect();
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      
       if (currentUser || auth.currentUser) {
         const loggedUser = currentUser || auth.currentUser;
         const isAdmin = loggedUser?.email ? ADMIN_EMAILS.includes(loggedUser.email) : false;
@@ -97,7 +100,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const initialData = {
               uid: currentUser.uid,
               email: currentUser.email,
-              role: 'USER',
+              role: 'user',
               planType: isAdmin ? 'PREMIUM' : 'FREE',
               createdAt: new Date().toISOString()
             };

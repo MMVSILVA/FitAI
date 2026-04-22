@@ -34,25 +34,22 @@ googleProvider.setCustomParameters({
 });
 
 export const signInWithGoogle = async () => {
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const isStandalone = (window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches;
-
   try {
-    // Para Mobile ou App Instalado (PWA), Redirect funciona melhor que Popup
-    if (isMobile || isStandalone) {
-      await signInWithRedirect(auth, googleProvider);
-      return null; // O usuário será redirecionado
-    }
-
+    // Prefer popup for AI Studio environment stability
     const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
     return result.user;
   } catch (error: any) {
     console.error("Erro no login com Google:", error);
     
-    // Fallback para redirect se o popup for bloqueado
-    if (error.code === 'auth/popup-blocked') {
-      await signInWithRedirect(auth, googleProvider);
-      return null;
+    // Fallback para redirect se o popup for bloqueado (comum em alguns navegadores mobile)
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return null;
+      } catch (redirectError) {
+        console.error("Erro no redirect fallback:", redirectError);
+        throw redirectError;
+      }
     }
     
     throw error;

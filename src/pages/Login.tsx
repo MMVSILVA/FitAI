@@ -25,40 +25,15 @@ export default function Login() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Verificar resultado de redirecionamento (Mobile/PWA)
-    const checkRedirect = async () => {
-      if (!isRedirecting) setIsRedirecting(true);
-      try {
-        const { getRedirectResult } = await import('firebase/auth');
-        const result = await getRedirectResult(auth);
-        console.log("Redirect Result:", result ? "User logged in" : "No result");
-      } catch (err: any) {
-        console.error("Erro ao processar redirecionamento:", err);
-        if (err.code === 'auth/unauthorized-domain') {
-          setError(`Domínio não autorizado. Adicione "${window.location.hostname}" nos domínios autorizados do Firebase Console.`);
-        } else if (err.code === 'auth/popup-blocked') {
-          setError("O redirecionamento foi bloqueado pelo seu navegador.");
-        } else {
-          setError(`Erro no link com Google: ${err.message}`);
-        }
-      } finally {
-        setIsRedirecting(false);
-      }
-    };
-
-    checkRedirect();
-  }, []);
-
-  useEffect(() => {
-    if (!authLoading && user && role) {
-      console.log("User detected, navigating...", { role, profileExists: !!profile });
-      if (role === 'trainer') {
-        navigate('/trainer');
-      } else if (!profile || !plan) {
-        navigate('/onboarding');
-      } else {
-        navigate('/dashboard');
-      }
+    // Navigate once user and basic role info is available
+    if (user && !authLoading) {
+      console.log("Direcionando usuário logado...", { email: user.email, role });
+      
+      const targetPath = role === 'trainer' ? '/trainer' : 
+                         role === 'nutritionist' ? '/nutritionist' :
+                         (!profile || !plan) ? '/onboarding' : '/dashboard';
+      
+      navigate(targetPath);
     }
   }, [user, profile, plan, role, authLoading, navigate]);
 
@@ -159,6 +134,19 @@ export default function Login() {
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
             <p className="text-purple-400 font-medium animate-pulse text-lg">Validando acesso...</p>
+            {user && (
+              <button 
+                onClick={() => {
+                  const targetPath = role === 'trainer' ? '/trainer' : 
+                                     role === 'nutritionist' ? '/nutritionist' :
+                                     (!profile || !plan) ? '/onboarding' : '/dashboard';
+                  navigate(targetPath);
+                }}
+                className="mt-4 bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-purple-600/20"
+              >
+                Entrar Agora
+              </button>
+            )}
           </div>
         </div>
       )}
