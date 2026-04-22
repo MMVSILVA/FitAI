@@ -3,14 +3,36 @@ import { GoogleGenAI } from "@google/genai";
 import { ptToEnSearch } from '../lib/exerciseTranslations';
 
 const getApiKey = () => {
-  const key = import.meta.env.VITE_GEMINI_API_KEY;
+  const key = process.env.GEMINI_API_KEY;
   if (!key) {
-    console.warn("VITE_GEMINI_API_KEY not found in environment variables.");
+    console.warn("GEMINI_API_KEY not found in environment variables.");
   }
   return key || 'MISSING_KEY';
 };
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
+
+const MODEL_NAME = "gemini-3.1-pro-preview"; // Using Pro for more stability and complex reasoning
+
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const isUnavailable = error.message?.includes('503') || error.message?.includes('UNAVAILABLE') || error.message?.includes('high demand');
+      if (isUnavailable && i < maxRetries - 1) {
+        const delay = Math.pow(2, i) * 1000;
+        console.warn(`Gemini API busy, retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
 
 export interface DietPlan {
   // ... existing ...
@@ -115,10 +137,10 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
     Responda apenas com o JSON puro, sem markdown.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+  const response = await withRetry(() => ai.models.generateContent({
+    model: MODEL_NAME,
     contents: prompt,
-  });
+  }));
 
   const text = response.text;
   if (!text) throw new Error("No response from AI");
@@ -133,15 +155,15 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
 export async function translateInstructions(instructions: string[]): Promise<string[]> {
   try {
     const textToTranslate = instructions.join('\n');
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await withRetry(() => ai.models.generateContent({
+      model: MODEL_NAME,
       contents: `Traduza estas instruções técnicas de exercícios físicos de Inglês para Português do Brasil.
 Mantenha o tom profissional e instrutivo. 
 Retorne APENAS os passos traduzidos, um por linha.
 Não adicione números ou prefixos extras como "Passo 1:". 
 Instruções:
 ${textToTranslate}`,
-    });
+    }));
 
     const translatedText = response.text;
     if (!translatedText) return instructions;
