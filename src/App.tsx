@@ -13,12 +13,14 @@ import Dashboard from './pages/Dashboard';
 import TrainerDashboard from './pages/TrainerDashboard';
 import Checkout from './pages/Checkout';
 import { UpdateNotification } from './components/UpdateNotification';
+import { IOSInstallPrompt } from './components/IOSInstallPrompt';
 
 export default function App() {
   return (
     <ErrorBoundary>
       <UserProvider>
         <UpdateNotification />
+        <IOSInstallPrompt />
         <Router>
           <Routes>
             <Route path="/" element={<Landing />} />
