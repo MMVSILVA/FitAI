@@ -142,10 +142,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (data.linkedTrainerId) setLinkedTrainerId(data.linkedTrainerId);
               if (data.linkedNutritionistId) setLinkedNutritionistId(data.linkedNutritionistId);
               
-              if (isAdmin) {
-                setPlanType('PREMIUM');
-              } else if (data.planType) {
+              if (data.planType) {
                 setPlanType(data.planType as PlanType);
+              } else if (isAdmin) {
+                setPlanType('PREMIUM');
               } else {
                 setPlanType('FREE');
               }

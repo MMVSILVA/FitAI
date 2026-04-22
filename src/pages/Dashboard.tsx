@@ -108,9 +108,9 @@ export default function Dashboard() {
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser 
   } = useUser();
   
-  const isFree = planType === 'FREE' && !isAdmin;
+  const isFree = planType === 'FREE';
   const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
-  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdmin && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
   const isBlocked = isTrialExpired || isSubscriptionExpired;
 
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library'>('workout');
@@ -319,9 +319,9 @@ export default function Dashboard() {
 
   // Subscription expiration check and auto-reversion
   useEffect(() => {
-    const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdmin && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+    const isSimulationExpired = (planType === 'PRO' || planType === 'PREMIUM') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
     
-    if (isSubscriptionExpired && user) {
+    if (isSimulationExpired && user && !isAdmin) {
       const revertToFree = async () => {
         try {
           const { doc, updateDoc } = await import('firebase/firestore');
@@ -432,6 +432,16 @@ export default function Dashboard() {
         </p>
 
         <div className="grid sm:grid-cols-2 gap-6 w-full max-w-3xl">
+          {isAdmin && (
+            <div className="sm:col-span-2 mb-4">
+              <button 
+                onClick={() => setShowAdminModal(true)}
+                className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 transition-all mx-auto w-full max-w-xs"
+              >
+                <Users className="w-5 h-5" /> Abrir Painel de Simulação
+              </button>
+            </div>
+          )}
           <div className="bg-zinc-900 border border-white/10 p-8 rounded-3xl flex flex-col items-center">
             <h3 className="text-2xl font-bold mb-2">Pro</h3>
             <p className="text-4xl font-bold text-purple-400 mb-6">R$ 39,90<span className="text-sm text-gray-500 font-normal">/mês</span></p>
@@ -465,6 +475,90 @@ export default function Dashboard() {
         <button onClick={handleLogout} className="mt-12 text-gray-500 hover:text-white transition-colors flex items-center gap-2">
           <LogOut className="w-4 h-4" /> Sair da conta
         </button>
+
+        {/* Admin Panel Modal for Blocked State */}
+        <AnimatePresence>
+          {showAdminModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 text-left">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowAdminModal(false)}
+                className="absolute inset-0 bg-black/90 backdrop-blur-md"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-lg bg-zinc-900 border border-red-500/30 rounded-3xl p-8 shadow-[0_0_50px_rgba(239,68,68,0.2)] overflow-hidden"
+              >
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent" />
+                
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center border border-red-500/30">
+                      <Users className="w-6 h-6 text-red-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold">Painel de Controle</h3>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-widest">Acesso Restrito</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowAdminModal(false)}
+                    className="p-2 hover:bg-white/5 rounded-full text-gray-500 hover:text-white transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-8">
+                  <section>
+                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Simulação de Planos</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      {(['FREE', 'PRO', 'PREMIUM'] as PlanType[]).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => handleAdminPlanChange(p)}
+                          disabled={adminActionLoading}
+                          className={`py-3 rounded-xl font-bold transition-all border ${
+                            planType === p 
+                              ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-600/30' 
+                              : 'bg-white/5 border-white/10 text-gray-400 hover:border-red-500/50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  {adminFeedback.msg && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className={`p-4 rounded-xl text-center text-sm font-bold ${
+                        adminFeedback.type === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {adminFeedback.msg}
+                    </motion.div>
+                  )}
+                  
+                  <div className="pt-4 border-t border-white/10">
+                    <button 
+                      onClick={() => setShowAdminModal(false)}
+                      className="w-full bg-white/5 hover:bg-white/10 text-white py-4 rounded-xl font-bold transition-all"
+                    >
+                      Fechar Painel
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
