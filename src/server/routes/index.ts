@@ -36,4 +36,21 @@ router.get('/exercises/liveness', async (req, res) => {
   }
 });
 
+// GIF Proxy
+router.get('/exercises/proxy-gif', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).send('No URL provided');
+    
+    const response = await fetch(url as string);
+    const buffer = await response.arrayBuffer();
+    
+    res.setHeader('Content-Type', response.headers.get('Content-Type') || 'image/gif');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 24h cache
+    res.send(Buffer.from(buffer));
+  } catch (error: any) {
+    res.status(500).send(error.message);
+  }
+});
+
 export default router;

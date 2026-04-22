@@ -136,38 +136,49 @@ export const ExerciseLibrary = () => {
       </form>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {exercises.map((ex) => (
-          <motion.div
-            key={ex.exerciseId}
-            layoutId={ex.exerciseId}
-            onClick={() => setSelectedExercise(ex)}
-            className="group bg-zinc-900 border border-white/5 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all"
-          >
-            <div className="aspect-square relative overflow-hidden bg-white/5">
-              <img 
-                src={ex.gifUrl} 
-                alt={ex.name} 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                referrerPolicy="no-referrer"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
-              <div className="absolute bottom-3 left-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
-                  {translate(ex.bodyParts[0])}
-                </span>
+      {exercises.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {exercises.map((ex) => (
+            <motion.div
+              key={ex.exerciseId}
+              layoutId={ex.exerciseId}
+              onClick={() => setSelectedExercise(ex)}
+              className="group bg-zinc-900 border border-white/5 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all"
+            >
+              <div className="aspect-square relative overflow-hidden bg-white/5">
+                <img 
+                  src={`/api/exercises/proxy-gif?url=${encodeURIComponent(ex.gifUrl)}`} 
+                  alt={ex.name} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=300&h=300&auto=format&fit=crop';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                <div className="absolute bottom-3 left-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
+                    {translate(ex.bodyParts[0])}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="p-4">
-              <h3 className="font-bold text-white capitalize truncate group-hover:text-purple-400 transition-colors uppercase tracking-tight">
-                {translateExerciseName(ex.name)}
-              </h3>
-              <p className="text-xs text-gray-500 font-medium">Equipamento: {translate(ex.equipments[0])}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+              <div className="p-4">
+                <h3 className="font-bold text-white capitalize truncate group-hover:text-purple-400 transition-colors uppercase tracking-tight">
+                  {translateExerciseName(ex.name)}
+                </h3>
+                <p className="text-xs text-gray-500 font-medium">Equipamento: {translate(ex.equipments[0])}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : !loading && search && (
+        <div className="text-center py-20 bg-zinc-900/50 rounded-3xl border border-dashed border-white/10">
+          <Dumbbell className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-gray-400">Nenhum exercício encontrado</h3>
+          <p className="text-gray-500 text-sm">Tente buscar por termos mais genéricos como "costas", "peito" ou "pernas".</p>
+        </div>
+      )}
 
       {loading && (
         <div className="flex justify-center py-8">
@@ -209,10 +220,13 @@ export const ExerciseLibrary = () => {
               <div className="p-6 space-y-6">
                 <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/5">
                   <img 
-                    src={selectedExercise.gifUrl} 
+                    src={`/api/exercises/proxy-gif?url=${encodeURIComponent(selectedExercise.gifUrl)}`} 
                     alt={selectedExercise.name}
                     className="w-full aspect-video object-contain"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=500&h=300&auto=format&fit=crop';
+                    }}
                   />
                 </div>
 

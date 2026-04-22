@@ -373,195 +373,69 @@ export default function Dashboard() {
     { name: 'Atual', peso: profile?.weight || 0 },
   ];
 
-  const Paywall = ({ feature }: { feature: string }) => (
-    <div className="absolute inset-0 backdrop-blur-md bg-black/80 z-10 flex flex-col items-center justify-center p-6 text-center overflow-y-auto">
-      <div className="w-16 h-16 rounded-full bg-purple-600/20 flex items-center justify-center mb-4 mt-8">
-        <Lock className="w-8 h-8 text-purple-500" />
-      </div>
-      <h4 className="text-2xl font-bold mb-2">Recurso Bloqueado</h4>
-      <p className="text-gray-300 max-w-md mb-8">
-        O recurso <strong>{feature}</strong> está disponível apenas nos planos pagos. Escolha seu plano abaixo para liberar:
-      </p>
-      
-      <div className="grid sm:grid-cols-2 gap-4 w-full max-w-2xl">
-        <div className="bg-zinc-900 border border-white/10 p-6 rounded-2xl flex flex-col">
-          <h5 className="text-xl font-bold mb-2">Pro</h5>
-          <p className="text-3xl font-bold text-purple-400 mb-4">R$ 39,90<span className="text-sm text-gray-500">/mês</span></p>
-          <ul className="text-sm text-gray-400 space-y-2 mb-6 flex-1 text-left">
-            <li>✓ Treinos ilimitados</li>
-            <li>✓ Dieta completa</li>
-            <li>✓ Evolução detalhada</li>
-          </ul>
-          <Link to="/checkout?plan=PRO" className="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold transition-colors">
-            Assinar Pro
-          </Link>
-        </div>
-        
-        <div className="bg-purple-900/20 border border-purple-500 p-6 rounded-2xl flex flex-col relative">
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider py-1 px-3 rounded-full">
-            Recomendado
-          </div>
-          <h5 className="text-xl font-bold mb-2">Premium</h5>
-          <p className="text-3xl font-bold text-purple-400 mb-4">R$ 59,90<span className="text-sm text-gray-500">/mês</span></p>
-          <ul className="text-sm text-gray-400 space-y-2 mb-6 flex-1 text-left">
-            <li>✓ Tudo do Pro</li>
-            <li>✓ Chat 24h com Coach IA</li>
-            <li>✓ Ajustes diários</li>
-          </ul>
-          <Link to="/checkout?plan=PREMIUM" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold transition-colors">
-            Assinar Premium
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (isBlocked) {
+  const Paywall = ({ feature, type = 'pro' }: { feature: string; type?: 'pro' | 'premium' | 'expired' }) => {
+    const isExpired = type === 'expired';
+    
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6">
-          <Lock className="w-8 h-8 text-red-500" />
+      <div className="absolute inset-0 backdrop-blur-md bg-black/80 z-10 flex flex-col items-center justify-center p-6 text-center overflow-y-auto">
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 mt-8 ${isExpired ? 'bg-red-600/20' : 'bg-purple-600/20'}`}>
+          <Lock className={`w-8 h-8 ${isExpired ? 'text-red-500' : 'text-purple-500'}`} />
         </div>
-        <h2 className="text-3xl font-bold mb-4">
-          {isSubscriptionExpired ? "Sua assinatura expirou" : "Seu período de teste acabou"}
-        </h2>
-        <p className="text-gray-400 max-w-md mb-8">
-          {isSubscriptionExpired 
-            ? "Seus 30 dias de acesso premium chegaram ao fim. Renove sua assinatura para continuar usando todos os recursos."
-            : "Para continuar acessando seus treinos, dietas e evolução, escolha um de nossos planos."}
-        </p>
-
-        <div className="grid sm:grid-cols-2 gap-6 w-full max-w-3xl">
-          {isAdmin && (
-            <div className="sm:col-span-2 mb-4">
-              <button 
-                onClick={() => setShowAdminModal(true)}
-                className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 transition-all mx-auto w-full max-w-xs"
-              >
-                <Users className="w-5 h-5" /> Abrir Painel de Simulação
-              </button>
-            </div>
+        <h4 className="text-2xl font-bold mb-2">
+          {isExpired ? (isSubscriptionExpired ? 'Sua assinatura expirou' : 'Seu período de teste acabou') : 'Recurso Bloqueado'}
+        </h4>
+        <p className="text-gray-300 max-w-md mb-8">
+          {isExpired ? (
+            isSubscriptionExpired 
+              ? "Seus 30 dias de acesso premium chegaram ao fim. Renove sua assinatura para continuar usando todos os recursos."
+              : "Para continuar acessando seus treinos, dietas e evolução, escolha um de nossos planos."
+          ) : (
+            <>Ative a assinatura <strong className="uppercase">{type}</strong> para ativar os recursos de <strong>{feature}</strong>.</>
           )}
-          <div className="bg-zinc-900 border border-white/10 p-8 rounded-3xl flex flex-col items-center">
-            <h3 className="text-2xl font-bold mb-2">Pro</h3>
-            <p className="text-4xl font-bold text-purple-400 mb-6">R$ 39,90<span className="text-sm text-gray-500 font-normal">/mês</span></p>
-            <ul className="text-left space-y-3 mb-8 w-full">
-              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Treinos ilimitados</li>
-              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Dieta completa</li>
-              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Evolução detalhada</li>
+        </p>
+        
+        <div className="grid sm:grid-cols-2 gap-4 w-full max-w-2xl text-left">
+          <div className="bg-zinc-900 border border-white/10 p-6 rounded-2xl flex flex-col">
+            <h5 className="text-xl font-bold mb-2 text-white">Pro</h5>
+            <p className="text-3xl font-bold text-purple-400 mb-4">R$ 39,90<span className="text-sm text-gray-500">/mês</span></p>
+            <ul className="text-sm text-gray-400 space-y-2 mb-6 flex-1">
+              <li>✓ Treinos ilimitados</li>
+              <li>✓ Dieta completa</li>
+              <li>✓ Evolução detalhada</li>
             </ul>
-            <Link to="/checkout?plan=PRO" className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-xl font-bold transition-colors mt-auto">
+            <Link to="/checkout?plan=PRO" className="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold transition-colors text-center">
               Assinar Pro
             </Link>
           </div>
 
-          <div className="bg-purple-900/20 border border-purple-500 p-8 rounded-3xl flex flex-col items-center relative">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-xs font-bold uppercase tracking-wider py-1.5 px-4 rounded-full">
+          <div className="bg-purple-900/20 border border-purple-500 p-6 rounded-2xl flex flex-col relative text-left">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider py-1 px-3 rounded-full">
               Recomendado
             </div>
-            <h3 className="text-2xl font-bold mb-2">Premium</h3>
-            <p className="text-4xl font-bold text-purple-400 mb-6">R$ 59,90<span className="text-sm text-gray-500 font-normal">/mês</span></p>
-            <ul className="text-left space-y-3 mb-8 w-full">
-              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Tudo do plano Pro</li>
-              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Chat 24h com Coach IA</li>
-              <li className="flex items-center gap-2 text-gray-300"><CheckCircle2 className="w-5 h-5 text-purple-500" /> Ajustes diários de treino</li>
+            <h5 className="text-xl font-bold mb-2 text-white">Premium</h5>
+            <p className="text-3xl font-bold text-purple-400 mb-4">R$ 59,90<span className="text-sm text-gray-500">/mês</span></p>
+            <ul className="text-sm text-gray-400 space-y-2 mb-6 flex-1">
+              <li>✓ Tudo do Pro</li>
+              <li>✓ Chat 24h com Coach IA</li>
+              <li>✓ Ajustes diários</li>
             </ul>
-            <Link to="/checkout?plan=PREMIUM" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-xl font-bold transition-colors mt-auto">
+            <Link to="/checkout?plan=PREMIUM" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold transition-colors text-center">
               Assinar Premium
             </Link>
           </div>
         </div>
-
-        <button onClick={handleLogout} className="mt-12 text-gray-500 hover:text-white transition-colors flex items-center gap-2">
-          <LogOut className="w-4 h-4" /> Sair da conta
-        </button>
-
-        {/* Admin Panel Modal for Blocked State */}
-        <AnimatePresence>
-          {showAdminModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 text-left">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowAdminModal(false)}
-                className="absolute inset-0 bg-black/90 backdrop-blur-md"
-              />
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative w-full max-w-lg bg-zinc-900 border border-red-500/30 rounded-3xl p-8 shadow-[0_0_50px_rgba(239,68,68,0.2)] overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent" />
-                
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center border border-red-500/30">
-                      <Users className="w-6 h-6 text-red-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold">Painel de Controle</h3>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-widest">Acesso Restrito</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setShowAdminModal(false)}
-                    className="p-2 hover:bg-white/5 rounded-full text-gray-500 hover:text-white transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-
-                <div className="space-y-8">
-                  <section>
-                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Simulação de Planos</h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      {(['FREE', 'PRO', 'PREMIUM'] as PlanType[]).map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => handleAdminPlanChange(p)}
-                          disabled={adminActionLoading}
-                          className={`py-3 rounded-xl font-bold transition-all border ${
-                            planType === p 
-                              ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-600/30' 
-                              : 'bg-white/5 border-white/10 text-gray-400 hover:border-red-500/50'
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  {adminFeedback.msg && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className={`p-4 rounded-xl text-center text-sm font-bold ${
-                        adminFeedback.type === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                      }`}
-                    >
-                      {adminFeedback.msg}
-                    </motion.div>
-                  )}
-                  
-                  <div className="pt-4 border-t border-white/10">
-                    <button 
-                      onClick={() => setShowAdminModal(false)}
-                      className="w-full bg-white/5 hover:bg-white/10 text-white py-4 rounded-xl font-bold transition-all"
-                    >
-                      Fechar Painel
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+        
+        {isAdmin && (
+          <button 
+            onClick={() => setShowAdminModal(true)}
+            className="mt-8 text-red-500 font-bold uppercase tracking-widest text-xs hover:underline flex items-center gap-2"
+          >
+            <Users className="w-4 h-4" /> Resetar Simulação (Admin)
+          </button>
+        )}
       </div>
     );
-  }
+  };
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-purple-500/30 pb-20">
@@ -727,43 +601,52 @@ export default function Dashboard() {
           <button 
             onClick={() => setActiveTab('evolution')}
             className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
-              activeTab === 'evolution' ? 'bg-blue-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              activeTab === 'evolution' 
+                ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-blue-500 text-white') 
+                : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <TrendingUp className="w-5 h-5" />
+            <TrendingUp className={`w-5 h-5 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
             Evolução
+            {(isFree || isBlocked) && <Lock className="w-3 h-3 ml-1 text-gray-600" />}
           </button>
           <button 
             onClick={() => setActiveTab('routine')}
             className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
-              activeTab === 'routine' ? 'bg-orange-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              activeTab === 'routine' 
+                ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-orange-500 text-white') 
+                : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Calendar className="w-5 h-5" />
+            <Calendar className={`w-5 h-5 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
             Rotina Diária
+            {(isFree || isBlocked) && <Lock className="w-3 h-3 ml-1 text-gray-600" />}
           </button>
-          {planType === 'PREMIUM' && (
-            <>
-              <button 
-                onClick={() => setActiveTab('personal')}
-                className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
-                  activeTab === 'personal' ? 'bg-purple-900 border border-purple-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                }`}
-              >
-                <Users className="w-5 h-5" />
-                Personal Trainer
-              </button>
-              <button 
-                onClick={() => setActiveTab('nutrition')}
-                className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
-                  activeTab === 'nutrition' ? 'bg-green-900 border border-green-500 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                }`}
-              >
-                <Apple className="w-5 h-5 text-green-400" />
-                Nutricionista
-              </button>
-            </>
-          )}
+          
+          <button 
+            onClick={() => setActiveTab('personal')}
+            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
+              activeTab === 'personal' 
+                ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-purple-900 border border-purple-500 text-white') 
+                : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <Users className={`w-5 h-5 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            Personal Trainer
+            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-3 h-3 ml-1 text-gray-600" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('nutrition')}
+            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
+              activeTab === 'nutrition' 
+              ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-green-900 border border-green-500 text-white') 
+              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <Apple className={`w-5 h-5 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            Nutricionista
+            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-3 h-3 ml-1 text-gray-600" />}
+          </button>
         </div>
 
         {/* Content */}
@@ -773,6 +656,45 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
+          {activeTab === 'evolution' && isFree && (
+             <div className="bg-zinc-950 border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
+                <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
+                  <Lock className="w-8 h-8 text-purple-500" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Evolução Bloqueada</h3>
+                <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de acompanhamento de progresso.</p>
+                <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
+                  Upgrade para PRO
+                </Link>
+             </div>
+          )}
+
+          {activeTab === 'routine' && isFree && (
+             <div className="bg-zinc-950 border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
+                <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
+                  <Lock className="w-8 h-8 text-purple-500" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Rotina Diária Bloqueada</h3>
+                <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de organização de rotina diária.</p>
+                <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
+                  Upgrade para PRO
+                </Link>
+             </div>
+          )}
+
+          {(activeTab === 'personal' || activeTab === 'nutrition') && planType === 'PRO' && (
+             <div className="bg-zinc-950 border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
+                <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
+                  <Lock className="w-8 h-8 text-purple-500" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">{activeTab === 'personal' ? 'Personal Trainer' : 'Nutricionista'} Bloqueado</h3>
+                <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PREMIUM para ativar os recursos de acompanhamento profissional humano e chat IA 24h.</p>
+                <Link to="/checkout?plan=PREMIUM" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
+                  Upgrade para PREMIUM
+                </Link>
+             </div>
+          )}
+
           {activeTab === 'library' && (
             <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
               <ExerciseLibrary />
@@ -780,7 +702,8 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'workout' && (
-            <div className="space-y-8">
+            <div className="space-y-8 relative">
+              {isBlocked && <Paywall feature="Treinos" type="expired" />}
               <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                   <Activity className="w-5 h-5 text-purple-400" />
@@ -868,7 +791,8 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'diet' && (
-            <div className="space-y-8">
+            <div className="space-y-8 relative">
+              {isBlocked && <Paywall feature="Dieta" type="expired" />}
               {/* Macros Overview */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
@@ -944,7 +868,12 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'evolution' && (
-            <div className="space-y-8">
+            <div className="space-y-8 relative">
+              {isBlocked ? (
+                <Paywall feature="Evolução" type="expired" />
+              ) : isFree ? (
+                <Paywall feature="Evolução" type="pro" />
+              ) : null}
               {/* IMC Card */}
               <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
                 <h3 className="text-xl font-bold mb-6">Seu Corpo</h3>
@@ -999,7 +928,12 @@ export default function Dashboard() {
             </div>
           )}
           {activeTab === 'routine' && (
-            <div className="space-y-8">
+            <div className="space-y-8 relative">
+              {isBlocked ? (
+                <Paywall feature="Rotina Diária" type="expired" />
+              ) : isFree ? (
+                <Paywall feature="Rotina Diária" type="pro" />
+              ) : null}
               <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-orange-400" />
@@ -1062,7 +996,12 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'personal' && (
-            <div className="space-y-8 pb-32">
+            <div className="space-y-8 pb-32 relative">
+              {isBlocked ? (
+                <Paywall feature="Personal Trainer" type="expired" />
+              ) : planType === 'PRO' || isFree ? (
+                <Paywall feature="Personal Trainer" type="premium" />
+              ) : null}
               {/* Admin Section: Role Management */}
               {isAdmin && (
                 <div className="bg-zinc-950 border border-red-500/20 rounded-3xl p-6">
@@ -1395,7 +1334,12 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'nutrition' && (
-            <div className="space-y-8 pb-32">
+            <div className="space-y-8 pb-32 relative">
+              {isBlocked ? (
+                <Paywall feature="Nutricionista" type="expired" />
+              ) : planType === 'PRO' || isFree ? (
+                <Paywall feature="Nutricionista" type="premium" />
+              ) : null}
               {/* Admin Section: Role Management */}
               {isAdmin && (
                 <div className="bg-zinc-950 border border-green-500/20 rounded-3xl p-6">
