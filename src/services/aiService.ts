@@ -2,7 +2,15 @@ import { WorkoutPlan, UserProfile } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { ptToEnSearch } from '../lib/exerciseTranslations';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const getApiKey = () => {
+  const key = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!key) {
+    console.warn("VITE_GEMINI_API_KEY not found in environment variables.");
+  }
+  return key || 'MISSING_KEY';
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export interface DietPlan {
   // ... existing ...

@@ -111,7 +111,10 @@ export const translations: Record<string, string> = {
   'spine': 'Lombar'
 };
 
-export const translate = (text: string): string => translations[text.toLowerCase()] || text;
+export const translate = (text: string): string => {
+  if (!text) return "";
+  return translations[text.toLowerCase()] || text;
+};
 
 export const enToPtExerciseNameMap: Record<string, string> = {
   'standing': 'em pé',
@@ -174,6 +177,7 @@ export const enToPtExerciseNameMap: Record<string, string> = {
 };
 
 export const translateExerciseName = (name: string): string => {
+  if (!name) return "Exercício";
   let lowerName = name.toLowerCase();
   
   // Tentar encontrar correspondência exata primeiro na lista inversa de busca se existir
