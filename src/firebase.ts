@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, browserPopupRedirectResolver } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, browserPopupRedirectResolver } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -34,11 +34,27 @@ googleProvider.setCustomParameters({
 });
 
 export const signInWithGoogle = async () => {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isStandalone = (window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches;
+
   try {
+    // Para Mobile ou App Instalado (PWA), Redirect funciona melhor que Popup
+    if (isMobile || isStandalone) {
+      await signInWithRedirect(auth, googleProvider);
+      return null; // O usuário será redirecionado
+    }
+
     const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
     return result.user;
   } catch (error: any) {
     console.error("Erro no login com Google:", error);
+    
+    // Fallback para redirect se o popup for bloqueado
+    if (error.code === 'auth/popup-blocked') {
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+    
     throw error;
   }
 };

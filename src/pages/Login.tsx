@@ -24,6 +24,27 @@ export default function Login() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Verificar resultado de redirecionamento (Mobile/PWA)
+    const checkRedirect = async () => {
+      try {
+        const { getRedirectResult } = await import('firebase/auth');
+        const result = await getRedirectResult(auth);
+        if (result) {
+          // O login de redirecionamento foi bem-sucedido
+          // A navegação será tratada pelo outro useEffect que observa 'user'
+        }
+      } catch (err: any) {
+        console.error("Erro ao processar redirecionamento:", err);
+        if (err.code === 'auth/unauthorized-domain') {
+          setError(`Domínio não autorizado. Adicione "${window.location.hostname}" nos domínios autorizados do Firebase Console.`);
+        } else {
+          setError(`Erro no link com Google: ${err.message}`);
+        }
+      }
+    };
+
+    checkRedirect();
+
     if (user && role) {
       if (role === 'trainer') {
         navigate('/trainer');
