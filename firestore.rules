@@ -2,16 +2,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regras para Configurações do Sistema - Acesso público para leitura da versão
-    match /system/config {
-      allow get: if true;
-      allow list: if true;
-      allow write: if isAdmin();
+    // ==========================================
+    // 1. GLOBAL HELPERS & PROTECTIONS
+    // ==========================================
+    
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Identifica se o usuário é Admin baseado no e-mail
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
     function isAdmin() {
-      return request.auth != null && 
+      return isSignedIn() && 
              request.auth.token.email in [
                'vinidoctor@gmail.com',
                'vinisilva02@hotmail.com',
@@ -19,67 +23,142 @@ service cloud.firestore {
              ];
     }
 
-    // Identifica se o usuário é um Trainer baseado no campo 'role' no documento do usuário
-    // Nota: Em regras de larga escala, preferimos ler o documento do usuário
-    function isTrainer() {
-      return request.auth != null && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer';
-    }
-
-    // Identifica se o usuário é dono do recurso
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Regras para Coleção de Usuários
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==========================================
+    // 2. ENTITY VALIDATION HELPERS
+    // ==========================================
+
+    function isValidUserProfile(data) {
+      return data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.role in ['user', 'trainer', 'admin'] &&
+             data.planType in ['FREE', 'PRO', 'PREMIUM'] &&
+             (data.weight == null || data.weight is number) &&
+             (data.height == null || data.height is number) &&
+             (data.createdAt is string || data.createdAt == request.time);
+    }
+
+    function isValidWorkout(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.createdBy in ['IA', 'Trainer', 'System'] &&
+             data.days is list && data.days.size() <= 7;
+    }
+
+    function isValidProgress(data) {
+      return data.userId == request.auth.uid &&
+             data.weight is number &&
+             data.photos is list && data.photos.size() <= 10;
+    }
+
+    function isValidMessage(data) {
+      return data.fromId == request.auth.uid &&
+             data.toId is string && data.toId.size() <= 128 &&
+             data.text is string && data.text.size() <= 2000;
+    }
+
+    // ==========================================
+    // 3. COLLECTION RULES
+    // ==========================================
+
+    // System Config
+    match /system/config {
+      allow get: if true;
+      allow list: if true;
+      allow write: if isAdmin();
+    }
+
+    // User Profiles
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin() || isTrainer(); // Trainers podem ver perfis para vincular
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdmin() || 
+                    (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer');
+      
+      allow create: if isOwner(userId) && 
+                      isValidUserProfile(incoming()) && 
+                      incoming().role == 'user' && 
+                      incoming().planType == 'FREE';
+      
+      allow update: if (isAdmin() && isValidUserProfile(incoming())) || (
+        isOwner(userId) && 
+        isValidUserProfile(incoming()) &&
+        // Protect sensitive fields from self-alteration
+        incoming().role == existing().role &&
+        incoming().planType == existing().planType &&
+        incoming().email == existing().email &&
+        incoming().uid == existing().uid &&
+        // Allow list of editable fields - STRIPPED for commercial security
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'weight', 'height', 'objective', 'fitnessLevel', 
+          'phone', 'photoURL', 'updatedAt', 
+          'workoutPreferences', 'dietPreferences', 'gender', 'age', 'intensity',
+          'linkedTrainerId', 'trainerId'
+        ])
+      );
     }
 
-    // Regras para Treinadores
+    // Trainers
     match /trainers/{trainerId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow write: if isAdmin() || isOwner(trainerId);
     }
 
-    // Regras para Treinos (Workouts)
+    // Workouts
     match /workouts/{workoutId} {
-      allow read: if request.auth != null && (
+      allow read: if isSignedIn() && (
         resource.data.userId == request.auth.uid || 
-        isTrainer() || 
-        isAdmin()
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer'
       );
-      allow create, update: if request.auth != null && (
-        request.resource.data.userId == request.auth.uid || 
-        isTrainer() || 
-        isAdmin()
-      );
+      
+      allow create: if isSignedIn() && 
+                      isValidWorkout(incoming()) && (
+                        incoming().userId == request.auth.uid || isAdmin()
+                      );
+                      
+      allow update: if isSignedIn() && 
+                      isValidWorkout(incoming()) && (
+                        (resource.data.userId == request.auth.uid && incoming().userId == resource.data.userId) || 
+                        isAdmin()
+                      ) &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['days', 'updatedAt', 'structure', 'focus', 'progression', 'strategies']);
     }
 
-    // Regras para Progresso
+    // Progress
     match /progress/{progressId} {
-      allow read, write: if request.auth != null && (
-        resource.data.userId == request.auth.uid || 
-        isAdmin()
-      );
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isOwner(incoming().userId) && isValidProgress(incoming());
+      allow update: if isOwner(resource.data.userId) && isValidProgress(incoming()) &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['weight', 'bodyFat', 'photos', 'date', 'measurements']);
     }
 
-    // Regras para Mensagens
+    // Messages
     match /messages/{messageId} {
-      allow read: if request.auth != null && (
+      allow read: if isSignedIn() && (
         resource.data.fromId == request.auth.uid || 
         resource.data.toId == request.auth.uid || 
         isAdmin()
       );
-      allow create: if request.auth != null && request.resource.data.fromId == request.auth.uid;
-    }
-
-    // Negar tudo por padrão para segurança máxima
-    match /{document=**} {
-      allow read, write: if isAdmin();
+      allow create: if isOwner(incoming().fromId) && isValidMessage(incoming());
     }
   }
 }
