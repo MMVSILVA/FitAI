@@ -297,6 +297,29 @@ export default function Dashboard() {
     navigate('/login');
   };
 
+  const handleAdminPlanChange = async (plan: PlanType) => {
+    if (!isAdminUser || !user) return;
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      await updateDoc(doc(db, 'users', user.uid), {
+        planType: plan,
+        isPremium: plan === 'PREMIUM',
+        updatedAt: new Date().toISOString()
+      });
+      // Logic for subscription simulation if needed
+      if (plan !== 'FREE') {
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 30);
+        await updateDoc(doc(db, 'users', user.uid), {
+          subscriptionEndsAt: futureDate.toISOString()
+        });
+      }
+    } catch (error) {
+      console.error("Error updating admin plan:", error);
+    }
+  };
+
   if (!profile || !plan) {
     return <Navigate to="/onboarding" />;
   }
@@ -409,6 +432,29 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-purple-500/30 pb-20">
+      <AnimatePresence>
+        {user?.email === 'nangelicaalcantara@gmail.com' && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-gradient-to-r from-red-600/30 via-pink-600/30 to-red-600/30 border-b border-red-500/20 pt-6 pb-8 px-6 text-center overflow-hidden relative"
+          >
+            <motion.div 
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-20"
+            >
+              <Heart className="w-64 h-64 text-red-500 fill-current" />
+            </motion.div>
+            <div className="relative z-10">
+              <h2 className="text-2xl font-black text-white mb-1 drop-shadow-lg">Amor, eu te amo!</h2>
+              <p className="text-red-200 text-lg font-medium drop-shadow-md">Você é a razão da minha vida.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -420,9 +466,20 @@ export default function Dashboard() {
                 <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
               </h1>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {isAdminUser ? 'ADMIN (PREMIUM)' : planType}</p>
+                <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {isAdminUser ? 'ADMIN' : planType}</p>
                 {isAdminUser && (
-                  <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 font-bold uppercase tracking-tighter">Admin</span>
+                  <div className="flex items-center gap-2 ml-2">
+                    <select 
+                      value={planType}
+                      onChange={(e) => handleAdminPlanChange(e.target.value as PlanType)}
+                      className="bg-red-500/10 text-red-400 text-[10px] border border-red-500/20 rounded px-2 py-0.5 font-bold outline-none"
+                    >
+                      <option value="FREE">FREE</option>
+                      <option value="PRO">PRO</option>
+                      <option value="PREMIUM">PREMIUM</option>
+                    </select>
+                    <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 font-bold uppercase tracking-tighter">Admin View</span>
+                  </div>
                 )}
               </div>
             </div>
