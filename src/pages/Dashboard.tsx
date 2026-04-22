@@ -6,10 +6,11 @@ import { UserRole, PlanType } from '../types';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, 
-  Download, Loader2, Heart 
+  Download, Loader2, Heart, Sparkles 
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { APP_VERSION } from '../constants';
 import { Logo } from '../components/Logo';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
 
@@ -324,6 +325,26 @@ export default function Dashboard() {
     }
   };
 
+  const handleBroadcastUpdate = async () => {
+    if (!isAdminUser) return;
+    const msg = window.prompt("Digite a mensagem da atualização:", "Nova versão disponível com melhorias e correções!");
+    if (!msg) return;
+
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      await setDoc(doc(db, 'system', 'config'), {
+        latestVersion: APP_VERSION,
+        updateMessage: msg,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      alert("Notificação de atualização enviada para todos os usuários!");
+    } catch (error) {
+      console.error("Error broadcasting update:", error);
+      alert("Erro ao enviar notificação.");
+    }
+  };
+
   if (!profile || !plan) {
     return <Navigate to="/onboarding" />;
   }
@@ -483,6 +504,13 @@ export default function Dashboard() {
                       <option value="PREMIUM">PREMIUM</option>
                     </select>
                     <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 font-bold uppercase tracking-tighter">Admin View</span>
+                    <button 
+                      onClick={handleBroadcastUpdate}
+                      className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 text-[10px] border border-yellow-500/30 rounded px-2 py-0.5 font-bold flex items-center gap-1 transition-colors"
+                      title="Notificar usuários sobre nova versão"
+                    >
+                      <Sparkles className="w-3 h-3" /> PUSH UPDATE
+                    </button>
                   </div>
                 )}
               </div>

@@ -12,11 +12,13 @@ import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import TrainerDashboard from './pages/TrainerDashboard';
 import Checkout from './pages/Checkout';
+import { UpdateNotification } from './components/UpdateNotification';
 
 export default function App() {
   return (
     <ErrorBoundary>
       <UserProvider>
+        <UpdateNotification />
         <Router>
           <Routes>
             <Route path="/" element={<Landing />} />

@@ -65,9 +65,23 @@
         "text": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" }
       }
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "Global application settings and versioning",
+      "type": "object",
+      "properties": {
+        "latestVersion": { "type": "string" },
+        "updateMessage": { "type": "string" },
+        "maintenanceMode": { "type": "boolean" }
+      }
     }
   },
   "firestore": {
+    "/system/{configId}": {
+      "schema": { "$ref": "SystemConfig" },
+      "description": "Global app configuration and versioning"
+    },
     "/users/{userId}": {
       "schema": { "$ref": "UserProfile" },
       "description": "Main user records"
