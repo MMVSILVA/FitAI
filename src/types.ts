@@ -25,6 +25,7 @@ export interface UserProfile {
   nutritionistId?: string;
   isPremium: boolean;
   trialEndsAt?: string;
+  subscriptionEndsAt?: string;
   createdAt: string;
 }
 
@@ -51,6 +52,21 @@ export interface WorkoutDay {
   exercises: Exercise[];
 }
 
+export interface DietPlan {
+  calories: string;
+  macros: {
+    protein: string;
+    carbs: string;
+    fat: string;
+  };
+  meals: {
+    name: string;
+    time: string;
+    foods: string[];
+  }[];
+  recommendations: string[];
+}
+
 export interface WorkoutPlan {
   title: string;
   objective: string;
@@ -61,6 +77,7 @@ export interface WorkoutPlan {
   progression: string;
   consistencyScore: number;
   strategies: string[];
+  diet?: DietPlan;
 }
 
 export interface ProgressEntry {

@@ -119,7 +119,14 @@ export default function Onboarding() {
 
       setProfile(profileData);
       const planRes = await generatePlan(profileData);
-      setPlan(planRes.workout);
+      
+      // Combine workout and diet into a single object as defined in types.ts
+      const completePlan = {
+        ...planRes.workout,
+        diet: planRes.diet
+      };
+      
+      setPlan(completePlan);
       startTrial();
       navigate('/dashboard');
     } catch (err: any) {

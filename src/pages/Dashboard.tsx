@@ -99,7 +99,7 @@ function ExerciseRow({
 
 export default function Dashboard() {
   const { 
-    user, profile, plan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, isAdmin,
+    user, profile, plan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser 
   } = useUser();
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library'>('workout');
@@ -248,6 +248,30 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [timerActive, timeLeft]);
 
+  // Subscription expiration check and auto-reversion
+  useEffect(() => {
+    const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdminUser && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+    
+    if (isSubscriptionExpired && user) {
+      const revertToFree = async () => {
+        try {
+          const { doc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('../firebase');
+          await updateDoc(doc(db, 'users', user.uid), {
+            planType: 'FREE',
+            isPremium: false,
+            role: 'user',
+            updatedAt: new Date().toISOString()
+          });
+          console.log("Subscription expired. Reverted to FREE plan.");
+        } catch (error) {
+          console.error("Error reverting to free plan:", error);
+        }
+      };
+      revertToFree();
+    }
+  }, [planType, subscriptionEndsAt, user, isAdminUser]);
+
   const startRest = (seconds: number) => {
     setTimeLeft(seconds);
     setTimerActive(true);
@@ -273,6 +297,9 @@ export default function Dashboard() {
   const isAdminUser = ['vinidoctor@gmail.com', 'vinisilva02@hotmail.com', 'nangelicaalcantara@gmail.com'].includes(user?.email || '');
   const isFree = planType === 'FREE' && !isAdminUser;
   const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
+  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && !isAdminUser && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+  const isBlocked = isTrialExpired || isSubscriptionExpired;
+  
   const imcData = calculateIMC();
 
   // Mock data for evolution chart
@@ -326,15 +353,19 @@ export default function Dashboard() {
     </div>
   );
 
-  if (isTrialExpired) {
+  if (isBlocked) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6">
           <Lock className="w-8 h-8 text-red-500" />
         </div>
-        <h2 className="text-3xl font-bold mb-4">Seu período de teste acabou</h2>
+        <h2 className="text-3xl font-bold mb-4">
+          {isSubscriptionExpired ? "Sua assinatura expirou" : "Seu período de teste acabou"}
+        </h2>
         <p className="text-gray-400 max-w-md mb-8">
-          Para continuar acessando seus treinos, dietas e evolução, escolha um de nossos planos.
+          {isSubscriptionExpired 
+            ? "Seus 30 dias de acesso premium chegaram ao fim. Renove sua assinatura para continuar usando todos os recursos."
+            : "Para continuar acessando seus treinos, dietas e evolução, escolha um de nossos planos."}
         </p>
 
         <div className="grid sm:grid-cols-2 gap-6 w-full max-w-3xl">
@@ -657,20 +688,20 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-400 text-sm mb-1">Calorias</p>
-                  <p className="text-3xl font-bold text-white">{plan.diet.calories}</p>
+                  <p className="text-3xl font-bold text-white">{plan?.diet?.calories || '---'}</p>
                   <p className="text-xs text-gray-500 mt-1">kcal/dia</p>
                 </div>
                 <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-400 text-sm mb-1">Proteína</p>
-                  <p className="text-3xl font-bold text-purple-400">{plan.diet.macros.protein}g</p>
+                  <p className="text-3xl font-bold text-purple-400">{plan?.diet?.macros?.protein || '0'}g</p>
                 </div>
                 <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-400 text-sm mb-1">Carboidratos</p>
-                  <p className="text-3xl font-bold text-green-400">{plan.diet.macros.carbs}g</p>
+                  <p className="text-3xl font-bold text-green-400">{plan?.diet?.macros?.carbs || '0'}g</p>
                 </div>
                 <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-400 text-sm mb-1">Gorduras</p>
-                  <p className="text-3xl font-bold text-yellow-400">{plan.diet.macros.fat}g</p>
+                  <p className="text-3xl font-bold text-yellow-400">{plan?.diet?.macros?.fat || '0'}g</p>
                 </div>
               </div>
 
@@ -682,34 +713,45 @@ export default function Dashboard() {
                   <Paywall feature="Refeições Detalhadas" />
                 ) : (
                   <div className="grid gap-4">
-                    {plan.diet.meals.map((meal, idx) => (
-                      <div key={idx} className="bg-black border border-white/5 rounded-2xl p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-bold text-green-400">{meal.name}</h4>
-                          <span className="text-sm font-medium bg-white/5 px-3 py-1 rounded-full">{meal.time}</span>
-                        </div>
-                        <ul className="space-y-2">
-                          {meal.foods.map((food, i) => (
-                            <li key={i} className="flex items-start gap-2 text-gray-300">
-                              <span className="text-green-500 mt-1">•</span>
-                              {food}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                    
-                    <div className="mt-8 p-6 bg-purple-900/10 border border-purple-500/20 rounded-2xl">
-                      <h4 className="font-bold text-purple-400 mb-4">Recomendações do Coach</h4>
-                      <ul className="space-y-2">
-                        {plan.diet.recommendations.map((rec, i) => (
-                          <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
-                            <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
-                            {rec}
-                          </li>
+                    {plan?.diet ? (
+                      <>
+                        {plan.diet.meals?.map((meal, idx) => (
+                          <div key={idx} className="bg-black border border-white/5 rounded-2xl p-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-lg font-bold text-green-400">{meal.name}</h4>
+                              <span className="text-sm font-medium bg-white/5 px-3 py-1 rounded-full">{meal.time}</span>
+                            </div>
+                            <ul className="space-y-2">
+                              {meal.foods?.map((food, i) => (
+                                <li key={i} className="flex items-start gap-2 text-gray-300">
+                                  <span className="text-green-500 mt-1">•</span>
+                                  {food}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                         ))}
-                      </ul>
-                    </div>
+                        
+                        {plan.diet.recommendations && plan.diet.recommendations.length > 0 && (
+                          <div className="mt-8 p-6 bg-purple-900/10 border border-purple-500/20 rounded-2xl">
+                            <h4 className="font-bold text-purple-400 mb-4">Recomendações do Coach</h4>
+                            <ul className="space-y-2">
+                              {plan.diet.recommendations.map((rec, i) => (
+                                <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
+                                  <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
+                                  {rec}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-12 text-center">
+                        <Apple className="w-12 h-12 text-gray-500 mb-4" />
+                        <p className="text-gray-400">Sua dieta personalizada ainda não foi gerada ou está sendo carregada.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1243,11 +1285,17 @@ export default function Dashboard() {
                         </p>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <button className="bg-white/5 border border-white/5 p-4 rounded-xl text-center hover:bg-white/10 transition-all">
+                        <button 
+                          onClick={() => setActiveTab('diet')}
+                          className="bg-white/5 border border-white/5 p-4 rounded-xl text-center hover:bg-white/10 transition-all"
+                        >
                           <Apple className="w-5 h-5 mx-auto mb-2 text-green-500" />
                           <p className="text-xs font-bold">Base Alimentar</p>
                         </button>
-                        <button className="bg-white/5 border border-white/5 p-4 rounded-xl text-center hover:bg-white/10 transition-all">
+                        <button 
+                          onClick={() => setActiveTab('diet')}
+                          className="bg-white/5 border border-white/5 p-4 rounded-xl text-center hover:bg-white/10 transition-all"
+                        >
                           <Activity className="w-5 h-5 mx-auto mb-2 text-blue-500" />
                           <p className="text-xs font-bold">Macros Diários</p>
                         </button>

@@ -59,14 +59,18 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const { getAdminDb } = await import('../lib/firebase-admin');
         const db = getAdminDb();
         
+        const subscriptionEndsAt = new Date();
+        subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + 30);
+
         await db.collection('users').doc(userId).update({
           planType: plan,
           role: plan === 'PREMIUM' ? 'premium_user' : 'user',
           isPremium: true,
+          subscriptionEndsAt: subscriptionEndsAt.toISOString(),
           updatedAt: new Date().toISOString()
         });
         
-        console.log(`Plan ${plan} activated for user ${userId}`);
+        console.log(`Plan ${plan} activated for user ${userId}. Expires at ${subscriptionEndsAt.toISOString()}`);
       }
     }
 

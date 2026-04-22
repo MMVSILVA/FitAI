@@ -93,6 +93,22 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
         "progression": "Estratégia de projeção de carga para este plano",
         "consistencyScore": 100,
         "strategies": ["Estratégia 1", "Estratégia 2"]
+      },
+      "diet": {
+        "calories": "Valor total diário (Ex: 2400)",
+        "macros": {
+          "protein": "Valor em gramas",
+          "carbs": "Valor em gramas",
+          "fat": "Valor em gramas"
+        },
+        "meals": [
+          {
+            "name": "Nome da Refeição (Ex: Café da Manhã)",
+            "time": "Horário Sugerido (Ex: 08:00)",
+            "foods": ["Alimento 1 + Gramagem", "Alimento 2 + Gramagem"]
+          }
+        ],
+        "recommendations": ["Recomendação 1", "Recomendação 2"]
       }
     }
 

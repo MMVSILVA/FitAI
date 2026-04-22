@@ -12,6 +12,7 @@ interface UserState {
   planType: PlanType;
   role: UserRole;
   trialEndsAt: string | null;
+  subscriptionEndsAt: string | null;
   clients?: string[];
   linkedTrainerId?: string;
   linkedNutritionistId?: string;
@@ -47,6 +48,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [plan, setPlanState] = useState<WorkoutPlan | null>(null);
   const [planType, setPlanType] = useState<PlanType>('FREE');
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null);
   const [role, setRoleState] = useState<UserRole>('user');
   const [clients, setClients] = useState<string[]>([]);
   const [linkedTrainerId, setLinkedTrainerId] = useState<string | undefined>();
@@ -135,6 +137,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setPlanType('FREE');
               }
               if (data.trialEndsAt) setTrialEndsAt(data.trialEndsAt);
+              if (data.subscriptionEndsAt) setSubscriptionEndsAt(data.subscriptionEndsAt);
             } else {
               setProfileState(null);
               setPlanState(null);
@@ -364,7 +367,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <UserContext.Provider value={{ 
-      user, authLoading, profile, plan, planType, trialEndsAt, role, clients, linkedTrainerId, linkedNutritionistId, isAdmin,
+      user, authLoading, profile, plan, planType, trialEndsAt, subscriptionEndsAt, role, clients, linkedTrainerId, linkedNutritionistId, isAdmin,
       setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, updatePlanForUser, 
       linkClient, linkNutritionist, setRole, setRoleForUser, logout, calculateIMC, resetAccount 
     }}>
