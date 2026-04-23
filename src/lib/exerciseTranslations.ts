@@ -123,34 +123,37 @@ export const enToPtExerciseNameMap: Record<string, string> = {
   'incline': 'inclinado',
   'decline': 'declinado',
   'reverse': 'inverso',
-  'barbell': 'com barra',
-  'dumbbell': 'com haltere',
-  'cable': 'no cabo',
-  'lever': 'na máquina/alavanca',
+  'barbell': 'barra',
+  'dumbbell': 'halteres',
+  'cable': 'cabo',
+  'lever': 'máquina',
   'smith': 'no smith',
   'machine': 'na máquina',
   'bench': 'banco',
   'curls': 'rosca',
   'curl': 'rosca',
   'press': 'supino/desenvolvimento',
+  'presses': 'supino/desenvolvimento',
+  'pin': 'parcial (pin)',
   'bench press': 'supino',
-  'shoulder press': 'desenvolvimento de ombros',
+  'chest press': 'supino na máquina',
+  'shoulder press': 'desenvolvimento',
   'squat': 'agachamento',
   'deadlift': 'levantamento terra',
   'row': 'remada',
   'pulldown': 'puxada',
-  'fly': 'crucifixo/voador',
+  'fly': 'crucifixo',
   'raise': 'elevação',
   'extension': 'extensão',
   'kickback': 'coice',
-  'dip': 'mergulho/paralela',
+  'dip': 'mergulho',
   'pushup': 'flexão',
   'push up': 'flexão',
   'crunch': 'abdominal',
   'leg press': 'leg press',
-  'leg curl': 'mesa flexora',
-  'leg extension': 'cadeira extensora',
-  'calf raise': 'elevação de panturrilha',
+  'leg curl': 'flexão de pernas',
+  'leg extension': 'extensão de pernas',
+  'calf raise': 'panturrilha',
   'upright': 'vertical',
   'bent over': 'curvado',
   'one arm': 'unilateral',
@@ -159,7 +162,7 @@ export const enToPtExerciseNameMap: Record<string, string> = {
   'hammer': 'martelo',
   'preacher': 'scott',
   'arnold': 'arnold',
-  'overhead': 'por cima da cabeça',
+  'overhead': 'sobre a cabeça',
   'triceps': 'tríceps',
   'biceps': 'bíceps',
   'military': 'militar',
@@ -168,36 +171,119 @@ export const enToPtExerciseNameMap: Record<string, string> = {
   'rear': 'posterior',
   'delt': 'deltoide',
   'shrug': 'encolhimento',
-  'lunge': 'afundo/avanço',
+  'lunge': 'afundo',
   'step-up': 'subida no banco',
   'plank': 'prancha',
   'burpee': 'burpee',
   'mountain climber': 'mountain climber',
-  'jumping jack': 'polichinelo'
+  'jumping jack': 'polichinelo',
+  'back': 'costas',
+  'chest': 'peito',
+  'legs': 'pernas',
+  'arms': 'braços',
+  'grip': 'pegada',
+  'close': 'fechada',
+  'wide': 'aberta',
+  'narrow': 'estreita',
+  'underhand': 'supinada',
+  'overhand': 'pronada',
+  'neutral': 'neutra',
+  'high': 'alto',
+  'low': 'baixo',
+  'middle': 'médio',
+  't-bar': 'barra t',
+  'one-arm': 'unilateral',
+  'two-arm': 'bilateral',
+  'band': 'com elástico',
+  'assisted': 'assistido',
+  'weighted': 'com carga',
+  'stability ball': 'na bola',
+  'bosu': 'no bosu'
 };
 
 export const translateExerciseName = (name: string): string => {
   if (!name) return "Exercício";
+  
   let lowerName = name.toLowerCase();
   
-  // Tentar encontrar correspondência exata primeiro na lista inversa de busca se existir
-  // Mas como a lista ptToEnExerciseMap é a base, vamos apenas traduzir termo a termo
-  
-  let parts = lowerName.split(' ');
-  let translatedParts = parts.map(part => {
-    // Tenta traduzir a palavra isolada ou combinações
-    return enToPtExerciseNameMap[part] || part;
-  });
+  // Substituições de frases completas comuns primeiro
+  const commonFullNames: Record<string, string> = {
+    'barbell bench press': 'Supino Reto com Barra',
+    'dumbbell bench press': 'Supino Reto com Halteres',
+    'incline barbell bench press': 'Supino Inclinado com Barra',
+    'incline dumbbell bench press': 'Supino Inclinado com Halteres',
+    'decline barbell bench press': 'Supino Declinado com Barra',
+    'barbell squat': 'Agachamento Livre com Barra',
+    'barbell deadlift': 'Levantamento Terra com Barra',
+    'barbell bicep curl': 'Rosca Bíceps com Barra',
+    'dumbbell bicep curl': 'Rosca Bíceps com Halteres',
+    'hammer curl': 'Rosca Martelo',
+    'lat pulldown': 'Puxada Aberta na Polia',
+    'triceps pushdown': 'Tríceps Pulley',
+    'seated row': 'Remada Baixa Sentada',
+    'one arm dumbbell row': 'Remada Unilateral com Haltere (Serrote)',
+    'lateral raise': 'Elevação Lateral',
+    'front raise': 'Elevação Frontal',
+    'leg press': 'Leg Press 45',
+    'leg extension': 'Cadeira Extensora',
+    'leg curl': 'Mesa Flexora',
+    'calf raise': 'Gêmeos em Pé',
+    'seated calf raise': 'Gêmeos Sentado',
+    'military press': 'Desenvolvimento Militar',
+    'arnold press': 'Desenvolvimento Arnold',
+    'push up': 'Flexão de Braços',
+    'dips': 'Paralelas',
+    'pull up': 'Barra Fixa',
+    'chin up': 'Barra Fixa Supinada',
+    'plank': 'Prancha Abdominal',
+    'crunch': 'Abdominal',
+    'bicep curl': 'Rosca Bíceps',
+    'cable bench press': 'Supino no Cabo',
+    'barbell pin press': 'Supino Parcial com Barra (Pin Press)',
+    'pin press': 'Supino Parcial (Pin Press)'
+  };
 
-  // Reconstrução inteligente básica para Gramática PT-BR (Nome vindo primeiro na maioria das vezes)
-  // Ex: "Dumbbell Standing Reverse Curl" -> "Rosca inversa com haltere em pé"
+  if (commonFullNames[lowerName]) return commonFullNames[lowerName];
+
+  // Se não for uma frase comum, traduzir por partes com inteligência de ordem
+  let parts = lowerName.split(' ');
   
-  let result = translatedParts.join(' ');
+  // Palavras que indicam o exercício principal e devem vir primeiro em PT-BR
+  const mainExercises = ['curl', 'press', 'squat', 'deadlift', 'row', 'pulldown', 'fly', 'raise', 'extension', 'kickback', 'dip', 'pushup', 'crunch', 'lunge', 'shrug', 'curls', 'presses'];
+  let mainWord = parts.find(p => mainExercises.includes(p));
+  let otherParts = parts.filter(p => p !== mainWord);
   
-  // Refinamentos específicos para ordens mais naturais
-  if (result.includes('rosca') && result.includes('com haltere')) {
-     result = result.replace('com haltere', '').trim() + ' com haltere';
+  let translatedMain = mainWord ? (enToPtExerciseNameMap[mainWord] || mainWord) : "";
+  let translatedOthers = otherParts.map(p => enToPtExerciseNameMap[p] || p);
+  
+  // Reordenar: [Exercício] + [Outras Partes]
+  let result = "";
+  if (translatedMain) {
+    result = translatedMain;
+    if (translatedOthers.length > 0) {
+      result += " " + translatedOthers.join(' ');
+    }
+  } else {
+    result = translatedOthers.join(' ');
   }
-  
+
+  // Refinamentos finais de gramática
+  result = result
+    .replace('supino/desenvolvimento cabo', 'Supino no cabo')
+    .replace('supino/desenvolvimento barra', 'Supino com barra')
+    .replace('supino/desenvolvimento banco', 'Supino no banco')
+    .replace('cabo banco', 'no cabo no banco')
+    .replace('barra parcial (pin)', 'Pin Press com barra')
+    .replace('rosca barra', 'Rosca com Barra')
+    .replace('rosca halteres', 'Rosca com Halteres')
+    .replace('supino barra', 'Supino com Barra')
+    .replace('supino halteres', 'Supino com Halteres')
+    .replace('agachamento barra', 'Agachamento com Barra')
+    .replace('remada barra', 'Remada com Barra')
+    .replace('remada halteres', 'Remada com Halteres')
+    .replace('unilateral unilateral', 'unilateral')
+    .replace('máquina máquina', 'na máquina')
+    .replace('cabo cabo', 'no cabo');
+
   return result.charAt(0).toUpperCase() + result.slice(1);
 };

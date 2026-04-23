@@ -19,9 +19,24 @@ router.get('/exercises/search', async (req, res) => {
 
     const response = await fetch(searchUrl);
     const data = await response.json();
-    res.json(data);
+    
+    // Ensure the response follows the format expected by the frontend
+    if (data && typeof data === 'object' && !Array.isArray(data) && 'success' in data) {
+      res.json(data);
+    } else {
+      // Format as the expected structure if the upstream API returns something else (like just an array)
+      res.json({
+        success: true,
+        data: Array.isArray(data) ? data : (data.data || []),
+        meta: data.meta || {
+          hasNextPage: false,
+          nextCursor: null
+        }
+      });
+    }
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("Exercise Search Error:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

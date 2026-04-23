@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, ArrowRight, LogIn, Camera, Loader2 } from 'lucide-react';
 import { signInWithGoogle, auth, db, storage } from '../firebase';

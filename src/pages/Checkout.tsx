@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../store/userStore';
 import { CheckCircle2, CreditCard, ShieldCheck, ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';

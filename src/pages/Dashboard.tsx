@@ -31,72 +31,115 @@ function ExerciseRow({
   key?: any;
 }) {
   const { updateExerciseWeight } = useUser();
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // Buscar GIF do exercício via proxy para evitar bloqueios de CORS/Referer
+  useEffect(() => {
+    const fetchGif = async () => {
+      try {
+        const searchTerm = ptToEnSearch(exercise.name);
+        const res = await fetch(`/api/exercises/search?limit=1&name=${encodeURIComponent(searchTerm)}`);
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          setImageUrl(data.data[0].gifUrl);
+        }
+      } catch (e) {
+        console.error("Erro ao buscar GIF:", e);
+      }
+    };
+    fetchGif();
+  }, [exercise.name]);
 
   return (
-    <div className="flex flex-col sm:flex-row gap-4 py-4 border-b border-white/5 last:border-0">
-      <div className="flex-1 flex flex-col justify-center">
-        <div className="flex items-center justify-between">
-          <p className="font-bold text-lg">{translateExerciseName(exercise.name)}</p>
-          <span className="text-xs text-gray-400 bg-white/5 px-3 py-1 rounded-md text-center">
-            {exercise.rest} rest
-          </span>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-4 mt-1">
-          <p className="text-gray-400 font-medium">{exercise.sets} séries x {exercise.reps}</p>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Carga:</span>
-            <input 
-              type="text" 
-              value={exercise.weight || ''} 
-              onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
-              placeholder="Ex: 20kg"
-              className="bg-white/5 border border-white/10 rounded-md px-2 py-1 text-sm text-white w-24 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all"
-            />
-          </div>
-        </div>
-
-        {/* Descrição Técnica no lugar da foto */}
-        {exercise.technicalDescription && (
-          <div className="mt-4 p-4 bg-purple-500/5 border border-purple-500/10 rounded-xl">
-            <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-              <Activity className="w-3 h-3" /> Execução Técnica
-            </p>
-            <p className="text-sm text-gray-300 leading-relaxed italic">
-              "{exercise.technicalDescription}"
-            </p>
-          </div>
-        )}
-
-        <div className="mt-3 grid sm:grid-cols-3 gap-2">
-          {exercise.tips && (
-            <div className="bg-white/5 p-2 rounded-lg border border-white/10">
-              <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">Dica</p>
-              <p className="text-xs text-gray-400">{exercise.tips}</p>
-            </div>
-          )}
-          {exercise.breathing && (
-            <div className="bg-white/5 p-2 rounded-lg border border-white/10">
-              <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Respiração</p>
-              <p className="text-xs text-gray-400">{exercise.breathing}</p>
-            </div>
-          )}
-          {exercise.cadence && (
-            <div className="bg-white/5 p-2 rounded-lg border border-white/10">
-              <p className="text-[10px] font-bold text-green-400 uppercase mb-1">Cadência</p>
-              <p className="text-xs text-gray-400">{exercise.cadence}</p>
-            </div>
-          )}
-        </div>
+    <div className="flex flex-col gap-4 py-6 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors px-2 rounded-xl">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <p className="font-bold text-xl text-white tracking-tight">{translateExerciseName(exercise.name)}</p>
+        <span className="text-xs font-bold text-gray-500 bg-zinc-900 border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest">
+          {exercise.rest} descanso
+        </span>
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-3">
-        <button 
-          onClick={() => onStartRest(restSeconds)}
-          className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20"
-        >
-          <Timer className="w-5 h-5" /> Iniciar Descanso
-        </button>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        {/* Lado Esquerdo: Info e Instruções */}
+        <div className="md:col-span-7 space-y-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg">
+              <p className="text-xs text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
+              <p className="text-lg font-black text-white">{exercise.sets} x {exercise.reps}</p>
+            </div>
+            
+            <div className="bg-white/5 border border-white/10 px-3 py-2 rounded-lg">
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter mb-0.5">Sua Carga</p>
+              <input 
+                type="text" 
+                value={exercise.weight || ''} 
+                onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
+                placeholder="Ex: 20kg"
+                className="bg-transparent border-none p-0 text-lg font-black text-white w-20 focus:ring-0 outline-none placeholder:text-gray-700"
+              />
+            </div>
+          </div>
+
+          {exercise.technicalDescription && (
+            <div className="p-4 bg-zinc-900/50 border border-white/5 rounded-2xl relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-purple-500 opacity-50" />
+              <p className="text-[10px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+                <Activity className="w-3 h-3" /> Execução Técnica
+              </p>
+              <p className="text-sm text-gray-400 leading-relaxed font-medium italic">
+                "{exercise.technicalDescription}"
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {exercise.tips && (
+              <div className="bg-zinc-900/40 p-3 rounded-xl border border-white/5 hover:border-purple-500/20 transition-colors">
+                <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5">Dica</p>
+                <p className="text-xs text-gray-500 leading-snug">{exercise.tips}</p>
+              </div>
+            )}
+            {exercise.breathing && (
+              <div className="bg-zinc-900/40 p-3 rounded-xl border border-white/5 hover:border-blue-500/20 transition-colors">
+                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1.5">Respiração</p>
+                <p className="text-xs text-gray-500 leading-snug">{exercise.breathing}</p>
+              </div>
+            )}
+            {exercise.cadence && (
+              <div className="bg-zinc-900/40 p-3 rounded-xl border border-white/5 hover:border-green-500/20 transition-colors">
+                <p className="text-[9px] font-black text-green-400 uppercase tracking-widest mb-1.5">Cadência</p>
+                <p className="text-xs text-gray-500 leading-snug">{exercise.cadence}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Lado Direito: GIF do Exercício */}
+        <div className="md:col-span-5 space-y-4">
+          <div className="aspect-video relative rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 group">
+            {imageUrl ? (
+              <img 
+                src={`/api/exercises/proxy-gif?url=${encodeURIComponent(imageUrl)}`} 
+                alt={exercise.name} 
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-700">
+                <Loader2 className="w-8 h-8 animate-spin opacity-20" />
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">Buscando GIF...</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+          </div>
+
+          <button 
+            onClick={() => onStartRest(restSeconds)}
+            className="w-full bg-white text-black hover:bg-purple-500 hover:text-white px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-black/20 group"
+          >
+            <Timer className="w-5 h-5 group-hover:rotate-12 transition-transform" /> Iniciar Descanso
+          </button>
+        </div>
       </div>
     </div>
   );

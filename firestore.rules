@@ -39,10 +39,6 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Default Deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
 
     // ==========================================
     // 2. ENTITY VALIDATION HELPERS
@@ -83,15 +79,20 @@ service cloud.firestore {
 
     // System Config
     match /system/config {
-      allow get: if true;
-      allow list: if true;
+      allow read: if true;
       allow write: if isAdmin();
+    }
+    
+    // Generic system documents read access (backup)
+    match /system/{docId} {
+      allow read: if docId == 'config';
     }
 
     // User Profiles
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin() || 
-                    (isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer');
+                    (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer');
       
       allow create: if isOwner(userId) && 
                       isValidUserProfile(incoming()) && 
@@ -127,7 +128,8 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         resource.data.userId == request.auth.uid || 
         isAdmin() ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer'
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer')
       );
       
       allow create: if isSignedIn() && 
@@ -159,6 +161,13 @@ service cloud.firestore {
         isAdmin()
       );
       allow create: if isOwner(incoming().fromId) && isValidMessage(incoming());
+    }
+  }
+  
+  // Default Deny (Bottom)
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

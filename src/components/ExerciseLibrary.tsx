@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Search, Loader2, Dumbbell, Info, X, ChevronRight, Activity } from 'lucide-react';
 
 interface ExerciseDBItem {
@@ -158,7 +158,7 @@ export const ExerciseLibrary = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
                 <div className="absolute bottom-3 left-3">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white bg-black px-2 py-1 rounded border border-white/20">
                     {translate(ex.bodyParts[0])}
                   </span>
                 </div>

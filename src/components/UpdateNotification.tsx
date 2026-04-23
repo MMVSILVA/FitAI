@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCw, X, Sparkles, Bell, Download } from 'lucide-react';
 // @ts-ignore - Virtual module handled by vite-plugin-pwa
 import { useRegisterSW } from 'virtual:pwa-register/react';
@@ -21,11 +21,13 @@ export function UpdateNotification() {
     },
   });
 
-  const {
-    offlineReady: [offlineReady, setOfflineReady] = [false, () => {}],
-    needUpdate: [needUpdate, setNeedUpdate] = [false, () => {}],
-    updateServiceWorker = (reload?: boolean) => Promise.resolve(),
-  } = swResult || {};
+  // Proteção robusta contra retornos inesperados do hook useRegisterSW
+  const offlineReadyState = swResult && swResult.offlineReady ? swResult.offlineReady : [false, () => {}];
+  const needUpdateState = swResult && swResult.needUpdate ? swResult.needUpdate : [false, () => {}];
+  
+  const [offlineReady, setOfflineReady] = offlineReadyState;
+  const [needUpdate, setNeedUpdate] = needUpdateState;
+  const updateServiceWorker = swResult && swResult.updateServiceWorker ? swResult.updateServiceWorker : (reload?: boolean) => Promise.resolve();
 
   // Solicitar permissão de notificação nativa ao montar
   useEffect(() => {
@@ -68,6 +70,8 @@ export function UpdateNotification() {
           setShow(true);
         }
       }
+    }, (error) => {
+      console.error("UpdateNotification snapshot error:", error);
     });
 
     return () => unsubscribe();
