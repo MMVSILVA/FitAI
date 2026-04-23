@@ -23,12 +23,16 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
 
     if (!priceId) return res.status(500).json({ error: "Preço não configurado" });
 
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.get("host");
+    const baseUrl = `${protocol}://${host}`;
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${req.protocol}://${req.get("host")}/dashboard?success=true`,
-      cancel_url: `${req.protocol}://${req.get("host")}/checkout?plan=${plan}&canceled=true`,
+      success_url: `${baseUrl}/dashboard?success=true`,
+      cancel_url: `${baseUrl}/checkout?plan=${plan}&canceled=true`,
       client_reference_id: userId,
       customer_email: email,
       metadata: { plan }

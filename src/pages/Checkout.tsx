@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../store/userStore';
-import { CheckCircle2, CreditCard, ShieldCheck, ArrowLeft, ExternalLink } from 'lucide-react';
+import { CheckCircle2, CreditCard, ShieldCheck, ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
@@ -10,6 +10,7 @@ export default function Checkout() {
   const navigate = useNavigate();
   const { user, upgradePlan } = useUser();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const priceMap = {
     'PRO': '39,90',
@@ -23,8 +24,13 @@ export default function Checkout() {
 
   const handlePayment = async () => {
     setLoading(true);
+    setError(null);
     
-    // Tentativa 1: Via API para maior controle (Webhook com userId)
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setError("O redirecionamento está demorando. Tente o link manual abaixo.");
+    }, 8000);
+
     try {
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
@@ -36,49 +42,28 @@ export default function Checkout() {
         }),
       });
 
+      clearTimeout(timer);
+
       if (response.ok) {
         const data = await response.json();
         if (data.url) {
           if (window.top !== window.self) {
             window.open(data.url, '_blank');
-            alert("O checkout seguro foi aberto em uma nova aba.");
           } else {
             window.location.href = data.url;
           }
           return;
         }
       }
-      
-      // Tentativa 2: Fallback para Links de Pagamento Diretos
-      console.log("Usando fallback para links diretos do Stripe...");
-      let directUrl = stripeLinkPro;
-      if (plan === 'PREMIUM') directUrl = stripeLinkPremium;
-      
-      // Tentar anexar o UID do usuário para o Webhook identificar no futuro
-      if (user?.uid) {
-        const separator = directUrl.includes('?') ? '&' : '?';
-        directUrl += `${separator}client_reference_id=${user.uid}`;
-        if (user.email) directUrl += `&prefilled_email=${encodeURIComponent(user.email)}`;
-      }
-
-      if (window.top !== window.self) {
-        window.open(directUrl, '_blank');
-        alert("O checkout seguro foi aberto em uma nova aba.");
-      } else {
-        window.location.href = directUrl;
-      }
-    } catch (error: any) {
-      console.error("Erro no pagamento:", error);
-      alert(`Ocorreu um problema, mas você será redirecionado para a página de pagamento seguro.`);
-      // Último suspiro: redirecionar direto
-      let finalUrl = stripeLinkPro;
-      if (plan === 'PREMIUM') finalUrl = stripeLinkPremium;
-      window.open(finalUrl, '_blank');
+      throw new Error("Erro ao criar sessão");
+    } catch (err) {
+      clearTimeout(timer);
+      console.error("Erro no pagamento:", err);
+      setError("Não conseguimos gerar o pagamento automático. Use o botão abaixo.");
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-black text-white p-6 flex flex-col items-center justify-center relative overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-purple-600/20 rounded-full blur-[120px] -z-10" />
@@ -137,21 +122,37 @@ export default function Checkout() {
             Você será redirecionado para o ambiente criptografado do Stripe para concluir sua assinatura de forma 100% segura.
           </p>
 
-          <button 
-            onClick={handlePayment}
-            disabled={loading}
-            className="w-full bg-green-500 text-black p-4 rounded-xl font-bold text-lg hover:bg-green-400 transition-colors flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                <CheckCircle2 className="w-6 h-6" />
-              </motion.div>
-            ) : (
-              <>
-                Ir para o Pagamento <ExternalLink className="w-5 h-5" />
-              </>
+          <div className="w-full space-y-4">
+            <button 
+              onClick={handlePayment}
+              disabled={loading}
+              className="w-full bg-green-500 text-black p-4 rounded-xl font-bold text-lg hover:bg-green-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                  <RefreshCw className="w-6 h-6" />
+                </motion.div>
+              ) : (
+                <>
+                  Ir para o Pagamento <ExternalLink className="w-5 h-5" />
+                </>
+              )}
+            </button>
+
+            {error && (
+              <div className="space-y-3">
+                <p className="text-red-400 text-sm">{error}</p>
+                <a 
+                  href={`${plan === 'PREMIUM' ? stripeLinkPremium : stripeLinkPro}${user?.uid ? (stripeLinkPro.includes('?') ? '&' : '?') + 'client_reference_id=' + user.uid : ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-white/10 text-white p-4 rounded-xl font-bold text-sm hover:bg-white/20 transition-colors"
+                >
+                  Ir para Pagamento Direto
+                </a>
+              </div>
             )}
-          </button>
+          </div>
           
           <div className="mt-8 flex items-center justify-center gap-4 opacity-50">
             {/* Logos de cartões genéricos */}
