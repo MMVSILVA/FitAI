@@ -3,7 +3,15 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // ==========================================
-    // 1. GLOBAL HELPERS & PROTECTIONS
+    // 1. PUBLIC SYSTEM RULES (MUST BE TOP FOR PRECEDENCE)
+    // ==========================================
+    match /system/config {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ==========================================
+    // 2. GLOBAL HELPERS & PROTECTIONS
     // ==========================================
     
     function isSignedIn() {
@@ -73,19 +81,29 @@ service cloud.firestore {
              data.text is string && data.text.size() <= 2000;
     }
 
+    function isValidExerciseProgress(data) {
+      return data.userId == request.auth.uid &&
+             data.exerciseName is string && data.exerciseName.size() <= 200 &&
+             data.weight is number &&
+             data.reps is number &&
+             data.date is string;
+    }
+
+    function isPremium() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.planType == 'PREMIUM';
+    }
+
     // ==========================================
-    // 3. COLLECTION RULES
+    // 4. COLLECTION RULES
     // ==========================================
 
-    // System Config
-    match /system/config {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    // Generic system documents read access (backup)
-    match /system/{docId} {
-      allow read: if docId == 'config';
+    // Exercise Progress (PREMIUM ONLY COMPARISON)
+    match /exercise_progress/{progressId} {
+      allow read: if (isOwner(resource.data.userId) && isPremium()) || isAdmin();
+      allow list: if (isOwner(resource.data.userId) && isPremium()) || isAdmin();
+      allow create: if isOwner(incoming().userId) && isValidExerciseProgress(incoming()) && isPremium();
+      allow delete: if (isOwner(resource.data.userId) && isPremium()) || isAdmin();
     }
 
     // User Profiles
@@ -95,26 +113,27 @@ service cloud.firestore {
                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer');
       
       allow create: if isOwner(userId) && 
-                      isValidUserProfile(incoming()) && 
                       incoming().role == 'user' && 
-                      incoming().planType == 'FREE';
+                      incoming().planType == 'FREE' &&
+                      incoming().email == request.auth.token.email;
       
-      allow update: if (isAdmin() && isValidUserProfile(incoming())) || (
+      allow update: if (isAdmin()) || (
         isOwner(userId) && 
-        isValidUserProfile(incoming()) &&
         // Protect sensitive fields from self-alteration
         incoming().role == existing().role &&
         incoming().planType == existing().planType &&
         incoming().email == existing().email &&
         incoming().uid == existing().uid &&
-        // Allow list of editable fields - STRIPPED for commercial security
+        // Protect identities
         incoming().diff(existing()).affectedKeys().hasOnly([
           'displayName', 'weight', 'height', 'objective', 'fitnessLevel', 
           'phone', 'photoURL', 'updatedAt', 
           'workoutPreferences', 'dietPreferences', 'gender', 'age', 'intensity',
-          'linkedTrainerId', 'trainerId'
+          'linkedTrainerId', 'trainerId', 'workout', 'plan', 'profile', 'progress'
         ])
       );
+      
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     // Trainers
@@ -162,10 +181,8 @@ service cloud.firestore {
       );
       allow create: if isOwner(incoming().fromId) && isValidMessage(incoming());
     }
-  }
-  
-  // Default Deny (Bottom)
-  match /databases/{database}/documents {
+
+    // Default Deny (Globally inside the main block)
     match /{document=**} {
       allow read, write: if false;
     }

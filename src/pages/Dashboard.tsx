@@ -6,13 +6,17 @@ import { UserRole, PlanType } from '../types';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, 
-  Download, Loader2, Heart, Sparkles 
+  Download, Loader2, Heart, Sparkles, Moon, Sun
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { APP_VERSION } from '../constants';
 import { Logo } from '../components/Logo';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
+import { ExerciseImage } from '../components/ExerciseImage';
+import { ProgressComparison } from '../components/ProgressComparison';
+import { Toast, ToastType } from '../components/Toast';
+
 
 import { translate, translateExerciseName, ptToEnSearch } from '../lib/exerciseTranslations';
 
@@ -30,25 +34,57 @@ function ExerciseRow({
   onStartRest: (s: number) => void;
   key?: any;
 }) {
-  const { updateExerciseWeight } = useUser();
+  const { updateExerciseWeight, addExerciseProgress, planType } = useUser();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLogging, setIsLogging] = useState(false);
+  const [logSuccess, setLogSuccess] = useState(false);
 
   // Buscar GIF do exercício via proxy para evitar bloqueios de CORS/Referer
   useEffect(() => {
     const fetchGif = async () => {
       try {
-        const searchTerm = ptToEnSearch(exercise.name);
+        // Prefer imageKeyword if available, otherwise use name
+        const searchTerm = ptToEnSearch(exercise.imageKeyword || exercise.name);
         const res = await fetch(`/api/exercises/search?limit=1&name=${encodeURIComponent(searchTerm)}`);
+        
+        if (!res.ok) {
+          throw new Error(`API Error: ${res.status}`);
+        }
+        
         const data = await res.json();
         if (data.success && data.data.length > 0) {
           setImageUrl(data.data[0].gifUrl);
+        } else if (data.success && exercise.imageKeyword && exercise.imageKeyword !== exercise.name) {
+          // Fallback to name if imageKeyword search failed
+          const fallbackSearch = ptToEnSearch(exercise.name);
+          const fallbackRes = await fetch(`/api/exercises/search?limit=1&name=${encodeURIComponent(fallbackSearch)}`);
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData.success && fallbackData.data.length > 0) {
+              setImageUrl(fallbackData.data[0].gifUrl);
+            }
+          }
         }
       } catch (e) {
         console.error("Erro ao buscar GIF:", e);
       }
     };
     fetchGif();
-  }, [exercise.name]);
+  }, [exercise.name, exercise.imageKeyword]);
+
+  const handleLogProgress = async () => {
+    if (!exercise.weight || isLogging) return;
+    
+    setIsLogging(true);
+    // Parse weight numeric value
+    const numericWeight = parseFloat(exercise.weight.replace(/[^\d.]/g, '')) || 0;
+    const numericReps = parseInt(exercise.reps.replace(/[^\d]/g, '')) || 0;
+    
+    await addExerciseProgress(exercise.name, numericWeight, numericReps);
+    setIsLogging(false);
+    setLogSuccess(true);
+    setTimeout(() => setLogSuccess(false), 3000);
+  };
 
   return (
     <div className="flex flex-col gap-4 py-6 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors px-2 rounded-xl">
@@ -68,15 +104,32 @@ function ExerciseRow({
               <p className="text-lg font-black text-white">{exercise.sets} x {exercise.reps}</p>
             </div>
             
-            <div className="bg-white/5 border border-white/10 px-3 py-2 rounded-lg">
-              <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter mb-0.5">Sua Carga</p>
-              <input 
-                type="text" 
-                value={exercise.weight || ''} 
-                onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
-                placeholder="Ex: 20kg"
-                className="bg-transparent border-none p-0 text-lg font-black text-white w-20 focus:ring-0 outline-none placeholder:text-gray-700"
-              />
+            <div className="bg-white/5 border border-white/10 px-3 py-2 rounded-lg flex items-center gap-3">
+              <div>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter mb-0.5">Sua Carga</p>
+                <input 
+                  type="text" 
+                  value={exercise.weight || ''} 
+                  onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
+                  placeholder="Ex: 20kg"
+                  className="bg-transparent border-none p-0 text-lg font-black text-white w-20 focus:ring-0 outline-none placeholder:text-gray-700"
+                />
+              </div>
+              
+              {planType === 'PREMIUM' && (
+                <button 
+                  onClick={handleLogProgress}
+                  disabled={!exercise.weight || isLogging}
+                  className={`p-2 rounded-lg transition-all ${
+                    logSuccess 
+                      ? 'bg-green-500/20 text-green-500' 
+                      : 'bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white'
+                  } disabled:opacity-30`}
+                  title="Salvar no Histórico de Progresso"
+                >
+                  {isLogging ? <Loader2 className="w-5 h-5 animate-spin" /> : <TrendingUp className="w-5 h-5" />}
+                </button>
+              )}
             </div>
           </div>
 
@@ -117,25 +170,17 @@ function ExerciseRow({
         {/* Lado Direito: GIF do Exercício */}
         <div className="md:col-span-5 space-y-4">
           <div className="aspect-video relative rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 group">
-            {imageUrl ? (
-              <img 
-                src={`/api/exercises/proxy-gif?url=${encodeURIComponent(imageUrl)}`} 
-                alt={exercise.name} 
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-700">
-                <Loader2 className="w-8 h-8 animate-spin opacity-20" />
-                <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">Buscando GIF...</span>
-              </div>
-            )}
+            <ExerciseImage 
+              src={imageUrl || ''} 
+              alt={exercise.name}
+              className="w-full h-full"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
           </div>
 
           <button 
             onClick={() => onStartRest(restSeconds)}
-            className="w-full bg-white text-black hover:bg-purple-500 hover:text-white px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-black/20 group"
+            className="w-full bg-white text-black dark:bg-white dark:text-black hover:bg-purple-500 hover:text-white px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-black/20 group"
           >
             <Timer className="w-5 h-5 group-hover:rotate-12 transition-transform" /> Iniciar Descanso
           </button>
@@ -148,7 +193,8 @@ function ExerciseRow({
 export default function Dashboard() {
   const { 
     user, profile, plan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin,
-    logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser 
+    logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser,
+    toggleTheme, theme 
   } = useUser();
   
   const isFree = planType === 'FREE';
@@ -165,6 +211,15 @@ export default function Dashboard() {
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [clientData, setClientData] = useState<any>(null);
   const [isEditingClientPlan, setIsEditingClientPlan] = useState(false);
+  const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: ToastType }>({
+    isVisible: false,
+    message: '',
+    type: 'success'
+  });
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToast({ isVisible: true, message, type });
+  };
 
   const navigate = useNavigate();
 
@@ -268,6 +323,7 @@ export default function Dashboard() {
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminFeedback, setAdminFeedback] = useState({ type: '', msg: '' });
   const [updateMsgInput, setUpdateMsgInput] = useState('Nova versão disponível com melhorias e correções!');
+  const [versionInput, setVersionInput] = useState(APP_VERSION);
 
   const handleAdminPlanChange = async (newPlan: PlanType) => {
     if (!isAdmin || !user) return;
@@ -307,7 +363,7 @@ export default function Dashboard() {
       const { doc, setDoc } = await import('firebase/firestore');
       const { db } = await import('../firebase');
       await setDoc(doc(db, 'system', 'config'), {
-        latestVersion: APP_VERSION,
+        latestVersion: versionInput || APP_VERSION,
         updateMessage: updateMsgInput,
         updatedAt: new Date().toISOString()
       }, { merge: true });
@@ -388,6 +444,7 @@ export default function Dashboard() {
     setTimeLeft(seconds);
     setTimerActive(true);
     setShowTimer(true);
+    showToast(`Descanso de ${seconds}s iniciado!`, 'info');
   };
 
   const formatTime = (seconds: number) => {
@@ -529,15 +586,28 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {deferredPrompt && (
               <button 
                 onClick={handleInstallClick} 
-                className="hidden sm:flex items-center gap-2 bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 px-4 py-2 rounded-full text-sm font-bold transition-colors"
+                className="hidden lg:flex items-center gap-2 bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-4 py-2 rounded-full text-sm font-bold transition-colors"
               >
                 <Download className="w-4 h-4" /> Instalar App
               </button>
             )}
+
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 bg-white/5 border border-white/5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all group"
+              title={theme === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5 group-hover:rotate-45 transition-transform" />
+              ) : (
+                <Moon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
+              )}
+            </button>
+
             {user?.photoURL ? (
               <img src={user.photoURL} alt={user.displayName || 'User'} className="w-10 h-10 rounded-full object-cover border border-white/20" />
             ) : (
@@ -545,8 +615,14 @@ export default function Dashboard() {
                 {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
               </div>
             )}
-            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/5">
-              <LogOut className="w-5 h-5" />
+
+            <button 
+              onClick={handleLogout} 
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all font-bold text-sm"
+              title="Sair da conta"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>
@@ -699,17 +775,109 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'evolution' && isFree && (
-             <div className="bg-zinc-950 border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
-                <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
-                  <Lock className="w-8 h-8 text-purple-500" />
+          {activeTab === 'evolution' && (
+            <div className="space-y-8">
+              {isFree && (
+                <div className="bg-zinc-950 border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
+                  <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
+                    <Lock className="w-8 h-8 text-purple-500" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-4">Evolução Bloqueada</h3>
+                  <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de acompanhamento de progresso.</p>
+                  <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
+                    Upgrade para PRO
+                  </Link>
                 </div>
-                <h3 className="text-2xl font-bold mb-4">Evolução Bloqueada</h3>
-                <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de acompanhamento de progresso.</p>
-                <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
-                  Upgrade para PRO
-                </Link>
-             </div>
+              )}
+              
+              {!isFree && (
+                <div className="space-y-8">
+                  <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+                    <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                       <TrendingUp className="w-5 h-5 text-purple-400" />
+                       Evolução Corporal (PRO)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                      <div className="bg-black border border-white/5 p-6 rounded-2xl">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Peso Atual</p>
+                        <p className="text-3xl font-black">{profile.weight} kg</p>
+                      </div>
+                      <div className="bg-black border border-white/5 p-6 rounded-2xl">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">IMC</p>
+                        <p className="text-3xl font-black">{imcData?.value}</p>
+                        <p className="text-[10px] font-bold text-purple-500 uppercase mt-1">{imcData?.category}</p>
+                      </div>
+                      <div className="bg-black border border-white/5 p-6 rounded-2xl">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Objetivo</p>
+                        <p className="text-lg font-bold leading-tight">{Array.isArray(profile.objective) ? profile.objective[0] : profile.objective}</p>
+                      </div>
+                      <div className="bg-black border border-white/5 p-6 rounded-2xl">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Status</p>
+                        <div className="flex items-center gap-2 text-green-500">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <p className="text-lg font-bold">Em dia</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                          <XAxis dataKey="name" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }}
+                            itemStyle={{ color: '#a855f7' }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="peso" 
+                            stroke="#a855f7" 
+                            strokeWidth={4} 
+                            dot={{ r: 6, fill: '#a855f7', strokeWidth: 0 }} 
+                            activeDot={{ r: 8, strokeWidth: 0 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* NOVO: Comparativo de Cargas (PREMIUM) */}
+                  <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+                    <ProgressComparison />
+                  </div>
+
+                  {/* LGPD Data Management (Right to be forgotten) */}
+                  <div className="bg-red-900/10 border border-red-500/20 rounded-3xl p-8 mt-8">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 rounded-xl bg-red-600/20 flex items-center justify-center border border-red-500/30">
+                        <Lock className="w-6 h-6 text-red-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white">Privacidade e LGPD</h3>
+                        <p className="text-sm text-gray-500">Gerencie seus dados pessoais</p>
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+                      Em conformidade com a LGPD, você tem o direito de apagar todos os seus dados pessoais, histórico de treinos e biometria de nossos servidores a qualquer momento.
+                    </p>
+                    
+                    <button 
+                      onClick={resetAccount}
+                      className="w-full bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/20 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
+                    >
+                      <X className="w-5 h-5" />
+                      Apagar Minha Conta e Dados
+                    </button>
+                    <p className="text-[10px] text-gray-600 mt-4 text-center italic">
+                      Ação irreversível. Todos os seus dados serão anonimizados e excluídos permanentemente.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {activeTab === 'routine' && isFree && (
@@ -1482,8 +1650,9 @@ export default function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-white/10 py-8 px-6 flex flex-col items-center gap-4 text-gray-500 text-sm">
+      <footer className="mt-12 border-t border-white/10 py-8 px-6 flex flex-col items-center gap-2 text-gray-500 text-xs">
         <p>© 2026 FitAI. Desenvolvido por NVM Project Management</p>
+        <p className="font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5 uppercase tracking-widest text-[9px]">Versão {APP_VERSION}</p>
       </footer>
 
       {/* Admin Panel Modal */}
@@ -1564,6 +1733,21 @@ export default function Dashboard() {
                 {/* Push Update */}
                 <section>
                   <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Notificar Atualização (Sistema)</label>
+                  
+                  <div className="flex gap-3 mb-4">
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Versão da Atualização</p>
+                      <input
+                        type="text"
+                        value={versionInput}
+                        onChange={(e) => setVersionInput(e.target.value)}
+                        placeholder="Ex: 1.0.2"
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-red-500 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Mensagem (opcional)</p>
                   <textarea
                     value={updateMsgInput}
                     onChange={(e) => setUpdateMsgInput(e.target.value)}
@@ -1592,6 +1776,13 @@ export default function Dashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      <Toast 
+        isVisible={toast.isVisible} 
+        message={toast.message} 
+        type={toast.type} 
+        onClose={() => setToast(prev => ({ ...prev, isVisible: false }))} 
+      />
     </div>
   );
 }

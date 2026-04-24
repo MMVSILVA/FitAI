@@ -24,6 +24,8 @@ export interface UserProfile {
   trainerId?: string;
   nutritionistId?: string;
   isPremium: boolean;
+  favorites?: string[];
+  theme?: 'light' | 'dark';
   trialEndsAt?: string;
   subscriptionEndsAt?: string;
   createdAt: string;
@@ -86,6 +88,15 @@ export interface ProgressEntry {
   weight: number;
   bodyFat?: number;
   photos: string[];
+  date: string;
+}
+
+export interface ExerciseProgress {
+  id: string;
+  userId: string;
+  exerciseName: string;
+  weight: number;
+  reps: number;
   date: string;
 }
 

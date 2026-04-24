@@ -55,6 +55,19 @@
         "date": { "type": "string", "format": "date-time" }
       }
     },
+    "ExerciseProgress": {
+      "title": "ExerciseProgress",
+      "description": "Historical performance data for specific exercises",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "exerciseName": { "type": "string" },
+        "weight": { "type": "number" },
+        "reps": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "exerciseName", "weight", "date"]
+    },
     "Message": {
       "title": "Message",
       "description": "Chat message data",
@@ -97,6 +110,10 @@
     "/progress/{progressId}": {
       "schema": { "$ref": "Progress" },
       "description": "Historical progress data"
+    },
+    "/exercise_progress/{progressId}": {
+      "schema": { "$ref": "ExerciseProgress" },
+      "description": "Historical exercise performance data"
     },
     "/messages/{messageId}": {
       "schema": { "$ref": "Message" },

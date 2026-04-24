@@ -36,12 +36,20 @@ export function UpdateNotification() {
     }
   }, []);
 
+  // Lógica de ATUALIZAÇÃO (Solicita autorização)
+  useEffect(() => {
+    if (needUpdate || firestoreUpdate) {
+      console.log("UpdateNotification: Atualização detectada, aguardando autorização do usuário.");
+    }
+  }, [needUpdate, firestoreUpdate]);
+
   // Disparar notificação nativa automática no celular quando houver atualização
   useEffect(() => {
     if ((needUpdate || firestoreUpdate) && 'Notification' in window && Notification.permission === 'granted') {
       try {
-        const n = new Notification('FitAI - Nova Atualização!', {
-          body: 'Uma nova versão do app está pronta. Toque para atualizar agora.',
+        const newVersion = firestoreUpdate?.version || 'Nova versão';
+        const n = new Notification(`FitAI v${newVersion} Disponível!`, {
+          body: `Uma nova atualização (${newVersion}) está pronta para ser instalada. Toque para atualizar o seu FitAI agora.`,
           icon: '/favicon.svg',
           tag: 'fitai-update', // Evita duplicatas
           // @ts-ignore
@@ -59,20 +67,31 @@ export function UpdateNotification() {
   }, [needUpdate, firestoreUpdate]);
   // Listener do Firestore (Backup para atualizações forçadas via DB)
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'system', 'config'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.latestVersion && data.latestVersion !== APP_VERSION) {
-          setFirestoreUpdate({
-            version: data.latestVersion,
-            message: data.updateMessage || 'Uma nova versão do FitAI está disponível com melhorias e correções.'
-          });
-          setShow(true);
+    let unsubscribe: () => void = () => {};
+    
+    try {
+      unsubscribe = onSnapshot(doc(db, 'system', 'config'), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.latestVersion && data.latestVersion !== APP_VERSION) {
+            setFirestoreUpdate({
+              version: data.latestVersion,
+              message: data.updateMessage || 'Uma nova versão do FitAI está disponível com melhorias e correções.'
+            });
+            setShow(true);
+          }
         }
-      }
-    }, (error) => {
-      console.error("UpdateNotification snapshot error:", error);
-    });
+      }, (error: any) => {
+        // Silenciar erro de permissão se as regras ainda estiverem propagando
+        if (error.code === 'permission-denied') {
+          console.warn("UpdateNotification: Acesso ao sistema ainda não disponível (regras propagando ou vácuo de permissão).");
+        } else {
+          console.error("UpdateNotification snapshot error:", error);
+        }
+      });
+    } catch (e) {
+      console.warn("UpdateNotification: Falha ao iniciar listener do Firestore:", e);
+    }
 
     return () => unsubscribe();
   }, []);

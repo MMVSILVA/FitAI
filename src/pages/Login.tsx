@@ -8,6 +8,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useUser } from '../store/userStore';
 import { Logo } from '../components/Logo';
+import { LegalConsent } from '../components/LegalConsent';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -22,6 +23,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showLegal, setShowLegal] = useState(false);
+  const [pendingAuthAction, setPendingAuthAction] = useState<(() => void) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,6 +54,19 @@ export default function Login() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // LGPD Consent Gate
+    const hasAgreed = localStorage.getItem('fitai_lgpd_consent') === 'true';
+    if (!hasAgreed) {
+      setPendingAuthAction(() => () => proceedWithAuth());
+      setShowLegal(true);
+      return;
+    }
+
+    proceedWithAuth();
+  };
+
+  const proceedWithAuth = async () => {
     setError('');
     setLoading(true);
     try {
@@ -109,6 +125,18 @@ export default function Login() {
   };
 
   const handleGoogleLogin = async () => {
+    // LGPD Consent Gate
+    const hasAgreed = localStorage.getItem('fitai_lgpd_consent') === 'true';
+    if (!hasAgreed) {
+      setPendingAuthAction(() => () => proceedWithGoogle());
+      setShowLegal(true);
+      return;
+    }
+    
+    proceedWithGoogle();
+  };
+
+  const proceedWithGoogle = async () => {
     setError('');
     try {
       await signInWithGoogle();
@@ -129,11 +157,37 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <LegalConsent 
+        isOpen={showLegal} 
+        onClose={() => setShowLegal(false)}
+        onAccept={() => {
+          localStorage.setItem('fitai_lgpd_consent', 'true');
+          setShowLegal(false);
+          if (pendingAuthAction) {
+            pendingAuthAction();
+            setPendingAuthAction(null);
+          }
+        }}
+      />
       {(authLoading || isRedirecting) && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
-            <p className="text-purple-400 font-medium animate-pulse text-lg">Validando acesso...</p>
+        <motion.div 
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black backdrop-blur-md"
+        >
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full"
+              />
+              <Logo className="w-8 h-8 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-bold text-white mb-1">Entrando...</p>
+              <p className="text-gray-400 text-sm">Preparando seu treino personalizado</p>
+            </div>
             {user && (
               <button 
                 onClick={() => {
@@ -142,13 +196,13 @@ export default function Login() {
                                      (!profile || !plan) ? '/onboarding' : '/dashboard';
                   navigate(targetPath);
                 }}
-                className="mt-4 bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-purple-600/20"
+                className="mt-4 bg-white text-black px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 transition-transform"
               >
-                Entrar Agora
+                Prosseguir
               </button>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[100px] -z-10" />
 

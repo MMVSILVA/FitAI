@@ -17,11 +17,15 @@ interface UserState {
   linkedTrainerId?: string;
   linkedNutritionistId?: string;
   isAdmin: boolean;
+  favorites: string[];
+  theme: 'light' | 'dark';
   setProfile: (profile: Partial<UserProfile>) => void;
   setPlan: (plan: WorkoutPlan) => void;
   upgradePlan: (plan: PlanType) => void;
   startTrial: () => void;
   updateExerciseWeight: (dayIndex: number, exerciseIndex: number, weight: string) => void;
+  toggleFavorite: (exerciseId: string) => void;
+  toggleTheme: () => void;
   updatePlanForUser: (targetUid: string, newPlan: WorkoutPlan) => Promise<void>;
   linkClient: (email: string) => Promise<{ success: boolean; message: string }>;
   linkNutritionist: (email: string) => Promise<{ success: boolean; message: string }>;
@@ -30,6 +34,8 @@ interface UserState {
   logout: () => void;
   calculateIMC: () => { value: string; category: string } | null;
   resetAccount: () => Promise<void>;
+  addExerciseProgress: (exerciseName: string, weight: number, reps: number) => Promise<void>;
+  getExerciseProgress: (exerciseName: string) => Promise<import('../types').ExerciseProgress[]>;
 }
 
 const UserContext = createContext<UserState | undefined>(undefined);
@@ -53,6 +59,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [clients, setClients] = useState<string[]>([]);
   const [linkedTrainerId, setLinkedTrainerId] = useState<string | undefined>();
   const [linkedNutritionistId, setLinkedNutritionistId] = useState<string | undefined>();
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [theme, setThemeState] = useState<'light' | 'dark'>('dark');
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
 
@@ -78,72 +86,50 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (currentUser || auth.currentUser) {
         const loggedUser = currentUser || auth.currentUser;
+
+        // Optimistic Load from Cache
+        const cachedProfile = localStorage.getItem(`fitai_profile_${loggedUser.uid}`);
+        const cachedPlan = localStorage.getItem(`fitai_plan_${loggedUser.uid}`);
+        let hasCache = false;
+        if (cachedProfile) {
+          setProfileState(JSON.parse(cachedProfile));
+          hasCache = true;
+        }
+        if (cachedPlan) {
+          setPlanState(JSON.parse(cachedPlan));
+          hasCache = true;
+        }
+
         const isAdmin = loggedUser?.email ? ADMIN_EMAILS.includes(loggedUser.email) : false;
         const docRef = doc(db, 'users', loggedUser!.uid);
         
-        // Initial migration check
-        try {
-          // Validate Connection to Firestore (Test on their own ref)
-          try {
-            await getDocFromServer(docRef);
-          } catch (connError: any) {
-            if (connError.message?.includes('the client is offline') || connError.code === 'unavailable') {
-              console.warn("Firestore está offline ou o banco '(default)' não foi criado: ", connError.message);
-            }
-          }
+        let snapshotReceived = false;
 
-          const docSnap = await getDoc(docRef);
-          let firestoreData = docSnap.exists() ? docSnap.data() : null;
-          
-          if (!docSnap.exists()) {
-            // New user initialization
-            const initialData = {
-              uid: currentUser.uid,
-              email: currentUser.email,
-              role: 'user',
-              planType: isAdmin ? 'PREMIUM' : 'FREE',
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(docRef, initialData);
-          }
-
-          if (!firestoreData?.profile && !isAdmin) {
-            const localProfile = localStorage.getItem('fitai_profile');
-            const localPlan = localStorage.getItem('fitai_plan');
-            const localPlanType = localStorage.getItem('fitai_plan_type');
-            const localTrialEnds = localStorage.getItem('fitai_trial_ends');
-            
-            if (localProfile && localPlan) {
-              const migrationData = {
-                profile: JSON.parse(localProfile),
-                plan: JSON.parse(localPlan),
-                planType: isAdmin ? 'PREMIUM' : (localPlanType || 'FREE'),
-                trialEndsAt: localTrialEnds || null
-              };
-              
-              await setDoc(docRef, migrationData, { merge: true });
-              
-              localStorage.removeItem('fitai_profile');
-              localStorage.removeItem('fitai_plan');
-              localStorage.removeItem('fitai_plan_type');
-              localStorage.removeItem('fitai_trial_ends');
-            }
-          }
-        } catch (error) {
-          console.error("Error during migration check:", error);
-        }
-
-        // Listen for real-time updates (important for Stripe webhooks)
+        // Setup snapshot listener immediately (non-blocking)
         import('firebase/firestore').then(({ onSnapshot }) => {
           unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
+            const isFirstLoad = !snapshotReceived;
+            snapshotReceived = true;
+
             if (docSnap.exists()) {
               const data = docSnap.data();
-              if (data.profile) setProfileState(data.profile);
-              if (data.plan) setPlanState(data.plan);
+              if (data.profile) {
+                setProfileState(data.profile);
+                localStorage.setItem(`fitai_profile_${loggedUser.uid}`, JSON.stringify(data.profile));
+              }
+              if (data.plan) {
+                setPlanState(data.plan);
+                localStorage.setItem(`fitai_plan_${loggedUser.uid}`, JSON.stringify(data.plan));
+              }
               if (data.role) setRoleState(data.role as UserRole);
               if (data.clients) setClients(data.clients);
               if (data.linkedTrainerId) setLinkedTrainerId(data.linkedTrainerId);
               if (data.linkedNutritionistId) setLinkedNutritionistId(data.linkedNutritionistId);
+              if (data.favorites) setFavorites(data.favorites);
+              if (data.theme) {
+                setThemeState(data.theme);
+                document.documentElement.classList.toggle('dark', data.theme === 'dark');
+              }
               
               if (data.planType) {
                 setPlanType(data.planType as PlanType);
@@ -154,17 +140,62 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
               if (data.trialEndsAt) setTrialEndsAt(data.trialEndsAt);
               if (data.subscriptionEndsAt) setSubscriptionEndsAt(data.subscriptionEndsAt);
-            } else {
-              setProfileState(null);
-              setPlanState(null);
-              setRoleState('user');
-              setPlanType(isAdmin ? 'PREMIUM' : 'FREE');
-              setTrialEndsAt(null);
+            }
+
+            // If it's the first time we get data from server, ensure loader is gone
+            if (isFirstLoad) {
+              setAuthLoading(false);
             }
           }, (error) => {
             console.error("Firestore snapshot error:", error);
+            setAuthLoading(false); // Safety fallback
           });
         });
+
+        // If we have cache, we don't need to wait for snapshot to show the app
+        if (hasCache) {
+          setAuthLoading(false);
+        } else {
+          // Safety timeout: if no cache and no snapshot in 1.5s, just show onboarding
+          setTimeout(() => {
+            if (!snapshotReceived) {
+              setAuthLoading(false);
+            }
+          }, 1500);
+        }
+
+        // Run heavy migration/init stuff in the background
+        (async () => {
+          try {
+            const docSnap = await getDoc(docRef);
+            if (!docSnap.exists()) {
+              const initialData = {
+                uid: loggedUser.uid,
+                email: loggedUser.email,
+                role: 'user',
+                planType: isAdmin ? 'PREMIUM' : 'FREE',
+                createdAt: new Date().toISOString()
+              };
+              await setDoc(docRef, initialData);
+            } else if (!docSnap.data()?.profile && !isAdmin) {
+              // Migration check
+              const localProfile = localStorage.getItem('fitai_profile');
+              const localPlan = localStorage.getItem('fitai_plan');
+              if (localProfile && localPlan) {
+                const migrationData = {
+                  profile: JSON.parse(localProfile),
+                  plan: JSON.parse(localPlan),
+                  planType: isAdmin ? 'PREMIUM' : (localStorage.getItem('fitai_plan_type') || 'FREE'),
+                  trialEndsAt: localStorage.getItem('fitai_trial_ends') || null
+                };
+                await setDoc(docRef, migrationData, { merge: true });
+                ['fitai_profile', 'fitai_plan', 'fitai_plan_type', 'fitai_trial_ends'].forEach(k => localStorage.removeItem(k));
+              }
+            }
+          } catch (error) {
+            console.error("Background initialization error:", error);
+          }
+        })();
 
       } else {
         if (unsubscribeSnapshot) {
@@ -179,8 +210,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setClients([]);
         setLinkedTrainerId(undefined);
         setLinkedNutritionistId(undefined);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
 
     return () => {
@@ -202,6 +233,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setProfile = (newProfile: Partial<UserProfile>) => {
     setProfileState(prev => prev ? { ...prev, ...newProfile } : newProfile as UserProfile);
     saveToFirestore({ profile: newProfile });
+    
+    if (newProfile.theme) {
+      setThemeState(newProfile.theme);
+      document.documentElement.classList.toggle('dark', newProfile.theme === 'dark');
+    }
   };
 
   const setPlan = (newPlan: WorkoutPlan) => {
@@ -220,6 +256,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const dateString = endDate.toISOString();
     setTrialEndsAt(dateString);
     saveToFirestore({ trialEndsAt: dateString });
+  };
+
+  const toggleFavorite = (exerciseId: string) => {
+    const newFavorites = favorites.includes(exerciseId)
+      ? favorites.filter(id => id !== exerciseId)
+      : [...favorites, exerciseId];
+    
+    setFavorites(newFavorites);
+    setProfile({ favorites: newFavorites });
+  };
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setThemeState(newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    setProfile({ theme: newTheme });
   };
 
   const updateExerciseWeight = (dayIndex: number, exerciseIndex: number, weight: string) => {
@@ -347,26 +399,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetAccount = async () => {
     if (!user) return;
+    if (!window.confirm("LGPD - DIREITO AO ESQUECIMENTO: Tem certeza que deseja APAGAR permanentemente todos os seus dados? Esta ação não pode ser desfeita.")) return;
+    
     try {
+      const { deleteDoc, doc } = await import('firebase/firestore');
       const docRef = doc(db, 'users', user.uid);
-      await setDoc(docRef, {
-        profile: null,
-        plan: null,
-        planType: 'FREE',
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await deleteDoc(docRef);
       
-      setProfileState(null);
-      setPlanState(null);
-      setPlanType('FREE');
-      setTrialEndsAt(null);
+      // Clear cache
+      localStorage.removeItem(`fitai_profile_${user.uid}`);
+      localStorage.removeItem(`fitai_plan_${user.uid}`);
+      ['fitai_profile', 'fitai_plan', 'fitai_plan_type', 'fitai_trial_ends', 'fitai_lgpd_consent'].forEach(k => localStorage.removeItem(k));
       
-      localStorage.removeItem('fitai_profile');
-      localStorage.removeItem('fitai_plan');
-      localStorage.removeItem('fitai_plan_type');
-      localStorage.removeItem('fitai_trial_ends');
+      await auth.signOut();
     } catch (error) {
-      console.error("Error resetting account:", error);
+      console.error("Error deleting account data:", error);
+      alert("Erro ao apagar dados. Tente novamente.");
     }
   };
 
@@ -381,11 +429,50 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLinkedNutritionistId(undefined);
   };
 
+  const addExerciseProgress = async (exerciseName: string, weight: number, reps: number) => {
+    if (!user) return;
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      const progressRef = collection(db, 'exercise_progress');
+      await addDoc(progressRef, {
+        userId: user.uid,
+        exerciseName,
+        weight,
+        reps,
+        date: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error adding exercise progress:", error);
+    }
+  };
+
+  const getExerciseProgress = async (exerciseName: string) => {
+    if (!user) return [];
+    try {
+      const { collection, query, where, getDocs, orderBy } = await import('firebase/firestore');
+      const progressRef = collection(db, 'exercise_progress');
+      const q = query(
+        progressRef, 
+        where('userId', '==', user.uid),
+        where('exerciseName', '==', exerciseName),
+        orderBy('date', 'asc')
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as import('../types').ExerciseProgress));
+    } catch (error) {
+      console.error("Error getting exercise progress:", error);
+      return [];
+    }
+  };
+
   return (
     <UserContext.Provider value={{ 
       user, authLoading, profile, plan, planType, trialEndsAt, subscriptionEndsAt, role, clients, linkedTrainerId, linkedNutritionistId, isAdmin,
+      favorites, theme,
       setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, updatePlanForUser, 
-      linkClient, linkNutritionist, setRole, setRoleForUser, logout, calculateIMC, resetAccount 
+      toggleFavorite, toggleTheme,
+      linkClient, linkNutritionist, setRole, setRoleForUser, logout, calculateIMC, resetAccount,
+      addExerciseProgress, getExerciseProgress
     }}>
       {children}
     </UserContext.Provider>

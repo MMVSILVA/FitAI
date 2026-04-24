@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, Brain, Dumbbell, Apple, Zap, CheckCircle2, Download, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Logo } from '../components/Logo';
+import { APP_VERSION } from '../constants';
 
 export default function Landing() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -218,6 +219,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="border-t border-white/10 py-12 px-6 text-center text-gray-500">
         <p>© 2026 FitAI. Todos os direitos reservados. <br className="sm:hidden" /><span className="hidden sm:inline"> | </span>Desenvolvido por NVM Project Management</p>
+        <p className="mt-4 text-[9px] uppercase tracking-[0.2em] font-black opacity-30">Versão {APP_VERSION}</p>
       </footer>
     </div>
   );

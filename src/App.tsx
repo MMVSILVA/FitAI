@@ -14,6 +14,7 @@ import TrainerDashboard from './pages/TrainerDashboard';
 import Checkout from './pages/Checkout';
 import { UpdateNotification } from './components/UpdateNotification';
 import { IOSInstallPrompt } from './components/IOSInstallPrompt';
+import { CookieConsent } from './components/CookieConsent';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
       <UserProvider>
         <UpdateNotification />
         <IOSInstallPrompt />
+        <CookieConsent />
         <Router>
           <Routes>
             <Route path="/" element={<Landing />} />

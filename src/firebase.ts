@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, browserPopupRedirectResolver } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -26,7 +26,9 @@ const getDatabaseId = () => {
 
 const app = initializeApp(config);
 export const auth = getAuth(app);
-export const db = getFirestore(app, getDatabaseId());
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true, // Common fix for 429/connection issues in sandboxed environments
+}, getDatabaseId());
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
