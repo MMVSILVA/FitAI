@@ -61,7 +61,8 @@ export const ExerciseLibrary = () => {
     try {
       const currentCursor = isNewSearch ? '' : cursor || '';
       const apiSearchTerm = ptToEnSearch(searchTermOverride !== undefined ? searchTermOverride : search);
-      const url = `/api/exercises/search?limit=20&name=${encodeURIComponent(apiSearchTerm)}&cursor=${currentCursor}`;
+      const origin = window.location.origin;
+      const url = `${origin}/api/exercises/search?limit=20&name=${encodeURIComponent(apiSearchTerm)}&cursor=${currentCursor}`;
       const res = await fetch(url);
       
       if (!res.ok) {

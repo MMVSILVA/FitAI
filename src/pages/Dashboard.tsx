@@ -43,9 +43,10 @@ function ExerciseRow({
   useEffect(() => {
     const fetchGif = async () => {
       try {
+        const origin = window.location.origin;
         // Prefer imageKeyword if available, otherwise use name
         const searchTerm = ptToEnSearch(exercise.imageKeyword || exercise.name);
-        const res = await fetch(`/api/exercises/search?limit=1&name=${encodeURIComponent(searchTerm)}`);
+        const res = await fetch(`${origin}/api/exercises/search?limit=1&name=${encodeURIComponent(searchTerm)}`);
         
         if (!res.ok) {
           throw new Error(`API Error: ${res.status}`);
@@ -57,7 +58,7 @@ function ExerciseRow({
         } else if (data.success && exercise.imageKeyword && exercise.imageKeyword !== exercise.name) {
           // Fallback to name if imageKeyword search failed
           const fallbackSearch = ptToEnSearch(exercise.name);
-          const fallbackRes = await fetch(`/api/exercises/search?limit=1&name=${encodeURIComponent(fallbackSearch)}`);
+          const fallbackRes = await fetch(`${origin}/api/exercises/search?limit=1&name=${encodeURIComponent(fallbackSearch)}`);
           if (fallbackRes.ok) {
             const fallbackData = await fallbackRes.json();
             if (fallbackData.success && fallbackData.data.length > 0) {
@@ -87,10 +88,10 @@ function ExerciseRow({
   };
 
   return (
-    <div className="flex flex-col gap-4 py-6 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors px-2 rounded-xl">
+    <div className="flex flex-col gap-4 py-6 border-b border-gray-200 dark:border-white/5 last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors px-2 rounded-xl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <p className="font-bold text-xl text-white tracking-tight">{translateExerciseName(exercise.name)}</p>
-        <span className="text-xs font-bold text-gray-500 bg-zinc-900 border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest">
+        <p className="font-bold text-xl text-black dark:text-white tracking-tight">{translateExerciseName(exercise.name)}</p>
+        <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-white/10 px-3 py-1 rounded-full uppercase tracking-widest">
           {exercise.rest} descanso
         </span>
       </div>
@@ -100,11 +101,11 @@ function ExerciseRow({
         <div className="md:col-span-7 space-y-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg">
-              <p className="text-xs text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
-              <p className="text-lg font-black text-white">{exercise.sets} x {exercise.reps}</p>
+              <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
+              <p className="text-lg font-black text-black dark:text-white">{exercise.sets} x {exercise.reps}</p>
             </div>
             
-            <div className="bg-white/5 border border-white/10 px-3 py-2 rounded-lg flex items-center gap-3">
+            <div className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-3 py-2 rounded-lg flex items-center gap-3">
               <div>
                 <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter mb-0.5">Sua Carga</p>
                 <input 
@@ -112,7 +113,7 @@ function ExerciseRow({
                   value={exercise.weight || ''} 
                   onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
                   placeholder="Ex: 20kg"
-                  className="bg-transparent border-none p-0 text-lg font-black text-white w-20 focus:ring-0 outline-none placeholder:text-gray-700"
+                  className="bg-transparent border-none p-0 text-lg font-black text-black dark:text-white w-20 focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700"
                 />
               </div>
               
@@ -134,12 +135,12 @@ function ExerciseRow({
           </div>
 
           {exercise.technicalDescription && (
-            <div className="p-4 bg-zinc-900/50 border border-white/5 rounded-2xl relative overflow-hidden group">
+            <div className="p-4 bg-gray-100 dark:bg-zinc-900/50 border border-gray-200 dark:border-white/5 rounded-2xl relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-purple-500 opacity-50" />
-              <p className="text-[10px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+              <p className="text-[10px] font-black text-purple-600 dark:text-purple-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
                 <Activity className="w-3 h-3" /> Execução Técnica
               </p>
-              <p className="text-sm text-gray-400 leading-relaxed font-medium italic">
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed font-medium italic">
                 "{exercise.technicalDescription}"
               </p>
             </div>
@@ -147,20 +148,20 @@ function ExerciseRow({
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {exercise.tips && (
-              <div className="bg-zinc-900/40 p-3 rounded-xl border border-white/5 hover:border-purple-500/20 transition-colors">
-                <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5">Dica</p>
+              <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-purple-500/20 transition-colors">
+                <p className="text-[9px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1.5">Dica</p>
                 <p className="text-xs text-gray-500 leading-snug">{exercise.tips}</p>
               </div>
             )}
             {exercise.breathing && (
-              <div className="bg-zinc-900/40 p-3 rounded-xl border border-white/5 hover:border-blue-500/20 transition-colors">
-                <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1.5">Respiração</p>
+              <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-blue-500/20 transition-colors">
+                <p className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5">Respiração</p>
                 <p className="text-xs text-gray-500 leading-snug">{exercise.breathing}</p>
               </div>
             )}
             {exercise.cadence && (
-              <div className="bg-zinc-900/40 p-3 rounded-xl border border-white/5 hover:border-green-500/20 transition-colors">
-                <p className="text-[9px] font-black text-green-400 uppercase tracking-widest mb-1.5">Cadência</p>
+              <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-green-500/20 transition-colors">
+                <p className="text-[9px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest mb-1.5">Cadência</p>
                 <p className="text-xs text-gray-500 leading-snug">{exercise.cadence}</p>
               </div>
             )}
@@ -538,7 +539,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-purple-500/30 pb-20">
+    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-purple-500/30 pb-20">
       <AnimatePresence>
         {user?.email === 'nangelicaalcantara@gmail.com' && (
           <motion.div 
@@ -563,17 +564,17 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10">
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Logo className="w-12 h-12 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
             <div>
-              <h1 className="text-2xl font-black tracking-tight">
+              <h1 className="text-2xl font-black tracking-tight text-black dark:text-white">
                 <span className="text-[#39ff14] drop-shadow-[0_0_8px_rgba(57,255,20,0.6)]">Fit</span>
                 <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
               </h1>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-purple-400 font-medium tracking-wider uppercase">Plano {isAdmin ? 'ADMIN' : planType}</p>
+                <p className="text-xs text-purple-600 dark:text-purple-400 font-medium tracking-wider uppercase">Plano {isAdmin ? 'ADMIN' : planType}</p>
                 {isAdmin && (
                   <button 
                     onClick={() => setShowAdminModal(true)}
@@ -590,7 +591,7 @@ export default function Dashboard() {
             {deferredPrompt && (
               <button 
                 onClick={handleInstallClick} 
-                className="hidden lg:flex items-center gap-2 bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-4 py-2 rounded-full text-sm font-bold transition-colors"
+                className="hidden lg:flex items-center gap-2 bg-purple-600/10 text-purple-600 dark:text-purple-400 hover:bg-purple-600/20 px-4 py-2 rounded-full text-sm font-bold transition-colors"
               >
                 <Download className="w-4 h-4" /> Instalar App
               </button>
@@ -598,7 +599,7 @@ export default function Dashboard() {
 
             <button
               onClick={toggleTheme}
-              className="p-2.5 bg-white/5 border border-white/5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all group"
+              className="p-2.5 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-all group"
               title={theme === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
             >
               {theme === 'dark' ? (
@@ -609,9 +610,9 @@ export default function Dashboard() {
             </button>
 
             {user?.photoURL ? (
-              <img src={user.photoURL} alt={user.displayName || 'User'} className="w-10 h-10 rounded-full object-cover border border-white/20" />
+              <img src={user.photoURL} alt={user.displayName || 'User'} className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-white/20" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-purple-600/20 flex items-center justify-center border border-purple-500/30 text-purple-400 font-bold">
+              <div className="w-10 h-10 rounded-full bg-purple-600/10 flex items-center justify-center border border-purple-500/30 text-purple-600 dark:text-purple-400 font-bold">
                 {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
               </div>
             )}
@@ -635,14 +636,14 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 right-6 z-50 bg-zinc-900 border border-purple-500/50 p-4 rounded-2xl shadow-2xl flex items-center gap-4"
+            className="fixed bottom-6 right-6 z-50 bg-white dark:bg-zinc-900 border border-purple-500/50 p-4 rounded-2xl shadow-2xl flex items-center gap-4"
           >
             <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
-              <Timer className="w-6 h-6 text-purple-400" />
+              <Timer className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-400">Descanso</p>
-              <p className={`text-2xl font-bold font-mono ${timeLeft === 0 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Descanso</p>
+              <p className={`text-2xl font-bold font-mono ${timeLeft === 0 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-black dark:text-white'}`}>
                 {formatTime(timeLeft)}
               </p>
             </div>
@@ -669,12 +670,12 @@ export default function Dashboard() {
         <div className="mb-10 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <h2 className="text-3xl font-bold mb-2">Seu plano está pronto.</h2>
-            <p className="text-gray-400">
-              Objetivos: <span className="text-white font-medium">{Array.isArray(profile.objective) ? profile.objective.join(', ') : profile.objective}</span> • 
-              Nível: <span className="text-white font-medium">{profile.fitnessLevel}</span>
+            <p className="text-gray-500 dark:text-gray-400">
+              Objetivos: <span className="text-black dark:text-white font-medium">{Array.isArray(profile.objective) ? profile.objective.join(', ') : profile.objective}</span> • 
+              Nível: <span className="text-black dark:text-white font-medium">{profile.fitnessLevel}</span>
             </p>
             {isFree && trialEndsAt && (
-              <div className="mt-4 inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-4 py-2 rounded-lg text-sm text-purple-300">
+              <div className="mt-4 inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-4 py-2 rounded-lg text-sm text-purple-600 dark:text-purple-300">
                 <Timer className="w-4 h-4" />
                 Seu período de teste grátis termina em: {new Date(trialEndsAt).toLocaleDateString()}
               </div>
@@ -682,7 +683,7 @@ export default function Dashboard() {
           </div>
           <button 
             onClick={() => navigate('/onboarding')}
-            className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-medium transition-colors text-sm"
+            className="inline-flex items-center justify-center gap-2 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-black dark:text-white px-4 py-2 rounded-xl font-medium transition-colors text-sm"
           >
             Refazer Plano
           </button>
@@ -775,118 +776,13 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'evolution' && (
-            <div className="space-y-8">
-              {isFree && (
-                <div className="bg-zinc-950 border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
-                  <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
-                    <Lock className="w-8 h-8 text-purple-500" />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-4">Evolução Bloqueada</h3>
-                  <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de acompanhamento de progresso.</p>
-                  <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
-                    Upgrade para PRO
-                  </Link>
-                </div>
-              )}
-              
-              {!isFree && (
-                <div className="space-y-8">
-                  <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
-                    <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                       <TrendingUp className="w-5 h-5 text-purple-400" />
-                       Evolução Corporal (PRO)
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                      <div className="bg-black border border-white/5 p-6 rounded-2xl">
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Peso Atual</p>
-                        <p className="text-3xl font-black">{profile.weight} kg</p>
-                      </div>
-                      <div className="bg-black border border-white/5 p-6 rounded-2xl">
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">IMC</p>
-                        <p className="text-3xl font-black">{imcData?.value}</p>
-                        <p className="text-[10px] font-bold text-purple-500 uppercase mt-1">{imcData?.category}</p>
-                      </div>
-                      <div className="bg-black border border-white/5 p-6 rounded-2xl">
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Objetivo</p>
-                        <p className="text-lg font-bold leading-tight">{Array.isArray(profile.objective) ? profile.objective[0] : profile.objective}</p>
-                      </div>
-                      <div className="bg-black border border-white/5 p-6 rounded-2xl">
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Status</p>
-                        <div className="flex items-center gap-2 text-green-500">
-                          <CheckCircle2 className="w-5 h-5" />
-                          <p className="text-lg font-bold">Em dia</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                          <XAxis dataKey="name" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }}
-                            itemStyle={{ color: '#a855f7' }}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="peso" 
-                            stroke="#a855f7" 
-                            strokeWidth={4} 
-                            dot={{ r: 6, fill: '#a855f7', strokeWidth: 0 }} 
-                            activeDot={{ r: 8, strokeWidth: 0 }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* NOVO: Comparativo de Cargas (PREMIUM) */}
-                  <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
-                    <ProgressComparison />
-                  </div>
-
-                  {/* LGPD Data Management (Right to be forgotten) */}
-                  <div className="bg-red-900/10 border border-red-500/20 rounded-3xl p-8 mt-8">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="w-12 h-12 rounded-xl bg-red-600/20 flex items-center justify-center border border-red-500/30">
-                        <Lock className="w-6 h-6 text-red-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-white">Privacidade e LGPD</h3>
-                        <p className="text-sm text-gray-500">Gerencie seus dados pessoais</p>
-                      </div>
-                    </div>
-                    
-                    <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-                      Em conformidade com a LGPD, você tem o direito de apagar todos os seus dados pessoais, histórico de treinos e biometria de nossos servidores a qualquer momento.
-                    </p>
-                    
-                    <button 
-                      onClick={resetAccount}
-                      className="w-full bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/20 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
-                    >
-                      <X className="w-5 h-5" />
-                      Apagar Minha Conta e Dados
-                    </button>
-                    <p className="text-[10px] text-gray-600 mt-4 text-center italic">
-                      Ação irreversível. Todos os seus dados serão anonimizados e excluídos permanentemente.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {activeTab === 'routine' && isFree && (
-             <div className="bg-zinc-950 border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
+             <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
                 <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
-                  <Lock className="w-8 h-8 text-purple-500" />
+                  <Lock className="w-8 h-8 text-purple-600 dark:text-purple-500" />
                 </div>
                 <h3 className="text-2xl font-bold mb-4">Rotina Diária Bloqueada</h3>
-                <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de organização de rotina diária.</p>
+                <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de organização de rotina diária.</p>
                 <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
                   Upgrade para PRO
                 </Link>
@@ -894,12 +790,12 @@ export default function Dashboard() {
           )}
 
           {(activeTab === 'personal' || activeTab === 'nutrition') && planType === 'PRO' && (
-             <div className="bg-zinc-950 border border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
+             <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
                 <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
-                  <Lock className="w-8 h-8 text-purple-500" />
+                  <Lock className="w-8 h-8 text-purple-600 dark:text-purple-500" />
                 </div>
                 <h3 className="text-2xl font-bold mb-4">{activeTab === 'personal' ? 'Personal Trainer' : 'Nutricionista'} Bloqueado</h3>
-                <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PREMIUM para ativar os recursos de acompanhamento profissional humano e chat IA 24h.</p>
+                <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">Ative a assinatura PREMIUM para ativar os recursos de acompanhamento profissional humano e chat IA 24h.</p>
                 <Link to="/checkout?plan=PREMIUM" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
                   Upgrade para PREMIUM
                 </Link>
@@ -907,7 +803,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'library' && (
-            <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
               <ExerciseLibrary />
             </div>
           )}
@@ -915,26 +811,23 @@ export default function Dashboard() {
           {activeTab === 'workout' && (
             <div className="space-y-8 relative">
               {isBlocked && <Paywall feature="Treinos" type="expired" />}
-              <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-purple-400" />
+                  <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   Rotina Semanal ({profile.daysPerWeek} dias)
                 </h3>
                 
                 <div className="grid gap-4">
                   {plan.days.map((day, idx) => (
-                    <div key={idx} className="bg-black border border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-colors">
+                    <div key={idx} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-colors shadow-sm">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-bold text-purple-400">{day.day}</h4>
-                        <span className="text-sm font-medium bg-white/5 px-3 py-1 rounded-full">{day.focus}</span>
+                        <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">{day.day}</h4>
+                        <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white">{day.focus}</span>
                       </div>
                       
                       <div className="space-y-4">
                         {day.exercises.map((ex, i) => {
-                          // Extrai os segundos do texto (ex: "60s" -> 60)
                           const restSeconds = parseInt(ex.rest.replace(/\D/g, '')) || 60;
-                          
-                          // Hook-like behavior inside map? Better use a sub-component
                           return <ExerciseRow key={i} exercise={ex} dayIdx={idx} exerciseIdx={i} restSeconds={restSeconds} onStartRest={startRest} />;
                         })}
                       </div>
@@ -943,11 +836,10 @@ export default function Dashboard() {
                 </div>
               </div>
 
-               {/* Progression Paywall */}
               <div className="grid md:grid-cols-2 gap-8">
-                <div className="relative overflow-hidden rounded-3xl bg-zinc-950 border border-white/10 p-8">
+                <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8">
                   <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-purple-400" />
+                    <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                     Progressão de Carga
                   </h3>
                   
@@ -955,20 +847,20 @@ export default function Dashboard() {
                     <Paywall feature="Progressão de Carga Automática" />
                   ) : (
                     <div className="space-y-4">
-                      <p className="text-gray-300 text-sm leading-relaxed bg-white/5 p-4 rounded-xl border border-white/5">
+                      <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/5">
                         {plan.progression}
                       </p>
-                      <div className="p-4 bg-purple-900/20 rounded-xl border border-purple-500/30">
-                        <p className="text-xs font-bold text-purple-400 uppercase mb-2">Projeção Próximo Ciclo</p>
-                        <p className="text-sm text-gray-300">Esperamos um aumento de 2-5% na intensidade volumétrica baseado no seu histórico.</p>
+                      <div className="p-4 bg-purple-600/10 dark:bg-purple-900/20 rounded-xl border border-purple-500/30">
+                        <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase mb-2">Projeção Próximo Ciclo</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">Esperamos um aumento de 2-5% na intensidade volumétrica baseado no seu histórico.</p>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
                   <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-green-400" />
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                     Estratégia de Consistência
                   </h3>
                   
@@ -976,15 +868,15 @@ export default function Dashboard() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between mb-4">
                         <span className="text-sm text-gray-500">Score de Aderência</span>
-                        <span className="text-2xl font-bold text-green-400">{plan.consistencyScore}%</span>
+                        <span className="text-2xl font-bold text-green-600 dark:text-green-400">{plan.consistencyScore}%</span>
                       </div>
-                      <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-gray-200 dark:bg-white/5 h-2 rounded-full overflow-hidden">
                         <div className="bg-green-500 h-full" style={{ width: `${plan.consistencyScore}%` }} />
                       </div>
                       <div className="space-y-2 mt-6">
                         {plan.strategies?.map((strat: string, i: number) => (
-                          <div key={i} className="flex items-start gap-2 text-sm text-gray-400">
-                            <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
+                          <div key={i} className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
+                            <Zap className="w-4 h-4 text-purple-600 dark:text-purple-500 shrink-0 mt-0.5" />
                             {strat}
                           </div>
                         ))}
@@ -992,8 +884,93 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     <div className="text-center py-12">
-                      <Zap className="w-10 h-10 text-gray-600 mx-auto mb-4" />
-                      <p className="text-gray-500 text-sm italic">Inicie seus treinos para gerar score de consistência.</p>
+                      <Zap className="w-10 h-10 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-400 dark:text-gray-500 text-sm italic">Inicie seus treinos para gerar score de consistência.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'diet' && (
+            <div className="space-y-8 relative">
+              {isBlocked && <Paywall feature="Treinos" type="expired" />}
+              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  Rotina Semanal ({profile.daysPerWeek} dias)
+                </h3>
+                
+                <div className="grid gap-4">
+                  {plan.days.map((day, idx) => (
+                    <div key={idx} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-colors shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">{day.day}</h4>
+                        <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white">{day.focus}</span>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {day.exercises.map((ex, i) => {
+                          const restSeconds = parseInt(ex.rest.replace(/\D/g, '')) || 60;
+                          return <ExerciseRow key={i} exercise={ex} dayIdx={idx} exerciseIdx={i} restSeconds={restSeconds} onStartRest={startRest} />;
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8">
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    Progressão de Carga
+                  </h3>
+                  
+                  {isFree ? (
+                    <Paywall feature="Progressão de Carga Automática" />
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/5">
+                        {plan.progression}
+                      </p>
+                      <div className="p-4 bg-purple-600/10 dark:bg-purple-900/20 rounded-xl border border-purple-500/30">
+                        <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase mb-2">Projeção Próximo Ciclo</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">Esperamos um aumento de 2-5% na intensidade volumétrica baseado no seu histórico.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    Estratégia de Consistência
+                  </h3>
+                  
+                  {plan.consistencyScore ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-500">Score de Aderência</span>
+                        <span className="text-2xl font-bold text-green-600 dark:text-green-400">{plan.consistencyScore}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-white/5 h-2 rounded-full overflow-hidden">
+                        <div className="bg-green-500 h-full" style={{ width: `${plan.consistencyScore}%` }} />
+                      </div>
+                      <div className="space-y-2 mt-6">
+                        {plan.strategies?.map((strat: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
+                            <Zap className="w-4 h-4 text-purple-600 dark:text-purple-500 shrink-0 mt-0.5" />
+                            {strat}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Zap className="w-10 h-10 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-400 dark:text-gray-500 text-sm italic">Inicie seus treinos para gerar score de consistência.</p>
                     </div>
                   )}
                 </div>
@@ -1006,27 +983,27 @@ export default function Dashboard() {
               {isBlocked && <Paywall feature="Dieta" type="expired" />}
               {/* Macros Overview */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
-                  <p className="text-gray-400 text-sm mb-1">Calorias</p>
-                  <p className="text-3xl font-bold text-white">{plan?.diet?.calories || '---'}</p>
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Calorias</p>
+                  <p className="text-3xl font-bold text-black dark:text-white">{plan?.diet?.calories || '---'}</p>
                   <p className="text-xs text-gray-500 mt-1">kcal/dia</p>
                 </div>
-                <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
-                  <p className="text-gray-400 text-sm mb-1">Proteína</p>
-                  <p className="text-3xl font-bold text-purple-400">{plan?.diet?.macros?.protein || '0'}g</p>
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Proteína</p>
+                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{plan?.diet?.macros?.protein || '0'}g</p>
                 </div>
-                <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
-                  <p className="text-gray-400 text-sm mb-1">Carboidratos</p>
-                  <p className="text-3xl font-bold text-green-400">{plan?.diet?.macros?.carbs || '0'}g</p>
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Carboidratos</p>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">{plan?.diet?.macros?.carbs || '0'}g</p>
                 </div>
-                <div className="bg-zinc-950 border border-white/10 rounded-2xl p-6 text-center">
-                  <p className="text-gray-400 text-sm mb-1">Gorduras</p>
-                  <p className="text-3xl font-bold text-yellow-400">{plan?.diet?.macros?.fat || '0'}g</p>
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Gorduras</p>
+                  <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{plan?.diet?.macros?.fat || '0'}g</p>
                 </div>
               </div>
 
               {/* Meals Paywall */}
-              <div className="relative overflow-hidden rounded-3xl bg-zinc-950 border border-white/10 p-8 min-h-[500px]">
+              <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8 min-h-[500px]">
                 <h3 className="text-xl font-bold mb-6">Plano Alimentar Completo</h3>
                 
                 {isFree ? (
@@ -1036,15 +1013,15 @@ export default function Dashboard() {
                     {plan?.diet ? (
                       <>
                         {plan.diet.meals?.map((meal, idx) => (
-                          <div key={idx} className="bg-black border border-white/5 rounded-2xl p-6">
+                          <div key={idx} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-lg font-bold text-green-400">{meal.name}</h4>
-                              <span className="text-sm font-medium bg-white/5 px-3 py-1 rounded-full">{meal.time}</span>
+                              <h4 className="text-lg font-bold text-green-600 dark:text-green-400">{meal.name}</h4>
+                              <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full">{meal.time}</span>
                             </div>
                             <ul className="space-y-2">
                               {meal.foods?.map((food, i) => (
-                                <li key={i} className="flex items-start gap-2 text-gray-300">
-                                  <span className="text-green-500 mt-1">•</span>
+                                <li key={i} className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+                                  <span className="text-green-600 dark:text-green-500 mt-1">•</span>
                                   {food}
                                 </li>
                               ))}
@@ -1053,12 +1030,12 @@ export default function Dashboard() {
                         ))}
                         
                         {plan.diet.recommendations && plan.diet.recommendations.length > 0 && (
-                          <div className="mt-8 p-6 bg-purple-900/10 border border-purple-500/20 rounded-2xl">
-                            <h4 className="font-bold text-purple-400 mb-4">Recomendações do Coach</h4>
+                          <div className="mt-8 p-6 bg-purple-600/5 dark:bg-purple-900/10 border border-purple-500/20 rounded-2xl">
+                            <h4 className="font-bold text-purple-600 dark:text-purple-400 mb-4">Recomendações do Coach</h4>
                             <ul className="space-y-2">
                               {plan.diet.recommendations.map((rec, i) => (
-                                <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
-                                  <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
+                                <li key={i} className="text-gray-600 dark:text-gray-300 text-sm flex items-start gap-2">
+                                  <Zap className="w-4 h-4 text-purple-600 dark:text-purple-500 shrink-0 mt-0.5" />
                                   {rec}
                                 </li>
                               ))}
@@ -1068,8 +1045,8 @@ export default function Dashboard() {
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center p-12 text-center">
-                        <Apple className="w-12 h-12 text-gray-500 mb-4" />
-                        <p className="text-gray-400">Sua dieta personalizada ainda não foi gerada ou está sendo carregada.</p>
+                        <Apple className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
+                        <p className="text-gray-500 dark:text-gray-400">Sua dieta personalizada ainda não foi gerada ou está sendo carregada.</p>
                       </div>
                     )}
                   </div>
@@ -1086,27 +1063,27 @@ export default function Dashboard() {
                 <Paywall feature="Evolução" type="pro" />
               ) : null}
               {/* IMC Card */}
-              <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
                 <h3 className="text-xl font-bold mb-6">Seu Corpo</h3>
                 <div className="flex flex-col md:flex-row items-center gap-8">
-                  <div className="w-48 h-48 rounded-full border-8 border-blue-500/20 flex flex-col items-center justify-center relative">
+                  <div className="w-48 h-48 rounded-full border-8 border-blue-600/10 dark:border-blue-500/20 flex flex-col items-center justify-center relative">
                     <div className="absolute inset-0 border-8 border-blue-500 rounded-full border-t-transparent border-r-transparent rotate-45"></div>
-                    <span className="text-4xl font-bold text-white">{imcData?.value}</span>
-                    <span className="text-sm text-gray-400">IMC</span>
+                    <span className="text-4xl font-bold text-black dark:text-white">{imcData?.value}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">IMC</span>
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-2xl font-bold text-blue-400 mb-2">{imcData?.category}</h4>
-                    <p className="text-gray-400 mb-4">
+                    <h4 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">{imcData?.category}</h4>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
                       Seu Índice de Massa Corporal é calculado com base na sua altura ({profile.height}cm) e peso ({profile.weight}kg).
                     </p>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/5 p-4 rounded-xl">
+                    <div className="bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/5">
                       <p className="text-sm text-gray-500">Peso Atual</p>
-                      <p className="text-xl font-bold">{profile.weight} kg</p>
+                      <p className="text-xl font-bold text-black dark:text-white">{profile.weight} kg</p>
                     </div>
-                    <div className="bg-white/5 p-4 rounded-xl">
+                    <div className="bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/5">
                       <p className="text-sm text-gray-500">Objetivo</p>
-                      <p className="text-xl font-bold">{profile.objective}</p>
+                      <p className="text-xl font-bold text-black dark:text-white">{profile.objective}</p>
                     </div>
                   </div>
                   </div>
@@ -1114,7 +1091,7 @@ export default function Dashboard() {
               </div>
 
               {/* Evolution Chart Paywall */}
-              <div className="relative overflow-hidden rounded-3xl bg-zinc-950 border border-white/10 p-8 min-h-[400px]">
+              <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8 min-h-[400px]">
                 <h3 className="text-xl font-bold mb-6">Histórico de Peso</h3>
                 
                 {isFree ? (
@@ -1123,12 +1100,12 @@ export default function Dashboard() {
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#eee'} />
                         <XAxis dataKey="name" stroke="#888" />
                         <YAxis stroke="#888" domain={['dataMin - 2', 'dataMax + 2']} />
                         <Tooltip 
-                          contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px' }}
-                          itemStyle={{ color: '#60a5fa' }}
+                          contentStyle={{ backgroundColor: theme === 'dark' ? '#18181b' : '#fff', border: `1px solid ${theme === 'dark' ? '#3f3f46' : '#eee'}`, borderRadius: '8px' }}
+                          itemStyle={{ color: '#3b82f6' }}
                         />
                         <Line type="monotone" dataKey="peso" stroke="#3b82f6" strokeWidth={3} dot={{ r: 6, fill: '#3b82f6' }} />
                       </LineChart>
@@ -1145,44 +1122,44 @@ export default function Dashboard() {
               ) : isFree ? (
                 <Paywall feature="Rotina Diária" type="pro" />
               ) : null}
-              <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-orange-400" />
+                  <Calendar className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                   Registro de Rotina Diária
                 </h3>
-                <p className="text-gray-400 mb-8">
-                  Registre sua rotina para que a IA possa entender seu contexto e ajustar seu plano de forma mais inteligente (Engenharia Social para IA).
+                <p className="text-gray-500 dark:text-gray-400 mb-8">
+                  Registre sua rotina para que a IA possa entender seu contexto e ajustar seu plano de forma mais inteligente.
                 </p>
                 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Horas de sono na última noite</label>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Horas de sono na última noite</label>
                     <input 
                       type="text" 
                       value={routineData.sleep}
                       onChange={e => setRoutineData({...routineData, sleep: e.target.value})}
                       placeholder="Ex: 7 horas"
-                      className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-orange-500 outline-none transition-all"
+                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Água consumida hoje</label>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Água consumida hoje</label>
                     <input 
                       type="text" 
                       value={routineData.water}
                       onChange={e => setRoutineData({...routineData, water: e.target.value})}
                       placeholder="Ex: 2 litros"
-                      className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-orange-500 outline-none transition-all"
+                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">Nível de estresse (1-10)</label>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Nível de estresse (1-10)</label>
                     <input 
                       type="text" 
                       value={routineData.stress}
                       onChange={e => setRoutineData({...routineData, stress: e.target.value})}
                       placeholder="Ex: 4"
-                      className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-orange-500 outline-none transition-all"
+                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
                     />
                   </div>
                   
@@ -1215,20 +1192,20 @@ export default function Dashboard() {
               ) : null}
               {/* Admin Section: Role Management */}
               {isAdmin && (
-                <div className="bg-zinc-950 border border-red-500/20 rounded-3xl p-6">
+                <div className="bg-gray-100 dark:bg-zinc-950 border border-red-500/20 rounded-3xl p-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div>
-                      <h4 className="font-bold text-red-400 flex items-center gap-2">
+                      <h4 className="font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
                         <Lock className="w-4 h-4" /> Painel Admin: Gestão de Profissionais
                       </h4>
                       <p className="text-sm text-gray-500">Promova usuários para Trainer ou Nutricionista</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Seu modo atual:</span>
+                      <span className="text-xs text-gray-500">Seu modo atual:</span>
                       <button 
                         onClick={() => setRole(role === 'user' ? 'trainer' : 'user')}
                         className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                          role === 'trainer' ? 'bg-purple-600' : 'bg-white/10'
+                          role === 'trainer' ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400'
                         }`}
                       >
                         {role === 'trainer' ? 'Modo Trainer' : 'Modo Aluno'}
@@ -1242,12 +1219,12 @@ export default function Dashboard() {
                       value={targetUserEmail}
                       onChange={e => setTargetUserEmail(e.target.value)}
                       placeholder="E-mail do usuário..."
-                      className="sm:col-span-1 bg-black border border-white/10 rounded-xl p-3 text-sm text-white"
+                      className="sm:col-span-1 bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-xl p-3 text-sm text-black dark:text-white"
                     />
                     <select 
                       value={targetUserRole}
                       onChange={e => setTargetUserRole(e.target.value as any)}
-                      className="bg-black border border-white/10 rounded-xl p-3 text-sm text-white"
+                      className="bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-xl p-3 text-sm text-black dark:text-white"
                     >
                       <option value="trainer">Trainer</option>
                       <option value="nutritionist">Nutricionista</option>
@@ -1271,14 +1248,14 @@ export default function Dashboard() {
 
               {role === 'trainer' ? (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+                  <div className="bg-gray-100 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
                     <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                      <Users className="w-5 h-5 text-purple-400" />
+                      <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                       Painel do Treinador
                     </h3>
                     
                     <div className="grid gap-6">
-                      <div className="bg-black border border-white/5 rounded-2xl p-6">
+                      <div className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
                         <h4 className="font-bold mb-4 text-sm uppercase tracking-wider text-gray-500">Adicionar Novo Aluno</h4>
                         <div className="flex flex-col sm:flex-row gap-3">
                           <input 
@@ -1286,18 +1263,18 @@ export default function Dashboard() {
                             value={trainerEmail}
                             onChange={e => setTrainerEmail(e.target.value)}
                             placeholder="E-mail do aluno..."
-                            className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-purple-500 outline-none"
+                            className="flex-1 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-3 text-black dark:text-white focus:border-purple-500 outline-none transition-all"
                           />
                           <button 
                             onClick={handleLinkClient}
                             disabled={linkLoading}
-                            className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold transition-colors disabled:opacity-50"
+                            className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold transition-colors disabled:opacity-50 shadow-md"
                           >
                             {linkLoading ? 'Vinculando...' : 'Vincular Aluno'}
                           </button>
                         </div>
                         {linkMessage.text && (
-                          <p className={`mt-3 text-sm ${linkMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                          <p className={`mt-3 text-sm ${linkMessage.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {linkMessage.text}
                           </p>
                         )}
@@ -1311,18 +1288,18 @@ export default function Dashboard() {
                               <button 
                                 key={clientId}
                                 onClick={() => setSelectedClient(clientId)}
-                                className={`p-4 rounded-2xl border transition-all text-left ${
+                                className={`p-4 rounded-2xl border transition-all text-left shadow-sm ${
                                   selectedClient === clientId 
-                                    ? 'bg-purple-600/10 border-purple-500' 
-                                    : 'bg-black border-white/10 hover:border-white/30'
+                                    ? 'bg-purple-600/10 border-purple-600 dark:border-purple-500' 
+                                    : 'bg-white dark:bg-black border-gray-200 dark:border-white/10 hover:border-purple-500'
                                 }`}
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold">
+                                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center font-bold text-gray-700 dark:text-white">
                                     {clientId.substring(0, 2).toUpperCase()}
                                   </div>
                                   <div>
-                                    <p className="font-bold text-sm truncate">ID: {clientId.substring(0, 8)}</p>
+                                    <p className="font-bold text-sm truncate text-black dark:text-white">ID: {clientId.substring(0, 8)}</p>
                                     <p className="text-xs text-gray-500">Toque para gerenciar</p>
                                   </div>
                                 </div>
@@ -1330,9 +1307,9 @@ export default function Dashboard() {
                             ))}
                           </div>
                         ) : (
-                          <div className="text-center py-12 bg-black/40 rounded-3xl border border-dashed border-white/10">
-                            <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                            <p className="text-gray-400">Você ainda não possui alunos vinculados.</p>
+                          <div className="text-center py-12 bg-gray-50 dark:bg-black/40 rounded-3xl border border-dashed border-gray-300 dark:border-white/10">
+                            <Users className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                            <p className="text-gray-500 dark:text-gray-400">Você ainda não possui alunos vinculados.</p>
                           </div>
                         )}
                       </div>
@@ -1340,22 +1317,22 @@ export default function Dashboard() {
                   </div>
 
                   {selectedClient && clientData && (
-                    <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-xl">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                         <div>
-                          <h3 className="text-2xl font-bold">Gerenciando: {clientData.email}</h3>
-                          <p className="text-gray-400">Plano Atual: {clientData.planType}</p>
+                          <h3 className="text-2xl font-bold text-black dark:text-white">Gerenciando: {clientData.email}</h3>
+                          <p className="text-gray-500 dark:text-gray-400">Plano Atual: {clientData.planType}</p>
                         </div>
                         <div className="flex gap-2">
                           <button 
                             onClick={() => setIsEditingClientPlan(!isEditingClientPlan)}
-                            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-bold transition-all"
+                            className="bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-black dark:text-white px-4 py-2 rounded-xl font-bold transition-all"
                           >
                             {isEditingClientPlan ? 'Cancelar Edição' : 'Editar Treino'}
                           </button>
                           <button 
                             onClick={() => setSelectedClient(null)}
-                            className="bg-red-600/10 hover:bg-red-600/20 text-red-500 px-4 py-2 rounded-xl font-bold transition-all"
+                            className="bg-red-600/10 hover:bg-red-600 font-bold text-red-600 hover:text-white px-4 py-2 rounded-xl transition-all"
                           >
                             Fechar
                           </button>
@@ -1364,18 +1341,18 @@ export default function Dashboard() {
 
                       {isEditingClientPlan && clientData.plan ? (
                         <div className="space-y-6">
-                          <div className="p-4 bg-purple-900/10 border border-purple-500/20 rounded-2xl mb-6">
-                            <p className="text-sm text-purple-400">
+                          <div className="p-4 bg-purple-600/5 dark:bg-purple-900/10 border border-purple-500/20 rounded-2xl mb-6">
+                            <p className="text-sm text-purple-600 dark:text-purple-400">
                               <strong>Instruções:</strong> Edite o plano do aluno. Salve ao finalizar.
                             </p>
                           </div>
                           
                           {clientData.plan.days.map((day: any, dIdx: number) => (
-                            <div key={dIdx} className="bg-black border border-white/5 rounded-2xl p-6">
-                              <h5 className="font-bold text-lg mb-4 text-purple-400">{day.day} - {day.focus}</h5>
+                            <div key={dIdx} className="bg-gray-50 dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 mb-4">
+                              <h5 className="font-bold text-lg mb-4 text-purple-600 dark:text-purple-400">{day.day} - {day.focus}</h5>
                               <div className="space-y-4">
                                 {day.exercises.map((ex: any, eIdx: number) => (
-                                  <div key={eIdx} className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-white/5 rounded-xl">
+                                  <div key={eIdx} className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-white dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5">
                                     <div>
                                       <label className="text-[10px] uppercase font-bold text-gray-500">Exercício</label>
                                       <input 
@@ -1385,7 +1362,7 @@ export default function Dashboard() {
                                           newPlan.workout.days[dIdx].exercises[eIdx].name = e.target.value;
                                           setClientData({ ...clientData, plan: newPlan });
                                         }}
-                                        className="w-full bg-transparent border-b border-white/10 py-1 text-sm outline-none focus:border-purple-500"
+                                        className="w-full bg-transparent border-b border-gray-200 dark:border-white/10 py-1 text-sm outline-none focus:border-purple-500 text-black dark:text-white"
                                       />
                                     </div>
                                     <div>
@@ -1398,7 +1375,7 @@ export default function Dashboard() {
                                             newPlan.workout.days[dIdx].exercises[eIdx].sets = e.target.value;
                                             setClientData({ ...clientData, plan: newPlan });
                                           }}
-                                          className="w-1/2 bg-transparent border-b border-white/10 py-1 text-sm outline-none focus:border-purple-500 text-white"
+                                          className="w-1/2 bg-transparent border-b border-gray-200 dark:border-white/10 py-1 text-sm outline-none focus:border-purple-500 text-black dark:text-white"
                                         />
                                         <input 
                                           value={ex.reps}
@@ -1407,7 +1384,7 @@ export default function Dashboard() {
                                             newPlan.workout.days[dIdx].exercises[eIdx].reps = e.target.value;
                                             setClientData({ ...clientData, plan: newPlan });
                                           }}
-                                          className="w-1/2 bg-transparent border-b border-white/10 py-1 text-sm outline-none focus:border-purple-500 text-white"
+                                          className="w-1/2 bg-transparent border-b border-gray-200 dark:border-white/10 py-1 text-sm outline-none focus:border-purple-500 text-black dark:text-white"
                                         />
                                       </div>
                                     </div>
@@ -1418,7 +1395,7 @@ export default function Dashboard() {
                                           newPlan.workout.days[dIdx].exercises.splice(eIdx, 1);
                                           setClientData({ ...clientData, plan: newPlan });
                                         }}
-                                        className="text-xs text-red-500 hover:text-red-400"
+                                        className="text-xs text-red-600 hover:text-red-500 font-bold"
                                       >
                                         Remover
                                       </button>
@@ -1438,9 +1415,9 @@ export default function Dashboard() {
                                     });
                                     setClientData({ ...clientData, plan: newPlan });
                                   }}
-                                  className="text-sm text-purple-400 hover:text-purple-300 font-bold"
+                                  className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 font-bold flex items-center gap-1"
                                 >
-                                  + Adicionar Exercício
+                                  <Plus className="w-4 h-4" /> Adicionar Exercício
                                 </button>
                               </div>
                             </div>
@@ -1448,14 +1425,14 @@ export default function Dashboard() {
 
                           <button 
                             onClick={() => handleUpdateClientPlan(clientData.plan)}
-                            className="w-full bg-green-600 hover:bg-green-500 text-white p-4 rounded-2xl font-bold transition-all shadow-lg shadow-green-600/20"
+                            className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-2xl font-bold transition-all shadow-lg shadow-green-600/20"
                           >
                             Salvar Alterações no Plano do Aluno
                           </button>
                         </div>
                       ) : (
                         <div className="grid gap-6">
-                           <div className="bg-black border border-white/10 rounded-2xl p-6 text-center py-20 text-gray-500">
+                           <div className="bg-gray-50 dark:bg-black border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center py-20 text-gray-500">
                              Selecione "Editar Treino" para começar a montar o plano deste aluno.
                            </div>
                         </div>
@@ -1466,41 +1443,41 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   {linkedTrainerId ? (
-                    <div className="bg-zinc-950 border border-purple-500/20 rounded-3xl p-8">
+                    <div className="bg-gray-50 dark:bg-zinc-950 border border-purple-500/20 rounded-3xl p-8">
                       <div className="flex items-center gap-4 mb-6">
                         <div className="w-16 h-16 rounded-full bg-purple-600/20 flex items-center justify-center border border-purple-500/30">
-                          <Users className="w-8 h-8 text-purple-400" />
+                          <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                         </div>
                         <div>
-                          <h3 className="text-2xl font-bold">Personal Trainer Afiliado</h3>
-                          <p className="text-gray-400">Acompanhamento Profissional Ativo</p>
+                          <h3 className="text-2xl font-bold text-black dark:text-white">Personal Trainer Afiliado</h3>
+                          <p className="text-gray-500 dark:text-gray-400">Acompanhamento Profissional Ativo</p>
                         </div>
                       </div>
-                      <p className="text-gray-300 mb-8 leading-relaxed">
+                      <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
                         Seu treinador tem acesso total à sua evolução, podendo realizar ajustes diretos em seu protocolo de treino e carga com precisão profissional.
                       </p>
-                      <button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2">
+                      <button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
                         <Activity className="w-5 h-5" />
                         Abrir Chat com Treinador
                       </button>
                     </div>
                   ) : (
-                    <div className="bg-zinc-950 border border-purple-500/20 rounded-3xl p-8 relative overflow-hidden group">
+                    <div className="bg-gray-50 dark:bg-zinc-950 border border-purple-500/20 rounded-3xl p-8 relative overflow-hidden group shadow-sm">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/5 blur-[100px] rounded-full -mr-32 -mt-32"></div>
                       <div className="flex items-center gap-4 mb-6">
                         <div className="w-16 h-16 rounded-full bg-purple-600/20 flex items-center justify-center border border-purple-500/30">
-                          <Zap className="w-8 h-8 text-purple-400" />
+                          <Zap className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                         </div>
                         <div>
-                          <h3 className="text-2xl font-bold">Agente Personal IA</h3>
-                          <p className="text-gray-400">Consultoria Inteligente Ativa</p>
+                          <h3 className="text-2xl font-bold text-black dark:text-white">Agente Personal IA</h3>
+                          <p className="text-gray-500 dark:text-gray-400">Consultoria Inteligente Ativa</p>
                         </div>
                       </div>
                       
                       <div className="grid gap-4 mb-8">
-                        <div className="bg-black/40 p-4 rounded-xl border border-white/5">
-                          <p className="text-sm font-bold text-purple-400 uppercase tracking-widest mb-1 italic">Inteligência Artificial Ativa</p>
-                          <p className="text-gray-300 leading-relaxed">
+                        <div className="bg-white/50 dark:bg-black/40 p-4 rounded-xl border border-gray-200 dark:border-white/5">
+                          <p className="text-sm font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1 italic">Inteligência Artificial Ativa</p>
+                          <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
                             Como você não possui um treinador humano vinculado, eu assumo o controle total do seu protocolo. 
                             Minha IA monitora sua frequência, adapta exercícios em caso de dor e reorganiza sua semana automaticamente.
                           </p>
@@ -1513,8 +1490,8 @@ export default function Dashboard() {
                             { cmd: "Treinar em casa", desc: "Adapto para seu local" },
                             { cmd: "Pouco tempo", desc: "Otimizo a densidade" }
                           ].map((item, i) => (
-                            <div key={i} className="flex flex-col p-3 bg-white/5 rounded-lg border border-white/5">
-                              <span className="text-sm font-bold text-white">"{item.cmd}"</span>
+                            <div key={i} className="flex flex-col p-3 bg-white/80 dark:bg-white/5 rounded-lg border border-gray-100 dark:border-white/5 shadow-sm">
+                              <span className="text-sm font-bold text-black dark:text-white">"{item.cmd}"</span>
                               <span className="text-[10px] text-gray-500">{item.desc}</span>
                             </div>
                           ))}
@@ -1526,12 +1503,12 @@ export default function Dashboard() {
                           value={ptMessage}
                           onChange={(e) => setPtMessage(e.target.value)}
                           placeholder="Ex: 'Não treinei hoje, o que eu faço?' ou 'Sinto dor no ombro no supino'..."
-                          className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm text-white focus:border-purple-500 outline-none h-24"
+                          className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-xl p-4 text-sm text-black dark:text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none h-24 shadow-inner"
                         />
                         <button 
                           onClick={handleGeneratePersonalPlan}
                           disabled={isGeneratingPT || !ptMessage.trim()}
-                          className="bg-white text-black font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-all disabled:opacity-50"
+                          className="bg-black dark:bg-white text-white dark:text-black font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 shadow-lg"
                         >
                           {isGeneratingPT ? <Dumbbell className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
                           Enviar ao Agente IA
@@ -1553,91 +1530,91 @@ export default function Dashboard() {
               ) : null}
               {/* Admin Section: Role Management */}
               {isAdmin && (
-                <div className="bg-zinc-950 border border-green-500/20 rounded-3xl p-6">
+                <div className="bg-gray-100 dark:bg-zinc-950 border border-green-500/20 rounded-3xl p-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div>
-                      <h4 className="font-bold text-green-400 flex items-center gap-2">
+                      <h4 className="font-bold text-green-600 dark:text-green-400 flex items-center gap-2">
                         <Lock className="w-4 h-4" /> Painel Admin: Gestão Nutricional
                       </h4>
                       <p className="text-sm text-gray-500">Promova usuários para Nutricionista</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Seu modo atual:</span>
+                      <span className="text-xs text-gray-500">Seu modo atual:</span>
                       <button 
                         onClick={() => setRole(role === 'user' ? 'nutritionist' : 'user')}
                         className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                          role === 'nutritionist' ? 'bg-green-600' : 'bg-white/10'
+                          role === 'nutritionist' ? 'bg-green-600' : 'bg-gray-200 dark:bg-white/10'
                         }`}
                       >
                         {role === 'nutritionist' ? 'Modo Nutri' : 'Modo Aluno'}
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">Use a ferramenta de gestão no topo para promover usuários.</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Use a ferramenta de gestão no topo para promover usuários.</p>
                 </div>
               )}
 
               {role === 'nutritionist' ? (
-                <div className="bg-zinc-950 border border-green-500/20 rounded-3xl p-8 flex flex-col items-center justify-center text-center py-24">
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-green-500/20 rounded-3xl p-8 flex flex-col items-center justify-center text-center py-24 shadow-sm">
                   <Apple className="w-16 h-16 text-green-500 mb-6" />
-                  <h3 className="text-2xl font-bold">Painel Nutricional Profissional</h3>
+                  <h3 className="text-2xl font-bold text-black dark:text-white">Painel Nutricional Profissional</h3>
                   <p className="text-gray-500 max-w-md">Gerencie dietas, macros e protocolos alimentares de seus pacientes vinculados com precisão clínica.</p>
                 </div>
               ) : (
                 <div className="space-y-8">
                   {linkedNutritionistId ? (
-                    <div className="bg-zinc-950 border border-green-500/20 rounded-3xl p-8">
+                    <div className="bg-gray-50 dark:bg-zinc-950 border border-green-500/20 rounded-3xl p-8">
                       <div className="flex items-center gap-4 mb-6">
                         <div className="w-16 h-16 rounded-full bg-green-600/20 flex items-center justify-center border border-green-500/30">
-                          <Apple className="w-8 h-8 text-green-400" />
+                          <Apple className="w-8 h-8 text-green-600 dark:text-green-400" />
                         </div>
                         <div>
-                          <h3 className="text-2xl font-bold">Nutricionista Afiliado</h3>
-                          <p className="text-gray-400">Acompanhamento Dietético Ativo</p>
+                          <h3 className="text-2xl font-bold text-black dark:text-white">Nutricionista Afiliado</h3>
+                          <p className="text-gray-500 dark:text-gray-400">Acompanhamento Dietético Ativo</p>
                         </div>
                       </div>
-                      <p className="text-gray-300 mb-8 leading-relaxed">
+                      <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
                         Sua estratégia alimentar está sendo otimizada por um especialista humano. Seus protocolos são sincronizados com seu gasto calórico real.
                       </p>
-                      <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2">
+                      <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-600/20">
                         <Apple className="w-5 h-5" />
                         Ver Recomendações do Nutricionista
                       </button>
                     </div>
                   ) : (
-                    <div className="bg-zinc-950 border border-green-500/20 rounded-3xl p-8">
+                    <div className="bg-gray-50 dark:bg-zinc-950 border border-green-500/20 rounded-3xl p-8 shadow-sm">
                       <div className="flex items-center gap-4 mb-6">
                         <div className="w-16 h-16 rounded-full bg-green-600/20 flex items-center justify-center border border-green-500/30">
-                          <Apple className="w-8 h-8 text-green-400" />
+                          <Apple className="w-8 h-8 text-green-600 dark:text-green-400" />
                         </div>
                         <div>
-                          <h3 className="text-2xl font-bold">Agente Nutri IA</h3>
-                          <p className="text-gray-400">Suporte Nutricional 24/7</p>
+                          <h3 className="text-2xl font-bold text-black dark:text-white">Agente Nutri IA</h3>
+                          <p className="text-gray-500 dark:text-gray-400">Suporte Nutricional 24/7</p>
                         </div>
                       </div>
-                      <div className="bg-black/40 p-4 rounded-xl border border-white/5 mb-8">
-                        <p className="text-sm font-bold text-green-400 uppercase tracking-widest mb-1 italic">Consultoria Nutricional Inteligente</p>
-                        <p className="text-gray-300 leading-relaxed font-mono text-xs">
+                      <div className="bg-white/50 dark:bg-black/40 p-4 rounded-xl border border-gray-200 dark:border-white/5 mb-8">
+                        <p className="text-sm font-bold text-green-600 dark:text-green-400 uppercase tracking-widest mb-1 italic">Consultoria Nutricional Inteligente</p>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed font-mono text-xs">
                           {profile.objective === 'hipertrofia' ? "FASE: Superávit Calórico Controlado" : "FASE: Déficit Calórico Otimizado"}
                         </p>
-                        <p className="text-gray-400 mt-2 text-sm">
+                        <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">
                           Analiso seu peso atual ({profile.weight}kg) e nível de atividade para calcular macros em tempo real e sugerir substituições inteligentes.
                         </p>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <button 
                           onClick={() => setActiveTab('diet')}
-                          className="bg-white/5 border border-white/5 p-4 rounded-xl text-center hover:bg-white/10 transition-all"
+                          className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-4 rounded-xl text-center hover:bg-gray-100 dark:hover:bg-white/10 transition-all shadow-sm"
                         >
-                          <Apple className="w-5 h-5 mx-auto mb-2 text-green-500" />
-                          <p className="text-xs font-bold">Base Alimentar</p>
+                          <Apple className="w-5 h-5 mx-auto mb-2 text-green-600 dark:text-green-500" />
+                          <p className="text-xs font-bold text-black dark:text-white">Base Alimentar</p>
                         </button>
                         <button 
                           onClick={() => setActiveTab('diet')}
-                          className="bg-white/5 border border-white/5 p-4 rounded-xl text-center hover:bg-white/10 transition-all"
+                          className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-4 rounded-xl text-center hover:bg-gray-100 dark:hover:bg-white/10 transition-all shadow-sm"
                         >
-                          <Activity className="w-5 h-5 mx-auto mb-2 text-blue-500" />
-                          <p className="text-xs font-bold">Macros Diários</p>
+                          <Activity className="w-5 h-5 mx-auto mb-2 text-blue-600 dark:text-blue-500" />
+                          <p className="text-xs font-bold text-black dark:text-white">Macros Diários</p>
                         </button>
                       </div>
                     </div>
@@ -1650,9 +1627,9 @@ export default function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-white/10 py-8 px-6 flex flex-col items-center gap-2 text-gray-500 text-xs">
-        <p>© 2026 FitAI. Desenvolvido por NVM Project Management</p>
-        <p className="font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5 uppercase tracking-widest text-[9px]">Versão {APP_VERSION}</p>
+      <footer className="mt-12 border-t border-gray-200 dark:border-white/10 py-12 px-6 flex flex-col items-center gap-3 text-gray-500 text-xs">
+        <p className="font-bold tracking-tight">© 2026 FitAI. Desenvolvido por NVM Project Management</p>
+        <p className="font-mono bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/5 uppercase tracking-widest text-[9px]">Versão {APP_VERSION}</p>
       </footer>
 
       {/* Admin Panel Modal */}
@@ -1664,29 +1641,29 @@ export default function Dashboard() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAdminModal(false)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+              className="absolute inset-0 bg-black/60 dark:bg-black/90 backdrop-blur-md"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-zinc-900 border border-red-500/30 rounded-3xl p-8 shadow-[0_0_50px_rgba(239,68,68,0.2)] overflow-hidden"
+              className="relative w-full max-w-lg bg-white dark:bg-zinc-900 border border-gray-200 dark:border-red-500/30 rounded-3xl p-8 shadow-[0_30px_70px_rgba(0,0,0,0.2)] dark:shadow-[0_0_50px_rgba(239,68,68,0.2)] overflow-hidden"
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent" />
               
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center border border-red-500/30">
-                    <Users className="w-6 h-6 text-red-500" />
+                  <div className="w-10 h-10 rounded-xl bg-red-600/10 dark:bg-red-600/20 flex items-center justify-center border border-red-500/30">
+                    <Users className="w-6 h-6 text-red-600 dark:text-red-500" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold">Painel de Controle</h3>
+                    <h3 className="text-xl font-bold text-black dark:text-white">Painel de Controle</h3>
                     <p className="text-xs text-gray-500 font-medium uppercase tracking-widest">Acesso Restrito</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setShowAdminModal(false)}
-                  className="p-2 hover:bg-white/5 rounded-full text-gray-500 hover:text-white transition-colors"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-full text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -1698,8 +1675,8 @@ export default function Dashboard() {
                   animate={{ opacity: 1, x: 0 }}
                   className={`mb-6 p-4 rounded-xl text-sm font-bold text-center border ${
                     adminFeedback.type === 'success' 
-                      ? 'bg-green-500/10 border-green-500/30 text-green-400' 
-                      : 'bg-red-500/10 border-red-500/30 text-red-400'
+                      ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400' 
+                      : 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400'
                   }`}
                 >
                   {adminFeedback.msg}
@@ -1709,7 +1686,7 @@ export default function Dashboard() {
               <div className="space-y-8">
                 {/* Alterar Plano */}
                 <section>
-                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Simular Plano do Usuário</label>
+                  <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Simular Plano do Usuário</label>
                   <div className="grid grid-cols-3 gap-3">
                     {['FREE', 'PRO', 'PREMIUM'].map((p) => (
                       <button
@@ -1718,8 +1695,8 @@ export default function Dashboard() {
                         disabled={adminActionLoading}
                         className={`py-3 rounded-xl font-bold text-sm transition-all border ${
                           planType === p 
-                            ? 'bg-white text-black border-white shadow-lg shadow-white/10' 
-                            : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                            ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-lg' 
+                            : 'bg-gray-100 dark:bg-white/5 text-gray-400 border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/10'
                         }`}
                       >
                         {p}
@@ -1728,31 +1705,31 @@ export default function Dashboard() {
                   </div>
                 </section>
 
-                <div className="h-px bg-white/5" />
+                <div className="h-px bg-gray-100 dark:bg-white/5" />
 
                 {/* Push Update */}
                 <section>
-                  <label className="block text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Notificar Atualização (Sistema)</label>
+                  <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Notificar Atualização (Sistema)</label>
                   
                   <div className="flex gap-3 mb-4">
                     <div className="flex-1">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Versão da Atualização</p>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase mb-2">Versão da Atualização</p>
                       <input
                         type="text"
                         value={versionInput}
                         onChange={(e) => setVersionInput(e.target.value)}
                         placeholder="Ex: 1.0.2"
-                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-red-500 outline-none transition-all"
+                        className="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-black dark:text-white focus:border-red-500 outline-none transition-all"
                       />
                     </div>
                   </div>
 
-                  <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Mensagem (opcional)</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase mb-2">Mensagem (opcional)</p>
                   <textarea
                     value={updateMsgInput}
                     onChange={(e) => setUpdateMsgInput(e.target.value)}
                     placeholder="Digite a mensagem da nova versão..."
-                    className="w-full bg-black border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all h-24 resize-none mb-4"
+                    className="w-full bg-gray-50 dark:bg-black border border-gray-200 dark:border-white/10 rounded-2xl p-4 text-sm text-black dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all h-24 resize-none mb-4 shadow-inner"
                   />
                   <button
                     onClick={handleBroadcastUpdate}
@@ -1767,9 +1744,6 @@ export default function Dashboard() {
                       </>
                     )}
                   </button>
-                  <p className="text-[10px] text-gray-600 mt-4 text-center leading-relaxed">
-                    Esta ação enviará uma notificação para todos os usuários que acessarem a plataforma na versão {APP_VERSION}.
-                  </p>
                 </section>
               </div>
             </motion.div>

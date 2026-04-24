@@ -25,6 +25,7 @@ export default function Checkout() {
   const handlePayment = async () => {
     setLoading(true);
     setError(null);
+    const origin = window.location.origin;
     
     const timer = setTimeout(() => {
       setLoading(false);
@@ -32,7 +33,7 @@ export default function Checkout() {
     }, 8000);
 
     try {
-      const response = await fetch('/api/create-checkout-session', {
+      const response = await fetch(`${origin}/api/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -47,9 +48,14 @@ export default function Checkout() {
       if (response.ok) {
         const data = await response.json();
         if (data.url) {
-          if (window.top !== window.self) {
-            window.open(data.url, '_blank');
-          } else {
+          // No modo preview do AI Studio (iframe), o redirecionamento direto pode ser bloqueado
+          // Tentamos abrir em nova aba, mas se falhar, mostramos o link manual
+          try {
+            const win = window.open(data.url, '_blank');
+            if (!win) {
+               throw new Error("Popup blocked");
+            }
+          } catch (e) {
             window.location.href = data.url;
           }
           return;
@@ -64,45 +70,46 @@ export default function Checkout() {
       setLoading(false);
     }
   };
+
   return (
-    <div className="min-h-screen bg-black text-white p-6 flex flex-col items-center justify-center relative overflow-hidden">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-purple-600/20 rounded-full blur-[120px] -z-10" />
+    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white p-6 flex flex-col items-center justify-center relative overflow-hidden transition-colors duration-300">
+      <div className="absolute top-0 left-1/2 -track-x-1/2 w-[800px] h-[400px] bg-purple-600/20 rounded-full blur-[120px] -z-10" />
       
       <div className="w-full max-w-4xl grid md:grid-cols-2 gap-8">
         
         {/* Resumo do Pedido */}
         <div className="space-y-6">
-          <button onClick={() => user ? navigate('/dashboard') : navigate('/')} className="inline-flex items-center text-gray-400 hover:text-white transition-colors">
+          <button onClick={() => user ? navigate('/dashboard') : navigate('/')} className="inline-flex items-center text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors">
             <ArrowLeft className="w-5 h-5 mr-2" />
             Voltar
           </button>
           
           <div>
             <h2 className="text-3xl font-bold mb-2">Assinar FitAI {plan}</h2>
-            <p className="text-gray-400">Desbloqueie todo o potencial da IA para seus resultados.</p>
+            <p className="text-gray-500 dark:text-gray-400">Desbloqueie todo o potencial da IA para seus resultados.</p>
           </div>
 
-          <div className="bg-zinc-950 border border-white/10 rounded-3xl p-6">
-            <div className="flex justify-between items-center mb-6 pb-6 border-b border-white/10">
-              <span className="text-lg text-gray-300">Plano Mensal</span>
+          <div className="bg-gray-100 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-6">
+            <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-200 dark:border-white/10">
+              <span className="text-lg text-gray-600 dark:text-gray-300">Plano Mensal</span>
               <span className="text-2xl font-bold">R$ {price}</span>
             </div>
             
             <ul className="space-y-4">
-              <li className="flex items-center gap-3 text-gray-300">
+              <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
                 Treinos adaptativos ilimitados
               </li>
-              <li className="flex items-center gap-3 text-gray-300">
+              <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
                 Plano alimentar completo
               </li>
-              <li className="flex items-center gap-3 text-gray-300">
+              <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
                 Acompanhamento de evolução
               </li>
               {plan === 'PREMIUM' && (
-                <li className="flex items-center gap-3 text-gray-300">
+                <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   Chat 24h com Coach IA
                 </li>
@@ -112,13 +119,13 @@ export default function Checkout() {
         </div>
 
         {/* Redirecionamento de Pagamento Real */}
-        <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8 shadow-2xl flex flex-col justify-center items-center text-center">
+        <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8 shadow-2xl flex flex-col justify-center items-center text-center">
           <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
             <ShieldCheck className="w-10 h-10 text-green-500" />
           </div>
 
           <h3 className="text-2xl font-bold mb-4">Pagamento Seguro</h3>
-          <p className="text-gray-400 mb-8 max-w-sm">
+          <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">
             Você será redirecionado para o ambiente criptografado do Stripe para concluir sua assinatura de forma 100% segura.
           </p>
 
@@ -126,7 +133,7 @@ export default function Checkout() {
             <button 
               onClick={handlePayment}
               disabled={loading}
-              className="w-full bg-green-500 text-black p-4 rounded-xl font-bold text-lg hover:bg-green-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-green-600 dark:bg-green-500 text-white dark:text-black p-4 rounded-xl font-bold text-lg hover:after:bg-green-500 dark:hover:bg-green-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
@@ -141,12 +148,12 @@ export default function Checkout() {
 
             {error && (
               <div className="space-y-3">
-                <p className="text-red-400 text-sm">{error}</p>
+                <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>
                 <a 
                   href={`${plan === 'PREMIUM' ? stripeLinkPremium : stripeLinkPro}${user?.uid ? (stripeLinkPro.includes('?') ? '&' : '?') + 'client_reference_id=' + user.uid : ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full bg-white/10 text-white p-4 rounded-xl font-bold text-sm hover:bg-white/20 transition-colors"
+                  className="block w-full bg-gray-200 dark:bg-white/10 text-black dark:text-white p-4 rounded-xl font-bold text-sm hover:bg-gray-300 dark:hover:bg-white/20 transition-colors"
                 >
                   Ir para Pagamento Direto
                 </a>
@@ -157,11 +164,11 @@ export default function Checkout() {
           <div className="mt-8 flex items-center justify-center gap-4 opacity-50">
             {/* Logos de cartões genéricos */}
             <div className="flex gap-2">
-              <div className="w-10 h-6 bg-white/20 rounded"></div>
-              <div className="w-10 h-6 bg-white/20 rounded"></div>
-              <div className="w-10 h-6 bg-white/20 rounded"></div>
+              <div className="w-10 h-6 bg-gray-300 dark:bg-white/20 rounded"></div>
+              <div className="w-10 h-6 bg-gray-300 dark:bg-white/20 rounded"></div>
+              <div className="w-10 h-6 bg-gray-300 dark:bg-white/20 rounded"></div>
             </div>
-            <span className="text-xs font-medium">Powered by Stripe</span>
+            <span className="text-xs font-medium dark:text-gray-400">Powered by Stripe</span>
           </div>
         </div>
 

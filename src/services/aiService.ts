@@ -93,12 +93,13 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
                 "name": "Nome (Ex: Supino Reto)", 
                 "sets": 3, 
                 "reps": "12", 
+                "weight": "peso sugerido (Ex: 20kg ou 'Peso Corporal')",
                 "tips": "Dica de técnica", 
                 "breathing": "Dica respiração", 
                 "cadence": "2:0:2", 
                 "technicalDescription": "Descrição técnica detalhada e profissional da execução correta deste exercício em português.",
                 "imageKeyword": "nome técnico em inglês (Ex: barbell squat, bench press, deadlift, bicep curl)", 
-                "imageUrl": "URL de imagem placeholder (Ex: https://loremflickr.com/400/400/gym,workout,bodybuilding,bench_press)",
+                "imageUrl": "URL de imagem placeholder",
                 "rest": "60s" 
               }
             ]
