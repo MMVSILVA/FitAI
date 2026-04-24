@@ -599,14 +599,19 @@ export default function Dashboard() {
 
             <button
               onClick={toggleTheme}
-              className="p-2.5 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-all group"
-              title={theme === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+              className="p-2.5 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-all group relative"
+              title={theme === 'dark' ? 'Mudar para modo sistema' : theme === 'system' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
             >
-              {theme === 'dark' ? (
-                <Sun className="w-5 h-5 group-hover:rotate-45 transition-transform" />
-              ) : (
-                <Moon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
-              )}
+              <div className="relative">
+                {theme === 'dark' && <Moon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />}
+                {theme === 'light' && <Sun className="w-5 h-5 group-hover:rotate-45 transition-transform" />}
+                {theme === 'system' && (
+                  <div className="relative text-purple-600 dark:text-purple-400">
+                    <Zap className="w-5 h-5" />
+                    <span className="absolute -top-1 -right-1 text-[8px] font-black uppercase">Auto</span>
+                  </div>
+                )}
+              </div>
             </button>
 
             {user?.photoURL ? (
@@ -675,9 +680,17 @@ export default function Dashboard() {
               Nível: <span className="text-black dark:text-white font-medium">{profile.fitnessLevel}</span>
             </p>
             {isFree && trialEndsAt && (
-              <div className="mt-4 inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-4 py-2 rounded-lg text-sm text-purple-600 dark:text-purple-300">
-                <Timer className="w-4 h-4" />
-                Seu período de teste grátis termina em: {new Date(trialEndsAt).toLocaleDateString()}
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-4 py-2 rounded-lg text-sm text-purple-600 dark:text-purple-300">
+                  <Timer className="w-4 h-4" />
+                  Seu período de teste grátis termina em: {new Date(trialEndsAt).toLocaleDateString()}
+                </div>
+                <Link 
+                  to="/checkout?plan=PRO"
+                  className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl font-bold text-sm transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-4 h-4 fill-current" /> Ativar Plano PRO
+                </Link>
               </div>
             )}
           </div>
@@ -776,30 +789,160 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {activeTab === 'routine' && isFree && (
-             <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
-                <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
-                  <Lock className="w-8 h-8 text-purple-600 dark:text-purple-500" />
+          {activeTab === 'routine' && (
+            <div className="space-y-8 relative">
+              {isBlocked ? (
+                <Paywall feature="Rotina Diária" type="expired" />
+              ) : isFree ? (
+                <Paywall feature="Rotina Diária" type="premium" />
+              ) : null}
+              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  Registro de Rotina Diária
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-8">
+                  Registre sua rotina para que a IA possa entender seu contexto e ajustar seu plano de forma mais inteligente.
+                </p>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Horas de sono na última noite</label>
+                    <input 
+                      type="text" 
+                      value={routineData.sleep}
+                      onChange={e => setRoutineData({...routineData, sleep: e.target.value})}
+                      placeholder="Ex: 7 horas"
+                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Água consumida hoje</label>
+                    <input 
+                      type="text" 
+                      value={routineData.water}
+                      onChange={e => setRoutineData({...routineData, water: e.target.value})}
+                      placeholder="Ex: 2 litros"
+                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Nível de estresse (1-10)</label>
+                    <input 
+                      type="text" 
+                      value={routineData.stress}
+                      onChange={e => setRoutineData({...routineData, stress: e.target.value})}
+                      placeholder="Ex: 4"
+                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                    />
+                  </div>
+                  
+                  <button 
+                    onClick={() => {
+                      setRoutineSuccess(true);
+                      setRoutineData({ sleep: '', water: '', stress: '' });
+                      setTimeout(() => setRoutineSuccess(false), 3000);
+                    }}
+                    className="w-full bg-orange-500 text-white p-4 rounded-xl font-bold hover:bg-orange-600 transition-colors"
+                  >
+                    Salvar Rotina
+                  </button>
+                  {routineSuccess && (
+                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 text-sm text-center">
+                      Rotina registrada com sucesso! A IA usará esses dados para otimizar seu próximo treino.
+                    </div>
+                  )}
                 </div>
-                <h3 className="text-2xl font-bold mb-4">Rotina Diária Bloqueada</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de organização de rotina diária.</p>
-                <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
-                  Upgrade para PRO
-                </Link>
-             </div>
+              </div>
+            </div>
           )}
 
-          {(activeTab === 'personal' || activeTab === 'nutrition') && planType === 'PRO' && (
-             <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
-                <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
-                  <Lock className="w-8 h-8 text-purple-600 dark:text-purple-500" />
+          {activeTab === 'evolution' && (
+            <div className="space-y-8">
+              {(isFree || isBlocked) ? (
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
+                  <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
+                    <Lock className="w-8 h-8 text-purple-600 dark:text-purple-500" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-4">Evolução Bloqueada</h3>
+                  <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de acompanhamento de progresso e biometria.</p>
+                  <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
+                    Upgrade para PRO
+                  </Link>
                 </div>
-                <h3 className="text-2xl font-bold mb-4">{activeTab === 'personal' ? 'Personal Trainer' : 'Nutricionista'} Bloqueado</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">Ative a assinatura PREMIUM para ativar os recursos de acompanhamento profissional humano e chat IA 24h.</p>
-                <Link to="/checkout?plan=PREMIUM" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
-                  Upgrade para PREMIUM
-                </Link>
-             </div>
+              ) : (
+                <div className="space-y-8">
+                  <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8">
+                    <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                       <TrendingUp className="w-5 h-5 text-purple-400" />
+                       Métricas de Progresso
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                      <div className="bg-gray-100 dark:bg-black border border-gray-200 dark:border-white/5 p-6 rounded-2xl">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Peso Atual</p>
+                        <p className="text-3xl font-black text-black dark:text-white">{profile.weight} kg</p>
+                      </div>
+                      <div className="bg-gray-100 dark:bg-black border border-gray-200 dark:border-white/5 p-6 rounded-2xl">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">IMC</p>
+                        <p className="text-3xl font-black text-black dark:text-white">{imcData?.value}</p>
+                        <p className="text-[10px] font-bold text-purple-600 dark:text-purple-500 uppercase mt-1">{imcData?.category}</p>
+                      </div>
+                      <div className="bg-gray-100 dark:bg-black border border-gray-200 dark:border-white/5 p-6 rounded-2xl">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Objetivo</p>
+                        <p className="text-lg font-bold leading-tight text-black dark:text-white">{Array.isArray(profile.objective) ? profile.objective[0] : profile.objective}</p>
+                      </div>
+                      <div className="bg-gray-100 dark:bg-black border border-gray-200 dark:border-white/5 p-6 rounded-2xl">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Status</p>
+                        <div className="flex items-center gap-2 text-green-600 dark:text-green-500">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <p className="text-lg font-bold">Em dia</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#222' : '#ddd'} vertical={false} />
+                          <XAxis dataKey="name" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: theme === 'dark' ? '#111' : '#fff', border: `1px solid ${theme === 'dark' ? '#333' : '#eee'}`, borderRadius: '8px' }}
+                            itemStyle={{ color: '#a855f7' }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="peso" 
+                            stroke="#a855f7" 
+                            strokeWidth={4} 
+                            dot={{ r: 6, fill: '#a855f7', strokeWidth: 0 }} 
+                            activeDot={{ r: 8, strokeWidth: 0 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
+                    <ProgressComparison />
+                  </div>
+
+                  <div className="bg-red-500/5 dark:bg-red-900/10 border border-red-500/20 rounded-3xl p-8">
+                    <div className="flex items-center gap-4 mb-4">
+                      <Lock className="w-5 h-5 text-red-500" />
+                      <h3 className="text-lg font-bold">Gestão de Dados (LGPD)</h3>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-6">Você tem o direito de solicitar a exclusão permanente de todos os seus dados biométricos e histórico de treinos.</p>
+                    <button 
+                      onClick={resetAccount}
+                      className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/20 px-6 py-2 rounded-xl text-sm font-bold transition-all"
+                    >
+                      Excluir Meus Dados Permanentemente
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {activeTab === 'library' && (
@@ -809,91 +952,6 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'workout' && (
-            <div className="space-y-8 relative">
-              {isBlocked && <Paywall feature="Treinos" type="expired" />}
-              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
-                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  Rotina Semanal ({profile.daysPerWeek} dias)
-                </h3>
-                
-                <div className="grid gap-4">
-                  {plan.days.map((day, idx) => (
-                    <div key={idx} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-colors shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">{day.day}</h4>
-                        <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white">{day.focus}</span>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {day.exercises.map((ex, i) => {
-                          const restSeconds = parseInt(ex.rest.replace(/\D/g, '')) || 60;
-                          return <ExerciseRow key={i} exercise={ex} dayIdx={idx} exerciseIdx={i} restSeconds={restSeconds} onStartRest={startRest} />;
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    Progressão de Carga
-                  </h3>
-                  
-                  {isFree ? (
-                    <Paywall feature="Progressão de Carga Automática" />
-                  ) : (
-                    <div className="space-y-4">
-                      <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/5">
-                        {plan.progression}
-                      </p>
-                      <div className="p-4 bg-purple-600/10 dark:bg-purple-900/20 rounded-xl border border-purple-500/30">
-                        <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase mb-2">Projeção Próximo Ciclo</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">Esperamos um aumento de 2-5% na intensidade volumétrica baseado no seu histórico.</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    Estratégia de Consistência
-                  </h3>
-                  
-                  {plan.consistencyScore ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-sm text-gray-500">Score de Aderência</span>
-                        <span className="text-2xl font-bold text-green-600 dark:text-green-400">{plan.consistencyScore}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-white/5 h-2 rounded-full overflow-hidden">
-                        <div className="bg-green-500 h-full" style={{ width: `${plan.consistencyScore}%` }} />
-                      </div>
-                      <div className="space-y-2 mt-6">
-                        {plan.strategies?.map((strat: string, i: number) => (
-                          <div key={i} className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
-                            <Zap className="w-4 h-4 text-purple-600 dark:text-purple-500 shrink-0 mt-0.5" />
-                            {strat}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <Zap className="w-10 h-10 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-                      <p className="text-gray-400 dark:text-gray-500 text-sm italic">Inicie seus treinos para gerar score de consistência.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'diet' && (
             <div className="space-y-8 relative">
               {isBlocked && <Paywall feature="Treinos" type="expired" />}
               <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
@@ -1055,133 +1113,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {activeTab === 'evolution' && (
-            <div className="space-y-8 relative">
-              {isBlocked ? (
-                <Paywall feature="Evolução" type="expired" />
-              ) : isFree ? (
-                <Paywall feature="Evolução" type="pro" />
-              ) : null}
-              {/* IMC Card */}
-              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
-                <h3 className="text-xl font-bold mb-6">Seu Corpo</h3>
-                <div className="flex flex-col md:flex-row items-center gap-8">
-                  <div className="w-48 h-48 rounded-full border-8 border-blue-600/10 dark:border-blue-500/20 flex flex-col items-center justify-center relative">
-                    <div className="absolute inset-0 border-8 border-blue-500 rounded-full border-t-transparent border-r-transparent rotate-45"></div>
-                    <span className="text-4xl font-bold text-black dark:text-white">{imcData?.value}</span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">IMC</span>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">{imcData?.category}</h4>
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">
-                      Seu Índice de Massa Corporal é calculado com base na sua altura ({profile.height}cm) e peso ({profile.weight}kg).
-                    </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/5">
-                      <p className="text-sm text-gray-500">Peso Atual</p>
-                      <p className="text-xl font-bold text-black dark:text-white">{profile.weight} kg</p>
-                    </div>
-                    <div className="bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/5">
-                      <p className="text-sm text-gray-500">Objetivo</p>
-                      <p className="text-xl font-bold text-black dark:text-white">{profile.objective}</p>
-                    </div>
-                  </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Evolution Chart Paywall */}
-              <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8 min-h-[400px]">
-                <h3 className="text-xl font-bold mb-6">Histórico de Peso</h3>
-                
-                {isFree ? (
-                  <Paywall feature="Gráficos de Evolução" />
-                ) : (
-                  <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#eee'} />
-                        <XAxis dataKey="name" stroke="#888" />
-                        <YAxis stroke="#888" domain={['dataMin - 2', 'dataMax + 2']} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: theme === 'dark' ? '#18181b' : '#fff', border: `1px solid ${theme === 'dark' ? '#3f3f46' : '#eee'}`, borderRadius: '8px' }}
-                          itemStyle={{ color: '#3b82f6' }}
-                        />
-                        <Line type="monotone" dataKey="peso" stroke="#3b82f6" strokeWidth={3} dot={{ r: 6, fill: '#3b82f6' }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          {activeTab === 'routine' && (
-            <div className="space-y-8 relative">
-              {isBlocked ? (
-                <Paywall feature="Rotina Diária" type="expired" />
-              ) : isFree ? (
-                <Paywall feature="Rotina Diária" type="pro" />
-              ) : null}
-              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
-                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                  Registro de Rotina Diária
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-8">
-                  Registre sua rotina para que a IA possa entender seu contexto e ajustar seu plano de forma mais inteligente.
-                </p>
-                
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Horas de sono na última noite</label>
-                    <input 
-                      type="text" 
-                      value={routineData.sleep}
-                      onChange={e => setRoutineData({...routineData, sleep: e.target.value})}
-                      placeholder="Ex: 7 horas"
-                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Água consumida hoje</label>
-                    <input 
-                      type="text" 
-                      value={routineData.water}
-                      onChange={e => setRoutineData({...routineData, water: e.target.value})}
-                      placeholder="Ex: 2 litros"
-                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Nível de estresse (1-10)</label>
-                    <input 
-                      type="text" 
-                      value={routineData.stress}
-                      onChange={e => setRoutineData({...routineData, stress: e.target.value})}
-                      placeholder="Ex: 4"
-                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
-                    />
-                  </div>
-                  
-                  <button 
-                    onClick={() => {
-                      setRoutineSuccess(true);
-                      setRoutineData({ sleep: '', water: '', stress: '' });
-                      setTimeout(() => setRoutineSuccess(false), 3000);
-                    }}
-                    className="w-full bg-orange-500 text-white p-4 rounded-xl font-bold hover:bg-orange-600 transition-colors"
-                  >
-                    Salvar Rotina
-                  </button>
-                  {routineSuccess && (
-                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 text-sm text-center">
-                      Rotina registrada com sucesso! A IA usará esses dados para otimizar seu próximo treino.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {activeTab === 'personal' && (
             <div className="space-y-8 pb-32 relative">

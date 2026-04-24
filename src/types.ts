@@ -25,7 +25,7 @@ export interface UserProfile {
   nutritionistId?: string;
   isPremium: boolean;
   favorites?: string[];
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'dark' | 'system';
   trialEndsAt?: string;
   subscriptionEndsAt?: string;
   createdAt: string;

@@ -18,7 +18,7 @@ interface UserState {
   linkedNutritionistId?: string;
   isAdmin: boolean;
   favorites: string[];
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'system';
   setProfile: (profile: Partial<UserProfile>) => void;
   setPlan: (plan: WorkoutPlan) => void;
   upgradePlan: (plan: PlanType) => void;
@@ -60,7 +60,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [linkedTrainerId, setLinkedTrainerId] = useState<string | undefined>();
   const [linkedNutritionistId, setLinkedNutritionistId] = useState<string | undefined>();
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [theme, setThemeState] = useState<'light' | 'dark'>('dark');
+  const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>('system');
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
 
@@ -268,11 +268,34 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
+    const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
+    const currentIndex = themes.indexOf(theme);
+    const newTheme = themes[(currentIndex + 1) % themes.length];
+    
     setThemeState(newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    
+    if (newTheme === 'system') {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', isDark);
+    } else {
+      document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    }
+    
     setProfile({ theme: newTheme });
   };
+
+  useEffect(() => {
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (e: MediaQueryListEvent) => {
+        document.documentElement.classList.toggle('dark', e.matches);
+      };
+      
+      document.documentElement.classList.toggle('dark', mediaQuery.matches);
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, [theme]);
 
   const updateExerciseWeight = (dayIndex: number, exerciseIndex: number, weight: string) => {
     if (!plan) return;

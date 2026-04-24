@@ -27,18 +27,18 @@ export const ExerciseImage: React.FC<ExerciseImageProps> = ({ src, alt, classNam
     }
   }, [loading, src]);
 
-  if (!src) {
+  if (!src || src === '') {
     return (
       <div className={`relative bg-zinc-900 overflow-hidden flex items-center justify-center ${className}`}>
         <div className="flex flex-col items-center justify-center gap-2 text-gray-700">
-          <Loader2 className="w-6 h-6 text-purple-500 animate-spin opacity-20" />
-          <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">Buscando...</span>
+          <ImageOff className="w-8 h-8 opacity-20" />
+          <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">Sem Imagem</span>
         </div>
       </div>
     );
   }
 
-  const imageUrl = proxy ? `/api/exercises/proxy-gif?url=${encodeURIComponent(src)}` : src;
+  const imageUrl = proxy ? `/api/exercises/proxy-gif?url=${encodeURIComponent(src.trim())}` : src;
 
   return (
     <div className={`relative bg-zinc-900 overflow-hidden flex items-center justify-center ${className}`}>
