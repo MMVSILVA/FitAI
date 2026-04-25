@@ -33,6 +33,9 @@ export interface UserProfile {
 
 export interface Exercise {
   name: string;
+  englishName?: string;
+  group?: string;
+  equipment?: string;
   sets: number;
   reps: string;
   notes?: string;

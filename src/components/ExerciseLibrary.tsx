@@ -75,7 +75,11 @@ export const ExerciseLibrary = () => {
         if (isNewSearch) {
           setExercises(data.data);
         } else {
-          setExercises(prev => [...prev, ...data.data]);
+          setExercises(prev => {
+            const existingIds = new Set(prev.map(ex => ex.exerciseId));
+            const newExercises = data.data.filter((ex: ExerciseDBItem) => !existingIds.has(ex.exerciseId));
+            return [...prev, ...newExercises];
+          });
         }
         setCursor(data.meta.nextCursor);
         setHasNextPage(data.meta.hasNextPage);
@@ -221,9 +225,9 @@ export const ExerciseLibrary = () => {
             animate={{ opacity: 1 }}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
           >
-            {displayExercises.map((ex) => (
+            {displayExercises.map((ex, idx) => (
               <motion.div
-                key={ex.exerciseId}
+                key={`lib-ex-${ex.exerciseId}-${idx}`}
                 layout
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}

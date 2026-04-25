@@ -90,24 +90,26 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
             "focus": "Músculos Alvo",
             "exercises": [
               { 
-                "name": "Nome (Ex: Supino Reto)", 
+                "name": "Nome em Português", 
+                "englishName": "Name in English",
+                "group": "Grupo Muscular",
+                "equipment": "Equipamento Necessário",
                 "sets": 3, 
                 "reps": "12", 
-                "weight": "peso sugerido (Ex: 20kg ou 'Peso Corporal')",
-                "tips": "Dica de técnica", 
+                "weight": "Moderado / 20kg", 
+                "tips": "Dica curta", 
                 "breathing": "Dica respiração", 
                 "cadence": "2:0:2", 
-                "technicalDescription": "Descrição técnica detalhada e profissional da execução correta deste exercício em português.",
-                "imageKeyword": "nome técnico em inglês (Ex: barbell squat, bench press, deadlift, bicep curl)", 
-                "imageUrl": "URL de imagem placeholder",
+                "technicalDescription": "Descrição técnica completa em português.",
+                "imageKeyword": "Exact English name for image search", 
                 "rest": "60s" 
               }
             ]
           }
         ],
-        "progression": "Estratégia de projeção de carga para este plano",
+        "progression": "Estratégia de progressão",
         "consistencyScore": 100,
-        "strategies": ["Estratégia 1", "Estratégia 2"]
+        "strategies": ["Estratégia 1"]
       },
       "diet": {
         "calories": "Valor total diário (Ex: 2400)",
@@ -126,6 +128,24 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
         "recommendations": ["Recomendação 1", "Recomendação 2"]
       }
     }
+
+    BASE DE DADOS DE EXERCÍCIOS (USE ESTA REFERÊNCIA RIGOROSAMENTE):
+    - Peito: Supino Reto (imageKeyword: bench press), Supino Inclinado (incline bench press), Supino Declinado (decline bench press), Crucifixo (dumbbell fly), Voador / Peck Deck (pec deck machine), Flexão de Braço (push-up), Crossover (cable crossover)
+    - Costas: Puxada Aberta (lat pulldown), Remada Baixa (seated row), Remada Cavalinho (t-bar row), Remada Curvada (bent-over row), Levantamento Terra (deadlift), Remada Unilateral (dumbbell row), Barra Fixa (pull-up), Extensão Lombar (back extension)
+    - Ombros: Desenvolvimento de Ombros (shoulder press), Elevação Lateral (lateral raise), Elevação Frontal (front raise), Crucifixo Invertido (rear delt fly), Remada Alta (upright row), Encolhimento (shrugs)
+    - Braços: Rosca Direta (barbell curl), Rosca Alternada (dumbbell curl), Rosca Concentrada (concentration curl), Rosca Scott (preacher curl), Tríceps Pulley / Corda (triceps pushdown), Tríceps Testa (skullcrusher), Tríceps Francês (french press), Mergulho (dips)
+    - Pernas: Agachamento (squat), Leg Press (leg press machine), Cadeira Extensora (leg extension), Mesa Flexora (leg curl machine), Stiff (romanian deadlift), Avanço / Passada (lunges), Elevação de Panturrilha (calf raises), Agachamento Búlgaro (bulgarian split squat)
+    - Core: Crunch (crunch), Prancha (plank), Abdominal Infra (leg raise), Abdominal Supra (upper crunch), Rotação Russa (russian twist)
+    - Cárdio: Esteira (treadmill), Bicicleta Ergométrica (stationary bike), Elíptico (elliptical), Simulador de Escada (stairclimber)
+
+    DIRETRIZES DE SAÍDA:
+    1. 'name': Deve ser o nome em Português EXATO da lista acima.
+    2. 'englishName': O nome em Inglês correspondente.
+    3. 'imageKeyword': O termo em Inglês entre parênteses acima (EXATO).
+    4. 'group': O grupo muscular (Peito, Costas, etc).
+    5. 'equipment': Barra, Haltere, Máquina, Cabo ou Peso Corporal.
+    6. 'weight': Sugestão inicial (Ex: 'Moderado', '10kg cada lado', 'Peso do Corpo').
+    7. 'technicalDescription': Descrição profissional e detalhada em Português.
 
     Responda apenas com o JSON puro, sem markdown.
   `;

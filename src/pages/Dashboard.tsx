@@ -90,8 +90,25 @@ function ExerciseRow({
   return (
     <div className="flex flex-col gap-4 py-6 border-b border-gray-200 dark:border-white/5 last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors px-2 rounded-xl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <p className="font-bold text-xl text-black dark:text-white tracking-tight">{translateExerciseName(exercise.name)}</p>
-        <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-white/10 px-3 py-1 rounded-full uppercase tracking-widest">
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-xl text-black dark:text-white tracking-tight truncate">{translateExerciseName(exercise.name)}</p>
+          {exercise.englishName && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium italic truncate">{exercise.englishName}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+            {exercise.group && (
+              <span className="text-[9px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-purple-500/20">
+                {exercise.group}
+              </span>
+            )}
+            {exercise.equipment && (
+              <span className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-blue-500/20">
+                {exercise.equipment}
+              </span>
+            )}
+          </div>
+        </div>
+        <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-white/10 px-3 py-1 rounded-full uppercase tracking-widest shrink-0">
           {exercise.rest} descanso
         </span>
       </div>
@@ -105,30 +122,35 @@ function ExerciseRow({
               <p className="text-lg font-black text-black dark:text-white">{exercise.sets} x {exercise.reps}</p>
             </div>
             
-            <div className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-3 py-2 rounded-lg flex items-center gap-3">
-              <div>
-                <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter mb-0.5">Sua Carga</p>
-                <input 
-                  type="text" 
-                  value={exercise.weight || ''} 
-                  onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
-                  placeholder="Ex: 20kg"
-                  className="bg-transparent border-none p-0 text-lg font-black text-black dark:text-white w-20 focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700"
-                />
+            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-4 py-2.5 rounded-2xl flex items-center gap-3 min-w-[160px] flex-1 sm:flex-none hover:border-purple-500/30 transition-all group/weight">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest mb-0.5 whitespace-nowrap opacity-60">Sua Carga</p>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    value={exercise.weight || ''} 
+                    onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
+                    placeholder="Ex: 20kg"
+                    className="bg-transparent border-none p-0 text-xl font-black text-black dark:text-white w-full focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700 truncate"
+                  />
+                  <div className="flex items-center justify-center p-1.5 bg-purple-500/10 rounded-lg group-hover/weight:scale-110 transition-transform">
+                    <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                </div>
               </div>
               
               {planType === 'PREMIUM' && (
                 <button 
                   onClick={handleLogProgress}
                   disabled={!exercise.weight || isLogging}
-                  className={`p-2 rounded-lg transition-all ${
+                  className={`p-2 rounded-xl transition-all ${
                     logSuccess 
                       ? 'bg-green-500/20 text-green-500' 
-                      : 'bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white'
-                  } disabled:opacity-30`}
-                  title="Salvar no Histórico de Progresso"
+                      : 'bg-white dark:bg-white/10 text-gray-500 hover:bg-purple-600 hover:text-white shadow-sm'
+                  } disabled:opacity-30 flex-shrink-0`}
+                  title="Salvar no Histórico"
                 >
-                  {isLogging ? <Loader2 className="w-5 h-5 animate-spin" /> : <TrendingUp className="w-5 h-5" />}
+                  {isLogging ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
                 </button>
               )}
             </div>
@@ -962,7 +984,7 @@ export default function Dashboard() {
                 
                 <div className="grid gap-4">
                   {plan.days.map((day, idx) => (
-                    <div key={idx} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-colors shadow-sm">
+                    <div key={`day-${idx}-${day.day}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-colors shadow-sm">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">{day.day}</h4>
                         <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white">{day.focus}</span>
@@ -970,8 +992,9 @@ export default function Dashboard() {
                       
                       <div className="space-y-4">
                         {day.exercises.map((ex, i) => {
-                          const restSeconds = parseInt(ex.rest.replace(/\D/g, '')) || 60;
-                          return <ExerciseRow key={i} exercise={ex} dayIdx={idx} exerciseIdx={i} restSeconds={restSeconds} onStartRest={startRest} />;
+                           const restSeconds = parseInt(ex.rest.replace(/\D/g, '')) || 60;
+                           const uniqueKey = ex.id ? `${ex.id}-${i}` : `${ex.name}-${i}`;
+                           return <ExerciseRow key={uniqueKey} exercise={ex} dayIdx={idx} exerciseIdx={i} restSeconds={restSeconds} onStartRest={startRest} />;
                         })}
                       </div>
                     </div>
@@ -1018,7 +1041,7 @@ export default function Dashboard() {
                       </div>
                       <div className="space-y-2 mt-6">
                         {plan.strategies?.map((strat: string, i: number) => (
-                          <div key={i} className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
+                          <div key={`strat-${i}`} className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
                             <Zap className="w-4 h-4 text-purple-600 dark:text-purple-500 shrink-0 mt-0.5" />
                             {strat}
                           </div>
@@ -1071,7 +1094,7 @@ export default function Dashboard() {
                     {plan?.diet ? (
                       <>
                         {plan.diet.meals?.map((meal, idx) => (
-                          <div key={idx} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
+                          <div key={`meal-${idx}-${meal.name}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-lg font-bold text-green-600 dark:text-green-400">{meal.name}</h4>
                               <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full">{meal.time}</span>

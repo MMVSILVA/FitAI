@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import express from 'express';
 import * as paymentController from '../controllers/paymentController.ts';
 
-const router = Router();
+const router = express.Router();
 
 // Simple in-memory cache for exercise searches
 const exerciseCache = new Map<string, { data: any, timestamp: number }>();

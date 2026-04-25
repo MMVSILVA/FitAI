@@ -230,13 +230,35 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateDocumentTheme = (themeValue: 'light' | 'dark' | 'system') => {
+    if (themeValue === 'system') {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', isDark);
+    } else {
+      document.documentElement.classList.toggle('dark', themeValue === 'dark');
+    }
+  };
+
+  useEffect(() => {
+    updateDocumentTheme(theme);
+    
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (e: MediaQueryListEvent) => {
+        document.documentElement.classList.toggle('dark', e.matches);
+      };
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, [theme]);
+
   const setProfile = (newProfile: Partial<UserProfile>) => {
     setProfileState(prev => prev ? { ...prev, ...newProfile } : newProfile as UserProfile);
     saveToFirestore({ profile: newProfile });
     
     if (newProfile.theme) {
       setThemeState(newProfile.theme);
-      document.documentElement.classList.toggle('dark', newProfile.theme === 'dark');
+      updateDocumentTheme(newProfile.theme);
     }
   };
 
@@ -273,14 +295,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newTheme = themes[(currentIndex + 1) % themes.length];
     
     setThemeState(newTheme);
-    
-    if (newTheme === 'system') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.toggle('dark', isDark);
-    } else {
-      document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    }
-    
+    updateDocumentTheme(newTheme);
     setProfile({ theme: newTheme });
   };
 

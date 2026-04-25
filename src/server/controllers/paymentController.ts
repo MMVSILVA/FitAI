@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import express from 'express';
 import Stripe from 'stripe';
 
 let stripeClient: Stripe | null = null;
@@ -12,7 +12,7 @@ function getStripe(): Stripe {
   return stripeClient;
 }
 
-export const createCheckoutSession = async (req: Request, res: Response) => {
+export const createCheckoutSession = async (req: express.Request, res: express.Response) => {
   try {
     const { plan, userId, email } = req.body;
     const stripe = getStripe();
@@ -44,7 +44,7 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
   }
 };
 
-export const handleWebhook = async (req: Request, res: Response) => {
+export const handleWebhook = async (req: express.Request, res: express.Response) => {
   const sig = req.headers["stripe-signature"];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
