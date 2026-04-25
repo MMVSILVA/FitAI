@@ -6,7 +6,7 @@ import { UserRole, PlanType } from '../types';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, 
-  Download, Loader2, Heart, Sparkles, Moon, Sun
+  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';

@@ -1,5 +1,5 @@
 import admin from 'firebase-admin';
-import firebaseConfig from '../../../firebase-applet-config.json';
+import firebaseConfig from '../../../firebase-applet-config.json' with { type: 'json' };
 
 let adminApp: admin.app.App | null = null;
 

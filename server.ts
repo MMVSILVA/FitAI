@@ -1,8 +1,8 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
-import apiRoutes from "./src/server/routes/index";
-import { handleWebhook } from "./src/server/controllers/paymentController";
+import apiRoutes from "./src/server/routes/index.ts";
+import { handleWebhook } from "./src/server/controllers/paymentController.ts";
 
 dotenv.config();
 

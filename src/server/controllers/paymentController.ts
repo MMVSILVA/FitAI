@@ -60,7 +60,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
       const plan = session.metadata?.plan;
 
       if (userId && plan) {
-        const { getAdminDb } = await import('../lib/firebase-admin');
+        const { getAdminDb } = await import('../lib/firebase-admin.ts');
         const db = getAdminDb();
         
         const subscriptionEndsAt = new Date();
