@@ -32,7 +32,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-purple-500/30">
+    <div className="min-h-screen bg-black text-white font-sans selection:bg-purple-500/30 overflow-x-hidden">
       {/* PWA Install Banner */}
       <AnimatePresence>
         {showInstallBanner && deferredPrompt && (

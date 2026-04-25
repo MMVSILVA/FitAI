@@ -61,8 +61,7 @@ export const ExerciseLibrary = () => {
     try {
       const currentCursor = isNewSearch ? '' : cursor || '';
       const apiSearchTerm = ptToEnSearch(searchTermOverride !== undefined ? searchTermOverride : search);
-      const origin = window.location.origin;
-      const url = `${origin}/api/exercises/search?limit=20&name=${encodeURIComponent(apiSearchTerm)}&cursor=${currentCursor}`;
+      const url = `/api/exercises/search?limit=20&name=${encodeURIComponent(apiSearchTerm)}&cursor=${currentCursor}`;
       const res = await fetch(url);
       
       if (!res.ok) {
@@ -161,14 +160,15 @@ export const ExerciseLibrary = () => {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar exemplo: agachamento, supino, rosca, pernas..."
-          className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-5 pl-12 pr-4 text-xl text-white focus:border-purple-500 outline-none transition-all placeholder:text-gray-600"
+          placeholder="Buscar: agachamento, pernas..."
+          className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 sm:py-5 pl-11 sm:pl-12 pr-12 sm:pr-36 text-lg sm:text-xl text-white focus:border-purple-500 outline-none transition-all placeholder:text-gray-600"
         />
         <button 
           type="submit"
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl text-base font-black transition-all shadow-lg shadow-purple-600/20"
+          className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-500 text-white px-4 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-black transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center min-w-[44px]"
         >
-          Pesquisar
+          <span className="hidden sm:inline">Pesquisar</span>
+          <Search className="w-5 h-5 sm:hidden" />
         </button>
       </form>
 

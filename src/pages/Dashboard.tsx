@@ -86,7 +86,7 @@ function ExerciseRow({
               <p className="text-lg font-black text-black dark:text-white">{exercise.sets} x {exercise.reps}</p>
             </div>
             
-            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-3 min-w-[140px] flex-1 hover:border-purple-500/30 transition-all group/weight">
+            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 sm:gap-3 min-w-[100px] sm:min-w-[140px] flex-1 hover:border-purple-500/30 transition-all group/weight">
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest mb-0.5 opacity-60">Sua Carga</p>
                 <div className="flex items-center gap-2">
@@ -94,8 +94,8 @@ function ExerciseRow({
                     type="text" 
                     value={exercise.weight || ''} 
                     onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
-                    placeholder="Ex: Moderado - 10kg"
-                    className="bg-transparent border-none p-0 text-xl font-black text-black dark:text-white w-full focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700 truncate"
+                    placeholder="Ex: 10kg"
+                    className="bg-transparent border-none p-0 text-base sm:text-xl font-black text-black dark:text-white w-full focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700 truncate"
                   />
                   <div className="flex items-center justify-center p-1 bg-purple-500/10 rounded-lg group-hover/weight:scale-110 transition-transform shrink-0">
                     <TrendingUp className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
@@ -513,7 +513,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-purple-500/30 pb-20">
+    <div className="min-h-screen w-full bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-purple-500/30 pb-20 overflow-x-hidden">
       <AnimatePresence>
         {user?.email === 'nangelicaalcantara@gmail.com' && (
           <motion.div 
@@ -634,7 +634,7 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-8">
         {/* Welcome Section */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div className="space-y-1">
@@ -653,82 +653,82 @@ export default function Dashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto">
+        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto scrollbar-hide -mx-4 px-4 max-w-[100vw]">
           <button 
             onClick={() => setActiveTab('workout')}
-            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'workout' ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Dumbbell className="w-6 h-6" />
+            <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6" />
             Treino
           </button>
           <button 
             onClick={() => setActiveTab('library')}
-            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'library' ? 'bg-zinc-700 text-white border border-white/20 shadow-xl' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Dumbbell className="w-6 h-6 text-purple-400" />
+            <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
             Biblioteca
           </button>
           <button 
             onClick={() => setActiveTab('diet')}
-            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'diet' ? 'bg-green-500 text-black shadow-xl shadow-green-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Apple className="w-6 h-6" />
+            <Apple className="w-5 h-5 sm:w-6 sm:h-6" />
             Dieta
           </button>
           <button 
             onClick={() => setActiveTab('evolution')}
-            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'evolution' 
                 ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-blue-500 text-white shadow-xl shadow-blue-500/20') 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <TrendingUp className={`w-6 h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            <TrendingUp className={`w-5 h-5 sm:w-6 sm:h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
             Evolução
-            {(isFree || isBlocked) && <Lock className="w-4 h-4 ml-1 text-gray-600" />}
+            {(isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           <button 
             onClick={() => setActiveTab('routine')}
-            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'routine' 
                 ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-orange-500 text-white shadow-xl shadow-orange-500/20') 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Calendar className={`w-6 h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
-            Rotina Diária
-            {(isFree || isBlocked) && <Lock className="w-4 h-4 ml-1 text-gray-600" />}
+            <Calendar className={`w-5 h-5 sm:w-6 sm:h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            Rotina
+            {(isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           
           <button 
             onClick={() => setActiveTab('personal')}
-            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'personal' 
                 ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-purple-900 border border-purple-500 text-white shadow-xl') 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Users className={`w-6 h-6 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
-            Personal Trainer
-            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-4 h-4 ml-1 text-gray-600" />}
+            <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            Personal
+            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           <button 
             onClick={() => setActiveTab('nutrition')}
-            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'nutrition' 
               ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-green-900 border border-green-500 text-white shadow-xl') 
               : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Apple className={`w-6 h-6 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
-            Nutricionista
-            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-4 h-4 ml-1 text-gray-600" />}
+            <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            Nutri
+            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
         </div>
 
@@ -738,6 +738,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
+          className="w-full relative overflow-x-hidden"
         >
           {activeTab === 'routine' && (
             <div className="space-y-8 relative">
@@ -746,7 +747,7 @@ export default function Dashboard() {
               ) : isFree ? (
                 <Paywall feature="Rotina Diária" type="premium" />
               ) : null}
-              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
+              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                   Registro de Rotina Diária
@@ -896,7 +897,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'library' && (
-            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
+            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
               <ExerciseLibrary />
             </div>
           )}
@@ -904,7 +905,7 @@ export default function Dashboard() {
           {activeTab === 'workout' && (
             <div className="space-y-8 relative">
               {isBlocked && <Paywall feature="Treinos" type="expired" />}
-              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
+              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                   <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   Rotina Semanal ({profile.daysPerWeek} dias)
@@ -912,7 +913,7 @@ export default function Dashboard() {
                 
                 <div className="grid gap-4">
                   {plan.days.map((day, idx) => (
-                    <div key={`day-${idx}-${day.day}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-colors shadow-sm">
+                    <div key={`day-${idx}-${day.day}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-4 sm:p-6 hover:border-purple-500/30 transition-colors shadow-sm">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">{day.day}</h4>
                         <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white">{day.focus}</span>
@@ -1523,7 +1524,7 @@ export default function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-gray-200 dark:border-white/10 py-12 px-6 flex flex-col items-center gap-3 text-gray-500 text-sm">
+      <footer className="mt-12 border-t border-gray-200 dark:border-white/10 py-12 px-4 flex flex-col items-center gap-3 text-gray-500 text-sm">
         <p className="font-bold tracking-tight">© 2026 FitAI. Desenvolvido por NVM Project Management</p>
         <p className="font-mono bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded border border-gray-200 dark:border-white/5 uppercase tracking-widest text-xs">Versão {APP_VERSION}</p>
       </footer>

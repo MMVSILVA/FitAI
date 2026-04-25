@@ -5,3 +5,11 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --variant-dark: .dark &;
 }
+
+@layer base {
+  html, body, #root {
+    @apply w-full overflow-x-hidden;
+    margin: 0;
+    padding: 0;
+  }
+}

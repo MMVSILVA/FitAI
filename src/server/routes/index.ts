@@ -27,13 +27,24 @@ router.get('/exercises/search', async (req, res) => {
     }
 
     // Use only OSS API
-    let ossUrl = `https://oss.exercisedb.dev/api/v1/exercises?limit=${limit || 10}`;
-    if (name) ossUrl += `&name=${encodeURIComponent(name as string)}`;
-    if (cursor) ossUrl += `&cursor=${cursor}`;
+    // Ensure we're using the correct OSS search endpoint if provided
+    let ossUrl = 'https://oss.exercisedb.dev/api/v1/exercises';
+    const params = new URLSearchParams();
+    params.append('limit', (limit as string) || '20');
+    if (name) params.append('name', name as string);
+    if (cursor) params.append('cursor', cursor as string);
+    
+    ossUrl = `${ossUrl}?${params.toString()}`;
     
     console.log(`Fetching from OSS API: ${ossUrl}`);
     const response = await fetch(ossUrl);
     
+    if (response.status === 404) {
+      console.warn(`OSS API returned 404 for ${ossUrl}. This usually means no results or wrong endpoint.`);
+      // Return empty data instead of erroring out to keep UI clean
+      return res.json({ success: true, data: [], meta: { hasNextPage: false, nextCursor: null } });
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`OSS API Error [${response.status}]:`, errorText);
