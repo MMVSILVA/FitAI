@@ -67,11 +67,11 @@ export const ProgressComparison: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h3 className="text-2xl font-black text-white flex items-center gap-2">
+          <h3 className="text-3xl font-black text-white flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-purple-500" />
             Progresso de Carga
           </h3>
-          <p className="text-gray-500 text-sm">Compare sua evolução por exercício</p>
+          <p className="text-gray-500 text-base font-medium">Compare sua evolução por exercício</p>
         </div>
 
         <div className="relative">
@@ -90,22 +90,22 @@ export const ProgressComparison: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-2xl">
-          <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest mb-1">Pico de Carga</p>
-          <p className="text-3xl font-black text-white">
+          <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-1.5">Pico de Carga</p>
+          <p className="text-4xl font-black text-white">
             {progressData.length > 0 ? Math.max(...progressData.map(p => p.weight)) : 0}
             <span className="text-sm font-normal text-gray-600 ml-1">kg</span>
           </p>
         </div>
         <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-2xl">
-          <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Volume Total (Último)</p>
-          <p className="text-3xl font-black text-white">
+          <p className="text-xs font-black text-blue-500 uppercase tracking-widest mb-1.5">Volume Total (Último)</p>
+          <p className="text-4xl font-black text-white">
             {lastEntry ? lastEntry.weight * lastEntry.reps : 0}
             <span className="text-sm font-normal text-gray-600 ml-1">kg</span>
           </p>
         </div>
         <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-2xl">
-          <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-1">Evolução %</p>
-          <p className={`text-3xl font-black ${progression >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+          <p className="text-xs font-black text-green-500 uppercase tracking-widest mb-1.5">Evolução %</p>
+          <p className={`text-4xl font-black ${progression >= 0 ? 'text-green-500' : 'text-red-500'}`}>
             {progression > 0 ? '+' : ''}{progression.toFixed(1)}%
           </p>
         </div>

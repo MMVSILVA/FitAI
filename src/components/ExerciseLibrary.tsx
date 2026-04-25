@@ -123,17 +123,17 @@ export const ExerciseLibrary = () => {
       {/* Header & Status */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
+          <h2 className="text-3xl font-black flex items-center gap-2">
             <Dumbbell className="text-purple-500" />
             Banco de Exercícios
           </h2>
-          <p className="text-gray-400 text-sm">Explore nossa base de dados profissional.</p>
+          <p className="text-gray-500 text-base font-medium">Explore nossa base de dados profissional.</p>
         </div>
         
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowFavorites(!showFavorites)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-base font-black transition-all border ${
               showFavorites 
                 ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/20' 
                 : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
@@ -162,11 +162,11 @@ export const ExerciseLibrary = () => {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar exemplo: agachamento, supino, rosca, pernas..."
-          className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:border-purple-500 outline-none transition-all placeholder:text-gray-600"
+          className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-5 pl-12 pr-4 text-xl text-white focus:border-purple-500 outline-none transition-all placeholder:text-gray-600"
         />
         <button 
           type="submit"
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl text-sm font-bold transition-all"
+          className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl text-base font-black transition-all shadow-lg shadow-purple-600/20"
         >
           Pesquisar
         </button>
@@ -189,7 +189,7 @@ export const ExerciseLibrary = () => {
               setSearch(item.value);
               fetchExercises(true, item.value);
             }}
-            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
+            className={`px-5 py-2.5 rounded-full text-sm font-black whitespace-nowrap transition-all border ${
               search === item.value || (item.value === '' && search === '')
                 ? 'bg-white text-black border-white' 
                 : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10 hover:text-gray-300'
@@ -211,7 +211,10 @@ export const ExerciseLibrary = () => {
             <Info className="w-4 h-4" />
             <span>{error}</span>
           </div>
-          <button onClick={() => fetchExercises(true)} className="text-xs font-bold uppercase tracking-widest hover:underline">
+          <button 
+            onClick={() => fetchExercises(true)} 
+            className="text-[10px] bg-red-600 text-white px-3 py-1.5 rounded-lg font-black uppercase tracking-widest shadow-lg shadow-red-600/30 active:scale-95"
+          >
             Tentar Novamente
           </button>
         </motion.div>
@@ -223,7 +226,7 @@ export const ExerciseLibrary = () => {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
           >
             {displayExercises.map((ex, idx) => (
               <motion.div
@@ -264,13 +267,13 @@ export const ExerciseLibrary = () => {
                 </div>
                 <div onClick={() => setSelectedExercise(ex)} className="p-4 flex-1 flex flex-col justify-between">
                   <div className="mb-2">
-                    <h3 className="font-bold text-white capitalize truncate group-hover:text-purple-400 transition-colors uppercase tracking-tight text-sm">
+                    <h3 className="font-extrabold text-white capitalize truncate group-hover:text-purple-400 transition-colors uppercase tracking-tight text-base">
                       {translateExerciseName(ex.name)}
                     </h3>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter truncate">{translate(ex.equipments[0])}</p>
-                    <ChevronRight className="w-4 h-4 text-gray-700 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter truncate">{translate(ex.equipments[0])}</p>
+                    <ChevronRight className="w-5 h-5 text-gray-700 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
                   </div>
                 </div>
               </motion.div>

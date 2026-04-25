@@ -122,12 +122,13 @@ router.get('/exercises/proxy-gif', async (req, res) => {
 
     let response = await fetch(imageUrl, { headers });
     
-    // If 404 and it's an ExerciseDB-style URL, try a common mirror
-    if (!response.ok && response.status === 404 && imageUrl.includes('exercisedb')) {
+    // If 404 and it's an ExerciseDB-style URL, try common mirrors
+    if (!response.ok && response.status === 404 && (imageUrl.includes('exercisedb') || imageUrl.includes('media'))) {
       const mirrors = [
         imageUrl.replace('static.exercisedb.dev', 'v2.exercisedb.io'),
         imageUrl.replace('static.exercisedb.dev', 'g.static-all-about-fitness.com'),
-        // Add more mirrors if necessary
+        imageUrl.replace('static.exercisedb.dev', 'www.bodybuilding.com/exercises/exercise-images'), // Unlikely but safe
+        `https://g.static-all-about-fitness.com/media/${imageUrl.split('/').pop()}`,
       ].filter(m => m !== imageUrl);
 
       for (const mirrorUrl of mirrors) {
@@ -136,6 +137,7 @@ router.get('/exercises/proxy-gif', async (req, res) => {
           const mirrorResponse = await fetch(mirrorUrl, { headers });
           if (mirrorResponse.ok) {
             response = mirrorResponse;
+            console.log(`Success with mirror: ${mirrorUrl}`);
             break;
           }
         } catch (e) {
@@ -144,9 +146,12 @@ router.get('/exercises/proxy-gif', async (req, res) => {
       }
     }
     
-    if (!response.ok) {
-      console.warn(`GIF Proxy Upstream Error [${response.status}] for ${imageUrl}`);
-      return res.redirect('https://placehold.co/400x300?text=Exercise+GIF+Not+Found');
+    // Check if the resulting response is actually an image/gif
+    const contentType = response.headers.get('Content-Type');
+    if (!response.ok || (contentType && !contentType.includes('image'))) {
+      console.warn(`GIF Proxy Final Error [${response.status}] for ${imageUrl}. Content-Type: ${contentType}`);
+      // Return a nice fallback instead of a broken image
+      return res.redirect('https://placehold.co/400x300/111111/444444?text=Exercicio');
     }
     
     const buffer = await response.arrayBuffer();

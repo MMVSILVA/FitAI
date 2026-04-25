@@ -13,7 +13,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { APP_VERSION } from '../constants';
 import { Logo } from '../components/Logo';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
-import { ExerciseImage } from '../components/ExerciseImage';
 import { ProgressComparison } from '../components/ProgressComparison';
 import { Toast, ToastType } from '../components/Toast';
 
@@ -35,43 +34,8 @@ function ExerciseRow({
   key?: any;
 }) {
   const { updateExerciseWeight, addExerciseProgress, planType } = useUser();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLogging, setIsLogging] = useState(false);
   const [logSuccess, setLogSuccess] = useState(false);
-
-  // Buscar GIF do exercício via proxy para evitar bloqueios de CORS/Referer
-  useEffect(() => {
-    const fetchGif = async () => {
-      try {
-        const origin = window.location.origin;
-        // Prefer imageKeyword if available, otherwise use name
-        const searchTerm = ptToEnSearch(exercise.imageKeyword || exercise.name);
-        const res = await fetch(`${origin}/api/exercises/search?limit=1&name=${encodeURIComponent(searchTerm)}`);
-        
-        if (!res.ok) {
-          throw new Error(`API Error: ${res.status}`);
-        }
-        
-        const data = await res.json();
-        if (data.success && data.data.length > 0) {
-          setImageUrl(data.data[0].gifUrl);
-        } else if (data.success && exercise.imageKeyword && exercise.imageKeyword !== exercise.name) {
-          // Fallback to name if imageKeyword search failed
-          const fallbackSearch = ptToEnSearch(exercise.name);
-          const fallbackRes = await fetch(`${origin}/api/exercises/search?limit=1&name=${encodeURIComponent(fallbackSearch)}`);
-          if (fallbackRes.ok) {
-            const fallbackData = await fallbackRes.json();
-            if (fallbackData.success && fallbackData.data.length > 0) {
-              setImageUrl(fallbackData.data[0].gifUrl);
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Erro ao buscar GIF:", e);
-      }
-    };
-    fetchGif();
-  }, [exercise.name, exercise.imageKeyword]);
 
   const handleLogProgress = async () => {
     if (!exercise.weight || isLogging) return;
@@ -91,7 +55,7 @@ function ExerciseRow({
     <div className="flex flex-col gap-4 py-6 border-b border-gray-200 dark:border-white/5 last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors px-2 rounded-xl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-xl text-black dark:text-white tracking-tight truncate">{translateExerciseName(exercise.name)}</p>
+          <p className="font-extrabold text-2xl text-black dark:text-white tracking-tight truncate">{translateExerciseName(exercise.name)}</p>
           {exercise.englishName && (
             <p className="text-xs text-gray-500 dark:text-gray-400 font-medium italic truncate">{exercise.englishName}</p>
           )}
@@ -113,18 +77,18 @@ function ExerciseRow({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        {/* Lado Esquerdo: Info e Instruções */}
-        <div className="md:col-span-7 space-y-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg">
-              <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
+      <div className="grid grid-cols-1 gap-6 items-start">
+        {/* Info e Instruções */}
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg shrink-0">
+              <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
               <p className="text-lg font-black text-black dark:text-white">{exercise.sets} x {exercise.reps}</p>
             </div>
             
-            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-4 py-2.5 rounded-2xl flex items-center gap-3 min-w-[160px] flex-1 sm:flex-none hover:border-purple-500/30 transition-all group/weight">
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest mb-0.5 whitespace-nowrap opacity-60">Sua Carga</p>
+            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-3 min-w-[140px] flex-1 hover:border-purple-500/30 transition-all group/weight">
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest mb-0.5 opacity-60">Sua Carga</p>
                 <div className="flex items-center gap-2">
                   <input 
                     type="text" 
@@ -133,8 +97,8 @@ function ExerciseRow({
                     placeholder="Ex: Moderado - 10kg"
                     className="bg-transparent border-none p-0 text-xl font-black text-black dark:text-white w-full focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700 truncate"
                   />
-                  <div className="flex items-center justify-center p-1.5 bg-purple-500/10 rounded-lg group-hover/weight:scale-110 transition-transform">
-                    <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <div className="flex items-center justify-center p-1 bg-purple-500/10 rounded-lg group-hover/weight:scale-110 transition-transform shrink-0">
+                    <TrendingUp className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                   </div>
                 </div>
               </div>
@@ -150,7 +114,7 @@ function ExerciseRow({
                   } disabled:opacity-30 flex-shrink-0`}
                   title="Salvar no Histórico"
                 >
-                  {isLogging ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                  {isLogging ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 </button>
               )}
             </div>
@@ -159,51 +123,39 @@ function ExerciseRow({
           {exercise.technicalDescription && (
             <div className="p-4 bg-gray-100 dark:bg-zinc-900/50 border border-gray-200 dark:border-white/5 rounded-2xl relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-purple-500 opacity-50" />
-              <p className="text-[10px] font-black text-purple-600 dark:text-purple-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-                <Activity className="w-3 h-3" /> Execução Técnica
+              <p className="text-xs font-black text-purple-600 dark:text-purple-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5" /> Execução Técnica
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed font-medium italic">
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed font-semibold italic">
                 "{exercise.technicalDescription}"
               </p>
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {exercise.tips && (
               <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-purple-500/20 transition-colors">
-                <p className="text-[9px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1.5">Dica</p>
+                <p className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1.5">Dica</p>
                 <p className="text-xs text-gray-500 leading-snug">{exercise.tips}</p>
               </div>
             )}
             {exercise.breathing && (
               <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-blue-500/20 transition-colors">
-                <p className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5">Respiração</p>
+                <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5">Respiração</p>
                 <p className="text-xs text-gray-500 leading-snug">{exercise.breathing}</p>
               </div>
             )}
             {exercise.cadence && (
               <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-green-500/20 transition-colors">
-                <p className="text-[9px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest mb-1.5">Cadência</p>
+                <p className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest mb-1.5">Cadência</p>
                 <p className="text-xs text-gray-500 leading-snug">{exercise.cadence}</p>
               </div>
             )}
           </div>
-        </div>
-
-        {/* Lado Direito: GIF do Exercício */}
-        <div className="md:col-span-5 space-y-4">
-          <div className="aspect-video relative rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 group">
-            <ExerciseImage 
-              src={imageUrl || ''} 
-              alt={exercise.name}
-              className="w-full h-full"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-          </div>
-
+          
           <button 
             onClick={() => onStartRest(restSeconds)}
-            className="w-full bg-white text-black dark:bg-white dark:text-black hover:bg-purple-500 hover:text-white px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-black/20 group"
+            className="w-full bg-black text-white dark:bg-white dark:text-black hover:bg-purple-600 hover:text-white px-5 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-black/10 group"
           >
             <Timer className="w-5 h-5 group-hover:rotate-12 transition-transform" /> Iniciar Descanso
           </button>
@@ -587,69 +539,59 @@ export default function Dashboard() {
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10">
-        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo className="w-12 h-12 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-black dark:text-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
+            <Logo className="w-8 h-8 sm:w-12 sm:h-12 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)] shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-black dark:text-white truncate">
                 <span className="text-[#39ff14] drop-shadow-[0_0_8px_rgba(57,255,20,0.6)]">Fit</span>
                 <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
               </h1>
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-purple-600 dark:text-purple-400 font-medium tracking-wider uppercase">Plano {isAdmin ? 'ADMIN' : planType}</p>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <p className="text-[8px] sm:text-xs text-purple-600 dark:text-purple-400 font-medium tracking-wider uppercase truncate max-w-[80px] sm:max-w-none">{isAdmin ? 'ADMIN' : planType}</p>
                 {isAdmin && (
                   <button 
                     onClick={() => setShowAdminModal(true)}
-                    className="ml-2 bg-red-600 hover:bg-red-500 text-white text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-red-600/20 transition-all border border-red-500/50"
+                    className="bg-red-600 hover:bg-red-500 text-white text-[8px] sm:text-[10px] px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-red-600/20 transition-all border border-red-500/50"
                   >
-                    <Users className="w-3 h-3" /> Painel Admin
+                    <Users className="w-2 sm:w-3 h-2 sm:h-3" /> <span className="hidden xs:inline">Admin</span>
                   </button>
                 )}
               </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            {deferredPrompt && (
-              <button 
-                onClick={handleInstallClick} 
-                className="hidden lg:flex items-center gap-2 bg-purple-600/10 text-purple-600 dark:text-purple-400 hover:bg-purple-600/20 px-4 py-2 rounded-full text-sm font-bold transition-colors"
-              >
-                <Download className="w-4 h-4" /> Instalar App
-              </button>
-            )}
-
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={toggleTheme}
-              className="p-2.5 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-all group relative"
+              className="p-2 sm:p-2.5 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-all group relative shrink-0"
               title={theme === 'dark' ? 'Mudar para modo sistema' : theme === 'system' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
             >
               <div className="relative">
-                {theme === 'dark' && <Moon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />}
-                {theme === 'light' && <Sun className="w-5 h-5 group-hover:rotate-45 transition-transform" />}
+                {theme === 'dark' && <Moon className="w-4 sm:w-5 h-4 sm:h-5 group-hover:-rotate-12 transition-transform" />}
+                {theme === 'light' && <Sun className="w-4 sm:w-5 h-4 sm:h-5 group-hover:rotate-45 transition-transform" />}
                 {theme === 'system' && (
                   <div className="relative text-purple-600 dark:text-purple-400">
-                    <Zap className="w-5 h-5" />
-                    <span className="absolute -top-1 -right-1 text-[8px] font-black uppercase">Auto</span>
+                    <Zap className="w-4 sm:w-5 h-4 sm:h-5" />
                   </div>
                 )}
               </div>
             </button>
 
             {user?.photoURL ? (
-              <img src={user.photoURL} alt={user.displayName || 'User'} className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-white/20" />
+              <img src={user.photoURL} alt={user.displayName || 'User'} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200 dark:border-white/20 shrink-0" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-purple-600/10 flex items-center justify-center border border-purple-500/30 text-purple-600 dark:text-purple-400 font-bold">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-600/10 flex items-center justify-center border border-purple-500/30 text-purple-600 dark:text-purple-400 font-bold shrink-0 text-xs sm:text-sm">
                 {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
               </div>
             )}
 
             <button 
               onClick={handleLogout} 
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all font-bold text-sm"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg sm:rounded-xl transition-all font-bold text-[10px] sm:text-sm shrink-0"
               title="Sair da conta"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
               <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
@@ -694,33 +636,19 @@ export default function Dashboard() {
 
       <main className="max-w-5xl mx-auto px-6 pt-8">
         {/* Welcome Section */}
-        <div className="mb-10 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">Seu plano está pronto.</h2>
-            <p className="text-gray-500 dark:text-gray-400">
-              Objetivos: <span className="text-black dark:text-white font-medium">{Array.isArray(profile.objective) ? profile.objective.join(', ') : profile.objective}</span> • 
-              Nível: <span className="text-black dark:text-white font-medium">{profile.fitnessLevel}</span>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Seu plano está pronto.</h2>
+            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium">
+              Objetivos: <span className="text-purple-600 dark:text-purple-400 font-bold">{Array.isArray(profile.objective) ? profile.objective.join(', ') : profile.objective}</span> • 
+              Nível: <span className="text-black dark:text-white font-bold">{profile.fitnessLevel}</span>
             </p>
-            {isFree && trialEndsAt && (
-              <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 px-4 py-2 rounded-lg text-sm text-purple-600 dark:text-purple-300">
-                  <Timer className="w-4 h-4" />
-                  Seu período de teste grátis termina em: {new Date(trialEndsAt).toLocaleDateString()}
-                </div>
-                <Link 
-                  to="/checkout?plan=PRO"
-                  className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl font-bold text-sm transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2"
-                >
-                  <Zap className="w-4 h-4 fill-current" /> Ativar Plano PRO
-                </Link>
-              </div>
-            )}
           </div>
           <button 
             onClick={() => navigate('/onboarding')}
-            className="inline-flex items-center justify-center gap-2 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-black dark:text-white px-4 py-2 rounded-xl font-medium transition-colors text-sm"
+            className="self-start sm:self-auto text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-purple-500 transition-colors flex items-center gap-2"
           >
-            Refazer Plano
+            <Sparkles className="w-3 h-3" /> Refazer Plano
           </button>
         </div>
 
@@ -728,79 +656,79 @@ export default function Dashboard() {
         <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto">
           <button 
             onClick={() => setActiveTab('workout')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
-              activeTab === 'workout' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+              activeTab === 'workout' ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Dumbbell className="w-5 h-5" />
+            <Dumbbell className="w-6 h-6" />
             Treino
           </button>
           <button 
             onClick={() => setActiveTab('library')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
-              activeTab === 'library' ? 'bg-zinc-700 text-white border border-white/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+              activeTab === 'library' ? 'bg-zinc-700 text-white border border-white/20 shadow-xl' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Dumbbell className="w-5 h-5 text-purple-400" />
+            <Dumbbell className="w-6 h-6 text-purple-400" />
             Biblioteca
           </button>
           <button 
             onClick={() => setActiveTab('diet')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
-              activeTab === 'diet' ? 'bg-green-500 text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
+              activeTab === 'diet' ? 'bg-green-500 text-black shadow-xl shadow-green-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Apple className="w-5 h-5" />
+            <Apple className="w-6 h-6" />
             Dieta
           </button>
           <button 
             onClick={() => setActiveTab('evolution')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
+            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
               activeTab === 'evolution' 
-                ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-blue-500 text-white') 
+                ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-blue-500 text-white shadow-xl shadow-blue-500/20') 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <TrendingUp className={`w-5 h-5 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            <TrendingUp className={`w-6 h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
             Evolução
-            {(isFree || isBlocked) && <Lock className="w-3 h-3 ml-1 text-gray-600" />}
+            {(isFree || isBlocked) && <Lock className="w-4 h-4 ml-1 text-gray-600" />}
           </button>
           <button 
             onClick={() => setActiveTab('routine')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
+            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
               activeTab === 'routine' 
-                ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-orange-500 text-white') 
+                ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-orange-500 text-white shadow-xl shadow-orange-500/20') 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Calendar className={`w-5 h-5 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            <Calendar className={`w-6 h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
             Rotina Diária
-            {(isFree || isBlocked) && <Lock className="w-3 h-3 ml-1 text-gray-600" />}
+            {(isFree || isBlocked) && <Lock className="w-4 h-4 ml-1 text-gray-600" />}
           </button>
           
           <button 
             onClick={() => setActiveTab('personal')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
+            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
               activeTab === 'personal' 
-                ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-purple-900 border border-purple-500 text-white') 
+                ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-purple-900 border border-purple-500 text-white shadow-xl') 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Users className={`w-5 h-5 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            <Users className={`w-6 h-6 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
             Personal Trainer
-            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-3 h-3 ml-1 text-gray-600" />}
+            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-4 h-4 ml-1 text-gray-600" />}
           </button>
           <button 
             onClick={() => setActiveTab('nutrition')}
-            className={`flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-full font-bold transition-all text-sm sm:text-base whitespace-nowrap ${
+            className={`flex items-center justify-center gap-3 flex-1 sm:flex-none px-6 sm:px-10 py-4 rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap ${
               activeTab === 'nutrition' 
-              ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-green-900 border border-green-500 text-white') 
+              ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-green-900 border border-green-500 text-white shadow-xl') 
               : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Apple className={`w-5 h-5 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            <Apple className={`w-6 h-6 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
             Nutricionista
-            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-3 h-3 ml-1 text-gray-600" />}
+            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-4 h-4 ml-1 text-gray-600" />}
           </button>
         </div>
 
@@ -1066,20 +994,20 @@ export default function Dashboard() {
               <div id="diet-macros" className="grid grid-cols-2 md:grid-cols-4 gap-4 scroll-mt-24">
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Calorias</p>
-                  <p className="text-3xl font-bold text-black dark:text-white">{plan?.diet?.calories || '---'}</p>
+                  <p className="text-4xl font-black text-black dark:text-white">{plan?.diet?.calories || '---'}</p>
                   <p className="text-xs text-gray-500 mt-1">kcal/dia</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Proteína</p>
-                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{plan?.diet?.macros?.protein || '0'}g</p>
+                  <p className="text-4xl font-black text-purple-600 dark:text-purple-400">{plan?.diet?.macros?.protein || '0'}g</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Carboidratos</p>
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">{plan?.diet?.macros?.carbs || '0'}g</p>
+                  <p className="text-4xl font-black text-green-600 dark:text-green-400">{plan?.diet?.macros?.carbs || '0'}g</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Gorduras</p>
-                  <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{plan?.diet?.macros?.fat || '0'}g</p>
+                  <p className="text-4xl font-black text-yellow-600 dark:text-yellow-400">{plan?.diet?.macros?.fat || '0'}g</p>
                 </div>
               </div>
 
@@ -1096,13 +1024,13 @@ export default function Dashboard() {
                         {plan.diet.meals?.map((meal, idx) => (
                           <div key={`meal-${idx}-${meal.name}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-lg font-bold text-green-600 dark:text-green-400">{meal.name}</h4>
-                              <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full">{meal.time}</span>
+                              <h4 className="text-xl font-black text-green-600 dark:text-green-400">{meal.name}</h4>
+                              <span className="text-sm font-bold bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full">{meal.time}</span>
                             </div>
-                            <ul className="space-y-2">
+                            <ul className="space-y-3">
                               {meal.foods?.map((food, i) => (
-                                <li key={i} className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
-                                  <span className="text-green-600 dark:text-green-500 mt-1">•</span>
+                                <li key={i} className="flex items-start gap-2 text-base text-gray-700 dark:text-white font-medium">
+                                  <span className="text-green-600 dark:text-green-500 mt-1.5">•</span>
                                   {food}
                                 </li>
                               ))}
@@ -1561,26 +1489,28 @@ export default function Dashboard() {
                           onClick={() => {
                             setActiveTab('diet');
                             setTimeout(() => {
-                              document.getElementById('diet-meals')?.scrollIntoView({ behavior: 'smooth' });
-                            }, 100);
+                              const el = document.getElementById('diet-meals');
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }, 500);
                           }}
                         >
-                          <Apple className="w-8 h-8 mx-auto mb-3 text-green-600 dark:text-green-500" />
-                          <p className="text-sm font-bold text-black dark:text-white">Base Alimentar</p>
-                          <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">Ver Cardápio Completo</p>
+                          <Apple className="w-10 h-10 mx-auto mb-3 text-green-600 dark:text-green-500" />
+                          <p className="text-lg font-bold text-black dark:text-white">Base Alimentar</p>
+                          <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">Ver Cardápio Completo</p>
                         </div>
                         <div 
                           className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-blue-500/30 transition-all"
                           onClick={() => {
                             setActiveTab('diet');
                             setTimeout(() => {
-                              document.getElementById('diet-macros')?.scrollIntoView({ behavior: 'smooth' });
-                            }, 100);
+                              const el = document.getElementById('diet-macros');
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }, 500);
                           }}
                         >
-                          <Activity className="w-8 h-8 mx-auto mb-3 text-blue-600 dark:text-blue-500" />
-                          <p className="text-sm font-bold text-black dark:text-white">Macros Diários</p>
-                          <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">Resumo Nutricional</p>
+                          <Activity className="w-10 h-10 mx-auto mb-3 text-blue-600 dark:text-blue-500" />
+                          <p className="text-lg font-bold text-black dark:text-white">Macros Diários</p>
+                          <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">Resumo Nutricional</p>
                         </div>
                       </div>
                     </div>
@@ -1593,9 +1523,9 @@ export default function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-gray-200 dark:border-white/10 py-12 px-6 flex flex-col items-center gap-3 text-gray-500 text-xs">
+      <footer className="mt-12 border-t border-gray-200 dark:border-white/10 py-12 px-6 flex flex-col items-center gap-3 text-gray-500 text-sm">
         <p className="font-bold tracking-tight">© 2026 FitAI. Desenvolvido por NVM Project Management</p>
-        <p className="font-mono bg-gray-100 dark:bg-white/5 px-2 py-1 rounded border border-gray-200 dark:border-white/5 uppercase tracking-widest text-[9px]">Versão {APP_VERSION}</p>
+        <p className="font-mono bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded border border-gray-200 dark:border-white/5 uppercase tracking-widest text-xs">Versão {APP_VERSION}</p>
       </footer>
 
       {/* Admin Panel Modal */}
