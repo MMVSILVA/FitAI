@@ -487,16 +487,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getExerciseProgress = async (exerciseName: string) => {
     if (!user) return [];
     try {
-      const { collection, query, where, getDocs, orderBy } = await import('firebase/firestore');
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
       const progressRef = collection(db, 'exercise_progress');
+      
+      // Optimized query: multiple WHERE clauses are easier for Firestore to handle without composite indexes
+      // if sorting is handled in-memory on the client side.
       const q = query(
         progressRef, 
         where('userId', '==', user.uid),
-        where('exerciseName', '==', exerciseName),
-        orderBy('date', 'asc')
+        where('exerciseName', '==', exerciseName)
       );
+      
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as import('../types').ExerciseProgress));
+      const progressData = snap.docs.map(d => ({ id: d.id, ...d.data() } as import('../types').ExerciseProgress));
+      
+      // Client-side sort by date ASC
+      return progressData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } catch (error) {
       console.error("Error getting exercise progress:", error);
       return [];

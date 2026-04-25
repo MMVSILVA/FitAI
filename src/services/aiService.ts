@@ -96,7 +96,7 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
                 "equipment": "Equipamento Necessário",
                 "sets": 3, 
                 "reps": "12", 
-                "weight": "Moderado / 20kg", 
+                "weight": "Moderado - 10 Kg de cada lado", 
                 "tips": "Dica curta", 
                 "breathing": "Dica respiração", 
                 "cadence": "2:0:2", 
@@ -125,7 +125,11 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
             "foods": ["Alimento 1 + Gramagem", "Alimento 2 + Gramagem"]
           }
         ],
-        "recommendations": ["Recomendação 1", "Recomendação 2"]
+        "recommendations": [
+            "Dica de Whey Protein: [Dosagem, composição ideal e melhor aplicação/horário]",
+            "Dica de Creatina: [Dosagem, saturação e aplicação constante]",
+            "Dica de Suplementação: [Outras dicas relevantes como Omega 3, Multivitamínico ou Pré-treinos sem marcas]"
+        ]
       }
     }
 
@@ -144,8 +148,9 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
     3. 'imageKeyword': O termo em Inglês entre parênteses acima (EXATO).
     4. 'group': O grupo muscular (Peito, Costas, etc).
     5. 'equipment': Barra, Haltere, Máquina, Cabo ou Peso Corporal.
-    6. 'weight': Sugestão inicial (Ex: 'Moderado', '10kg cada lado', 'Peso do Corpo').
-    7. 'technicalDescription': Descrição profissional e detalhada em Português.
+    6. 'weight': Seguir RIGOROSAMENTE o formato "Intensidade - Valor sugerido" (Ex: 'Moderado - 10 Kg de cada lado', 'Leve - Peso do Corpo', 'Intenso - 40 kg totais').
+    7. 'diet.recommendations': Incluir OBRIGATORIAMENTE dicas de Whey Protein, Creatina e outros suplementos vitais. Focar em dosagens, melhor composição/pureza e aplicação técnica. PROIBIDO CITAR MARCAS COMERCIAIS.
+    8. 'technicalDescription': Descrição profissional e detalhada em Português.
 
     Responda apenas com o JSON puro, sem markdown.
   `;

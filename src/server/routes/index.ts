@@ -120,7 +120,29 @@ router.get('/exercises/proxy-gif', async (req, res) => {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     };
 
-    const response = await fetch(imageUrl, { headers });
+    let response = await fetch(imageUrl, { headers });
+    
+    // If 404 and it's an ExerciseDB-style URL, try a common mirror
+    if (!response.ok && response.status === 404 && imageUrl.includes('exercisedb')) {
+      const mirrors = [
+        imageUrl.replace('static.exercisedb.dev', 'v2.exercisedb.io'),
+        imageUrl.replace('static.exercisedb.dev', 'g.static-all-about-fitness.com'),
+        // Add more mirrors if necessary
+      ].filter(m => m !== imageUrl);
+
+      for (const mirrorUrl of mirrors) {
+        console.log(`Trying alternate mirror: ${mirrorUrl}`);
+        try {
+          const mirrorResponse = await fetch(mirrorUrl, { headers });
+          if (mirrorResponse.ok) {
+            response = mirrorResponse;
+            break;
+          }
+        } catch (e) {
+          console.warn(`Mirror failed: ${mirrorUrl}`);
+        }
+      }
+    }
     
     if (!response.ok) {
       console.warn(`GIF Proxy Upstream Error [${response.status}] for ${imageUrl}`);

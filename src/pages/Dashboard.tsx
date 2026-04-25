@@ -130,7 +130,7 @@ function ExerciseRow({
                     type="text" 
                     value={exercise.weight || ''} 
                     onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
-                    placeholder="Ex: 20kg"
+                    placeholder="Ex: Moderado - 10kg"
                     className="bg-transparent border-none p-0 text-xl font-black text-black dark:text-white w-full focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700 truncate"
                   />
                   <div className="flex items-center justify-center p-1.5 bg-purple-500/10 rounded-lg group-hover/weight:scale-110 transition-transform">
@@ -1063,7 +1063,7 @@ export default function Dashboard() {
             <div className="space-y-8 relative">
               {isBlocked && <Paywall feature="Dieta" type="expired" />}
               {/* Macros Overview */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div id="diet-macros" className="grid grid-cols-2 md:grid-cols-4 gap-4 scroll-mt-24">
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Calorias</p>
                   <p className="text-3xl font-bold text-black dark:text-white">{plan?.diet?.calories || '---'}</p>
@@ -1083,8 +1083,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Meals Paywall */}
-              <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8 min-h-[500px]">
+              {/* Meals Section */}
+              <div id="diet-meals" className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8 min-h-[500px] scroll-mt-24">
                 <h3 className="text-xl font-bold mb-6">Plano Alimentar Completo</h3>
                 
                 {isFree ? (
@@ -1555,21 +1555,33 @@ export default function Dashboard() {
                           Analiso seu peso atual ({profile.weight}kg) e nível de atividade para calcular macros em tempo real e sugerir substituições inteligentes.
                         </p>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <button 
-                          onClick={() => setActiveTab('diet')}
-                          className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-4 rounded-xl text-center hover:bg-gray-100 dark:hover:bg-white/10 transition-all shadow-sm"
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div 
+                          className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-green-500/30 transition-all"
+                          onClick={() => {
+                            setActiveTab('diet');
+                            setTimeout(() => {
+                              document.getElementById('diet-meals')?.scrollIntoView({ behavior: 'smooth' });
+                            }, 100);
+                          }}
                         >
-                          <Apple className="w-5 h-5 mx-auto mb-2 text-green-600 dark:text-green-500" />
-                          <p className="text-xs font-bold text-black dark:text-white">Base Alimentar</p>
-                        </button>
-                        <button 
-                          onClick={() => setActiveTab('diet')}
-                          className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-4 rounded-xl text-center hover:bg-gray-100 dark:hover:bg-white/10 transition-all shadow-sm"
+                          <Apple className="w-8 h-8 mx-auto mb-3 text-green-600 dark:text-green-500" />
+                          <p className="text-sm font-bold text-black dark:text-white">Base Alimentar</p>
+                          <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">Ver Cardápio Completo</p>
+                        </div>
+                        <div 
+                          className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-blue-500/30 transition-all"
+                          onClick={() => {
+                            setActiveTab('diet');
+                            setTimeout(() => {
+                              document.getElementById('diet-macros')?.scrollIntoView({ behavior: 'smooth' });
+                            }, 100);
+                          }}
                         >
-                          <Activity className="w-5 h-5 mx-auto mb-2 text-blue-600 dark:text-blue-500" />
-                          <p className="text-xs font-bold text-black dark:text-white">Macros Diários</p>
-                        </button>
+                          <Activity className="w-8 h-8 mx-auto mb-3 text-blue-600 dark:text-blue-500" />
+                          <p className="text-sm font-bold text-black dark:text-white">Macros Diários</p>
+                          <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">Resumo Nutricional</p>
+                        </div>
                       </div>
                     </div>
                   )}
