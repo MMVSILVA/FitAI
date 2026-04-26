@@ -143,12 +143,14 @@ router.get('/exercises/proxy-gif', async (req, res) => {
         `https://oss.exercisedb.dev/media/${fileName}`,
         `https://g.static-all-about-fitness.com/media/${fileName}`,
         `https://exercisedb.v2.io/media/${fileName}`,
+        `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${fileName}`,
+        `https://fitness-program-api.herokuapp.com/media/${fileName}`,
       ].filter(m => m !== imageUrl);
 
       for (const mirrorUrl of mirrors) {
         console.log(`Trying alternate mirror: ${mirrorUrl}`);
         try {
-          const mirrorResponse = await fetch(mirrorUrl, { headers, signal: AbortSignal.timeout(3000) });
+          const mirrorResponse = await fetch(mirrorUrl, { headers, signal: AbortSignal.timeout(4000) });
           if (mirrorResponse.ok) {
             response = mirrorResponse;
             console.log(`Success with mirror: ${mirrorUrl}`);
@@ -164,8 +166,10 @@ router.get('/exercises/proxy-gif', async (req, res) => {
     const contentType = response.headers.get('Content-Type');
     if (!response.ok || (contentType && !contentType.includes('image'))) {
       console.warn(`GIF Proxy Final Error [${response.status}] for ${imageUrl}. Content-Type: ${contentType}`);
-      // Return a nice fallback instead of a broken image
-      return res.redirect('https://placehold.co/400x300/111111/444444?text=Exercicio');
+      
+      // Ultra-fallback: try searching by ID on Bodybuilding.com or similar if we can parse it
+      // But for now, let's just use a better placeholder
+      return res.redirect('https://placehold.co/400x400/000000/666666?text=Imagem+Nao+Disponivel');
     }
     
     const buffer = await response.arrayBuffer();

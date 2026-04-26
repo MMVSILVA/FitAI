@@ -138,7 +138,7 @@ export default function Onboarding() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative">
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-x-hidden">
         <button 
           onClick={() => { setLoading(false); setStep(1); }}
           className="absolute top-6 left-6 flex items-center text-gray-400 hover:text-white transition-colors"
@@ -162,7 +162,7 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative">
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-x-hidden">
       <div className="w-full max-w-md">
         {step > 1 ? (
           <button 

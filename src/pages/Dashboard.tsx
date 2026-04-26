@@ -52,50 +52,50 @@ function ExerciseRow({
   };
 
   return (
-    <div className="flex flex-col gap-4 py-6 border-b border-gray-200 dark:border-white/5 last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors px-2 rounded-xl">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <p className="font-extrabold text-2xl text-black dark:text-white tracking-tight truncate">{translateExerciseName(exercise.name)}</p>
+    <div className="flex flex-col gap-4 py-6 border-b border-gray-200 dark:border-white/5 last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors px-1 sm:px-2 rounded-xl w-full max-w-full overflow-hidden">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 w-full">
+        <div className="flex-1 min-w-0 w-full">
+          <p className="font-extrabold text-xl sm:text-2xl text-black dark:text-white tracking-tight break-words">{translateExerciseName(exercise.name)}</p>
           {exercise.englishName && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium italic truncate">{exercise.englishName}</p>
+            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium italic break-words">{exercise.englishName}</p>
           )}
-          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+          <div className="flex flex-wrap items-center gap-2 mt-1.5 min-w-0">
             {exercise.group && (
-              <span className="text-[9px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-purple-500/20">
+              <span className="text-[9px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-purple-500/20 whitespace-nowrap">
                 {exercise.group}
               </span>
             )}
             {exercise.equipment && (
-              <span className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-blue-500/20">
+              <span className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-blue-500/20 whitespace-nowrap">
                 {exercise.equipment}
               </span>
             )}
           </div>
         </div>
-        <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-white/10 px-3 py-1 rounded-full uppercase tracking-widest shrink-0">
+        <span className="text-[10px] sm:text-xs font-bold text-gray-500 bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-white/10 px-3 py-1 rounded-full uppercase tracking-widest shrink-0 self-start sm:self-center">
           {exercise.rest} descanso
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 items-start">
+      <div className="grid grid-cols-1 gap-6 items-start w-full">
         {/* Info e Instruções */}
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg shrink-0">
-              <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
-              <p className="text-lg font-black text-black dark:text-white">{exercise.sets} x {exercise.reps}</p>
+        <div className="space-y-4 w-full">
+          <div className="flex flex-wrap items-stretch gap-2 sm:gap-3 w-full">
+            <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg shrink-0 flex flex-col justify-center min-w-0 sm:min-w-[120px] flex-1 sm:flex-none">
+              <p className="text-[9px] sm:text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
+              <p className="text-sm sm:text-lg font-black text-black dark:text-white leading-none">{exercise.sets} x {exercise.reps}</p>
             </div>
             
-            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 sm:gap-3 min-w-[100px] sm:min-w-[140px] flex-1 hover:border-purple-500/30 transition-all group/weight">
+            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 sm:gap-3 min-w-0 sm:min-w-[140px] flex-1 hover:border-purple-500/30 transition-all group/weight">
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest mb-0.5 opacity-60">Sua Carga</p>
+                <p className="text-[9px] sm:text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest mb-0.5 opacity-60">Sua Carga</p>
                 <div className="flex items-center gap-2">
                   <input 
                     type="text" 
                     value={exercise.weight || ''} 
                     onChange={(e) => updateExerciseWeight(dayIdx, exerciseIdx, e.target.value)}
                     placeholder="Ex: 10kg"
-                    className="bg-transparent border-none p-0 text-base sm:text-xl font-black text-black dark:text-white w-full focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700 truncate"
+                    className="bg-transparent border-none p-0 text-sm sm:text-xl font-black text-black dark:text-white w-full focus:ring-0 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-700 min-w-0"
                   />
                   <div className="flex items-center justify-center p-1 bg-purple-500/10 rounded-lg group-hover/weight:scale-110 transition-transform shrink-0">
                     <TrendingUp className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
@@ -121,12 +121,12 @@ function ExerciseRow({
           </div>
 
           {exercise.technicalDescription && (
-            <div className="p-4 bg-gray-100 dark:bg-zinc-900/50 border border-gray-200 dark:border-white/5 rounded-2xl relative overflow-hidden group">
+            <div className="p-3 sm:p-4 bg-gray-100 dark:bg-zinc-900/50 border border-gray-200 dark:border-white/5 rounded-2xl relative overflow-hidden group w-full">
               <div className="absolute top-0 left-0 w-1 h-full bg-purple-500 opacity-50" />
-              <p className="text-xs font-black text-purple-600 dark:text-purple-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+              <p className="text-[10px] sm:text-xs font-black text-purple-600 dark:text-purple-500 uppercase tracking-[0.1em] sm:tracking-[0.2em] mb-2 flex items-center gap-1.5 overflow-hidden whitespace-nowrap">
                 <Activity className="w-3.5 h-3.5" /> Execução Técnica
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed font-semibold italic">
+              <p className="text-[12px] sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed font-semibold italic break-words">
                 "{exercise.technicalDescription}"
               </p>
             </div>
@@ -513,14 +513,14 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-purple-500/30 pb-20 overflow-x-hidden">
+    <div className="min-h-screen w-full max-w-[100vw] bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-purple-500/30 pb-20 overflow-x-hidden">
       <AnimatePresence>
         {user?.email === 'nangelicaalcantara@gmail.com' && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-r from-red-600/30 via-pink-600/30 to-red-600/30 border-b border-red-500/20 pt-6 pb-8 px-6 text-center overflow-hidden relative"
+            className="bg-gradient-to-r from-red-600/30 via-pink-600/30 to-red-600/30 border-b border-red-500/20 pt-6 pb-8 px-4 sm:px-6 text-center overflow-hidden relative"
           >
             <motion.div 
               animate={{ scale: [1, 1.1, 1] }}
@@ -643,7 +643,7 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-8">
+      <main className="max-w-5xl mx-auto px-3 sm:px-6 pt-8 overflow-x-hidden">
         {/* Welcome Section */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div className="space-y-1">
@@ -666,7 +666,7 @@ export default function Dashboard() {
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 p-6 bg-gradient-to-br from-orange-500/10 to-purple-600/10 border border-orange-500/20 rounded-3xl relative overflow-hidden group shadow-sm"
+            className="mb-8 p-4 sm:p-6 bg-gradient-to-br from-orange-500/10 to-purple-600/10 border border-orange-500/20 rounded-3xl relative overflow-hidden group shadow-sm"
           >
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
               <Sparkles className="w-24 h-24 text-orange-500" />
@@ -691,14 +691,14 @@ export default function Dashboard() {
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-4 shrink-0">
-                <div className="text-center bg-white dark:bg-black/40 border border-orange-500/20 px-6 py-4 rounded-2xl shadow-xl min-w-[120px]">
+                <div className="text-center bg-white dark:bg-black/40 border border-orange-500/20 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl shadow-xl min-w-[100px] sm:min-w-[120px]">
                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Faltam apenas</p>
                    <p className="text-4xl font-black text-black dark:text-white leading-none">
                      {Math.ceil((new Date(trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} 
                      <span className="text-sm ml-1">dias</span>
                    </p>
                 </div>
-                <Link to="/checkout?plan=PREMIUM" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-8 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-orange-500/30 flex items-center justify-center gap-3 active:scale-95 group/btn">
+                <Link to="/checkout?plan=PREMIUM" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-8 py-4 sm:py-5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-xl shadow-orange-500/30 flex items-center justify-center gap-3 active:scale-95 group/btn">
                    Fidelizar Agora <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -707,7 +707,7 @@ export default function Dashboard() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto scrollbar-hide -mx-4 px-4 max-w-[100vw]">
+        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto scrollbar-hide -mx-3 px-3">
           <button 
             onClick={() => setActiveTab('workout')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
@@ -928,11 +928,11 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8">
+                  <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
                     <ProgressComparison />
                   </div>
 
-                  <div className="bg-red-500/5 dark:bg-red-900/10 border border-red-500/20 rounded-3xl p-8">
+                  <div className="bg-red-500/5 dark:bg-red-900/10 border border-red-500/20 rounded-3xl p-4 sm:p-8">
                     <div className="flex items-center gap-4 mb-4">
                       <Lock className="w-5 h-5 text-red-500" />
                       <h3 className="text-lg font-bold">Gestão de Dados (LGPD)</h3>
@@ -957,17 +957,17 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'workout' && (
-            <div className="space-y-8 relative">
+            <div className="space-y-6 sm:space-y-8 relative w-full overflow-x-hidden">
               {isBlocked && <Paywall feature="Treinos" type="expired" />}
-              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
-                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-3 sm:p-8 overflow-hidden">
+                <h3 className="text-lg sm:text-xl font-bold mb-6 flex items-center gap-2 px-1">
                   <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   Rotina Semanal ({profile.daysPerWeek} dias)
                 </h3>
                 
                 <div className="grid gap-4">
                   {plan.days.map((day, idx) => (
-                    <div key={`day-${idx}-${day.day}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-4 sm:p-6 hover:border-purple-500/30 transition-colors shadow-sm">
+                    <div key={`day-${idx}-${day.day}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-3 sm:p-6 hover:border-purple-500/30 transition-colors shadow-sm">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">{day.day}</h4>
                         <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white">{day.focus}</span>
@@ -986,7 +986,7 @@ export default function Dashboard() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-8">
-                <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8">
+                <div className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-4 sm:p-8">
                   <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                     Progressão de Carga
