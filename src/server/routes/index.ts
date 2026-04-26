@@ -183,4 +183,52 @@ router.get('/exercises/proxy-gif', async (req, res) => {
   }
 });
 
+// Unsplash Proxy
+router.get('/exercises/unsplash-image', async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.status(400).send('No query provided');
+
+    const cacheKey = `unsplash-${query}`;
+    const cached = exerciseCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL * 24) {
+      return res.json(cached.data);
+    }
+
+    const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (!accessKey) {
+      // Return a curated fallback image if no key is provided
+      const fallbacks = [
+        'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=600', // gym
+        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600', // dumbbells
+        'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=600', // core
+      ];
+      const randomFallback = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+      return res.json({ url: randomFallback });
+    }
+
+    console.log(`Searching Unsplash for: ${query}`);
+    const response = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query as string)}&per_page=1&orientation=squarish`, {
+      headers: {
+        'Authorization': `Client-ID ${accessKey}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Unsplash API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const imageUrl = data.results?.[0]?.urls?.regular || 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=600';
+    
+    const result = { url: imageUrl };
+    exerciseCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error("Unsplash Search Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
