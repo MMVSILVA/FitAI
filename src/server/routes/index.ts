@@ -135,24 +135,27 @@ router.get('/exercises/proxy-gif', async (req, res) => {
     
     // If 404 and it's an ExerciseDB-style URL, try common mirrors
     if (!response.ok && response.status === 404 && (imageUrl.includes('exercisedb') || imageUrl.includes('media'))) {
+      const fileName = imageUrl.split('/').pop();
       const mirrors = [
         imageUrl.replace('static.exercisedb.dev', 'v2.exercisedb.io'),
-        imageUrl.replace('static.exercisedb.dev', 'g.static-all-about-fitness.com'),
-        imageUrl.replace('static.exercisedb.dev', 'www.bodybuilding.com/exercises/exercise-images'), // Unlikely but safe
-        `https://g.static-all-about-fitness.com/media/${imageUrl.split('/').pop()}`,
+        imageUrl.replace('static.exercisedb.dev', 'oss.exercisedb.dev'),
+        `https://v2.exercisedb.io/media/${fileName}`,
+        `https://oss.exercisedb.dev/media/${fileName}`,
+        `https://g.static-all-about-fitness.com/media/${fileName}`,
+        `https://exercisedb.v2.io/media/${fileName}`,
       ].filter(m => m !== imageUrl);
 
       for (const mirrorUrl of mirrors) {
         console.log(`Trying alternate mirror: ${mirrorUrl}`);
         try {
-          const mirrorResponse = await fetch(mirrorUrl, { headers });
+          const mirrorResponse = await fetch(mirrorUrl, { headers, signal: AbortSignal.timeout(3000) });
           if (mirrorResponse.ok) {
             response = mirrorResponse;
             console.log(`Success with mirror: ${mirrorUrl}`);
             break;
           }
         } catch (e) {
-          console.warn(`Mirror failed: ${mirrorUrl}`);
+          console.warn(`Mirror failed or timed out: ${mirrorUrl}`);
         }
       }
     }

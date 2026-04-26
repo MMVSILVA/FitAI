@@ -548,7 +548,16 @@ export default function Dashboard() {
                 <span className="text-[#a855f7] drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">AI</span>
               </h1>
               <div className="flex items-center gap-1 sm:gap-2">
-                <p className="text-[8px] sm:text-xs text-purple-600 dark:text-purple-400 font-medium tracking-wider uppercase truncate max-w-[80px] sm:max-w-none">{isAdmin ? 'ADMIN' : planType}</p>
+                <div className="flex flex-col">
+                  <p className="text-[8px] sm:text-xs text-purple-600 dark:text-purple-400 font-medium tracking-wider uppercase truncate max-w-[80px] sm:max-w-none">
+                    {isAdmin ? 'ADMIN' : planType}
+                  </p>
+                  {isFree && trialEndsAt && !isTrialExpired && (
+                    <p className="text-[7px] sm:text-[9px] text-orange-500 font-black uppercase tracking-widest mt-0.5">
+                      {Math.ceil((new Date(trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} dias restantes
+                    </p>
+                  )}
+                </div>
                 {isAdmin && (
                   <button 
                     onClick={() => setShowAdminModal(true)}
@@ -651,6 +660,51 @@ export default function Dashboard() {
             <Sparkles className="w-3 h-3" /> Refazer Plano
           </button>
         </div>
+
+        {/* Trial Info Banner */}
+        {isFree && trialEndsAt && !isTrialExpired && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 bg-gradient-to-br from-orange-500/10 to-purple-600/10 border border-orange-500/20 rounded-3xl relative overflow-hidden group shadow-sm"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+              <Sparkles className="w-24 h-24 text-orange-500" />
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                   <div className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest leading-none">Free Trial</div>
+                   <p className="text-xs text-orange-600 dark:text-orange-400 font-black uppercase tracking-widest">Teste Gratuito Ativo</p>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-black dark:text-white">Dê o próximo passo na sua evolução!</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xl font-medium">
+                  Seu acesso começou em <span className="font-bold text-black dark:text-white">
+                    {new Date(new Date(trialEndsAt).getTime() - (7 * 24 * 60 * 60 * 1000)).toLocaleDateString('pt-BR')}
+                  </span> e termina em <span className="font-bold text-black dark:text-white">
+                    {new Date(trialEndsAt).toLocaleDateString('pt-BR')}
+                  </span>.
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 font-bold italic mt-2">
+                  * Garanta sua evolução contínua e não perca o acesso aos seus planos exclusivos.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 shrink-0">
+                <div className="text-center bg-white dark:bg-black/40 border border-orange-500/20 px-6 py-4 rounded-2xl shadow-xl min-w-[120px]">
+                   <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Faltam apenas</p>
+                   <p className="text-4xl font-black text-black dark:text-white leading-none">
+                     {Math.ceil((new Date(trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} 
+                     <span className="text-sm ml-1">dias</span>
+                   </p>
+                </div>
+                <Link to="/checkout?plan=PREMIUM" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-8 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-orange-500/30 flex items-center justify-center gap-3 active:scale-95 group/btn">
+                   Fidelizar Agora <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto scrollbar-hide -mx-4 px-4 max-w-[100vw]">
