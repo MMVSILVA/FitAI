@@ -43,7 +43,7 @@ export default function Checkout() {
         body: JSON.stringify({
           plan,
           userId: user?.uid,
-          email: user?.email
+          userEmail: user?.email
         }),
       });
 

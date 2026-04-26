@@ -17,7 +17,7 @@ function getStripe(): Stripe {
 
 export const createCheckoutSession = async (req: express.Request, res: express.Response) => {
   try {
-    const { plan, userId, email } = req.body;
+    const { plan, userId, userEmail } = req.body;
     const stripe = getStripe();
 
     const priceId = plan === "PREMIUM" 
@@ -42,7 +42,7 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
       success_url: `${baseUrl}/dashboard?success=true`,
       cancel_url: `${baseUrl}/checkout?plan=${plan}&canceled=true`,
       client_reference_id: userId,
-      customer_email: email,
+      customer_email: userEmail,
       metadata: { plan }
     });
 
