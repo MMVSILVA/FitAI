@@ -114,9 +114,9 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
       "diet": {
         "calories": "Valor total diário (Ex: 2400)",
         "macros": {
-          "protein": "Valor em gramas",
-          "carbs": "Valor em gramas",
-          "fat": "Valor em gramas"
+          "protein": "Valor numérico (Ex: 180)",
+          "carbs": "Valor numérico (Ex: 300)",
+          "fat": "Valor numérico (Ex: 70)"
         },
         "meals": [
           {
@@ -149,8 +149,9 @@ export async function generatePlan(userData: Partial<UserProfile>): Promise<AIRe
     4. 'group': O grupo muscular (Peito, Costas, etc).
     5. 'equipment': Barra, Haltere, Máquina, Cabo ou Peso Corporal.
     6. 'weight': Seguir RIGOROSAMENTE o formato "Intensidade - Valor sugerido" (Ex: 'Moderado - 10 Kg de cada lado', 'Leve - Peso do Corpo', 'Intenso - 40 kg totais').
-    7. 'diet.recommendations': Incluir OBRIGATORIAMENTE dicas de Whey Protein, Creatina e outros suplementos vitais. Focar em dosagens, melhor composição/pureza e aplicação técnica. PROIBIDO CITAR MARCAS COMERCIAIS.
-    8. 'technicalDescription': Descrição profissional e detalhada em Português.
+    7. 'diet.macros': Retornar APENAS o número. Não adicionar "g" ou "gramas" no valor, pois o sistema adicionará automaticamente.
+    8. 'diet.recommendations': Incluir OBRIGATORIAMENTE dicas de Whey Protein, Creatina e outros suplementos vitais. Focar em dosagens, melhor composição/pureza e aplicação técnica. PROIBIDO CITAR MARCAS COMERCIAIS.
+    9. 'technicalDescription': Descrição profissional e detalhada em Português.
 
     Responda apenas com o JSON puro, sem markdown.
   `;

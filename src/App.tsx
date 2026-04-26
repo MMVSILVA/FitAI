@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import TrainerDashboard from './pages/TrainerDashboard';
+import NutritionistDashboard from './pages/NutritionistDashboard';
 import Checkout from './pages/Checkout';
 import { UpdateNotification } from './components/UpdateNotification';
 import { IOSInstallPrompt } from './components/IOSInstallPrompt';
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/trainer" element={<TrainerDashboard />} />
+            <Route path="/nutritionist" element={<NutritionistDashboard />} />
             <Route path="/checkout" element={<Checkout />} />
           </Routes>
         </Router>

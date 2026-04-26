@@ -23,6 +23,10 @@ export default function Checkout() {
   const stripeLinkPremium = import.meta.env.VITE_STRIPE_LINK_PREMIUM || 'https://buy.stripe.com/test_4gMbJ08ligJtcX1dbX6oo01';
 
   const handlePayment = async () => {
+    if (!user) {
+      setError("Você precisa estar logado para realizar a assinatura.");
+      return;
+    }
     setLoading(true);
     setError(null);
     const origin = window.location.origin;
@@ -33,7 +37,7 @@ export default function Checkout() {
     }, 8000);
 
     try {
-      const response = await fetch(`${origin}/api/create-checkout-session`, {
+      const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -48,8 +52,6 @@ export default function Checkout() {
       if (response.ok) {
         const data = await response.json();
         if (data.url) {
-          // No modo preview do AI Studio (iframe), o redirecionamento direto pode ser bloqueado
-          // Tentamos abrir em nova aba, mas se falhar, mostramos o link manual
           try {
             const win = window.open(data.url, '_blank');
             if (!win) {
@@ -60,12 +62,22 @@ export default function Checkout() {
           }
           return;
         }
+      } else {
+        const text = await response.text();
+        let errorMsg = "Erro ao criar sessão";
+        try {
+          const errorData = JSON.parse(text);
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) {
+          errorMsg = `Erro do servidor (${response.status}): ${text.substring(0, 100)}`;
+        }
+        throw new Error(errorMsg);
       }
-      throw new Error("Erro ao criar sessão");
-    } catch (err) {
+      throw new Error("A resposta do servidor não continha uma URL");
+    } catch (err: any) {
       clearTimeout(timer);
       console.error("Erro no pagamento:", err);
-      setError("Não conseguimos gerar o pagamento automático. Use o botão abaixo.");
+      setError(err.message || "Não conseguimos gerar o pagamento automático. Use o botão abaixo.");
     } finally {
       setLoading(false);
     }

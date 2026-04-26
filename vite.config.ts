@@ -14,7 +14,7 @@ export default defineConfig(({mode}) => {
         registerType: 'prompt',
         injectRegister: 'auto',
         devOptions: {
-          enabled: true,
+          enabled: false,
           type: 'module'
         },
         workbox: {

@@ -6,7 +6,7 @@ import { UserRole, PlanType } from '../types';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, 
-  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus
+  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -55,9 +55,9 @@ function ExerciseRow({
     <div className="flex flex-col gap-4 py-6 border-b border-gray-200 dark:border-white/5 last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors px-1 sm:px-2 rounded-xl w-full max-w-full overflow-hidden">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 w-full">
         <div className="flex-1 min-w-0 w-full">
-          <p className="font-extrabold text-xl sm:text-2xl text-black dark:text-white tracking-tight break-words">{translateExerciseName(exercise.name)}</p>
+          <p className="font-extrabold text-2xl sm:text-3xl text-black dark:text-white tracking-tight break-words">{translateExerciseName(exercise.name)}</p>
           {exercise.englishName && (
-            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium italic break-words">{exercise.englishName}</p>
+            <p className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium italic break-words">{exercise.englishName}</p>
           )}
           <div className="flex flex-wrap items-center gap-2 mt-1.5 min-w-0">
             {exercise.group && (
@@ -80,13 +80,13 @@ function ExerciseRow({
       <div className="grid grid-cols-1 gap-6 items-start w-full">
         {/* Info e Instruções */}
         <div className="space-y-4 w-full">
-          <div className="flex flex-wrap items-stretch gap-2 sm:gap-3 w-full">
-            <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg shrink-0 flex flex-col justify-center min-w-0 sm:min-w-[120px] flex-1 sm:flex-none">
-              <p className="text-[9px] sm:text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
+          <div className="flex flex-col gap-3 w-full">
+            <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg flex flex-col justify-center w-full">
+              <p className="text-[10px] sm:text-[11px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
               <p className="text-sm sm:text-lg font-black text-black dark:text-white leading-none">{exercise.sets} x {exercise.reps}</p>
             </div>
             
-            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 sm:gap-3 min-w-0 sm:min-w-[140px] flex-1 hover:border-purple-500/30 transition-all group/weight">
+            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 sm:gap-3 w-full hover:border-purple-500/30 transition-all group/weight">
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-[9px] sm:text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest mb-0.5 opacity-60">Sua Carga</p>
                 <div className="flex items-center gap-2">
@@ -123,10 +123,10 @@ function ExerciseRow({
           {exercise.technicalDescription && (
             <div className="p-3 sm:p-4 bg-gray-100 dark:bg-zinc-900/50 border border-gray-200 dark:border-white/5 rounded-2xl relative overflow-hidden group w-full">
               <div className="absolute top-0 left-0 w-1 h-full bg-purple-500 opacity-50" />
-              <p className="text-[10px] sm:text-xs font-black text-purple-600 dark:text-purple-500 uppercase tracking-[0.1em] sm:tracking-[0.2em] mb-2 flex items-center gap-1.5 overflow-hidden whitespace-nowrap">
+              <p className="text-[11px] sm:text-xs font-black text-purple-600 dark:text-purple-500 uppercase tracking-[0.1em] sm:tracking-[0.2em] mb-2 flex items-center gap-1.5 overflow-hidden whitespace-nowrap">
                 <Activity className="w-3.5 h-3.5" /> Execução Técnica
               </p>
-              <p className="text-[12px] sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed font-semibold italic break-words">
+              <p className="text-[14px] sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed font-semibold italic break-words">
                 "{exercise.technicalDescription}"
               </p>
             </div>
@@ -167,7 +167,7 @@ function ExerciseRow({
 
 export default function Dashboard() {
   const { 
-    user, profile, plan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin,
+    user, profile, plan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser,
     toggleTheme, theme 
   } = useUser();
@@ -197,6 +197,17 @@ export default function Dashboard() {
   };
 
   const navigate = useNavigate();
+
+  // Role-based redirection
+  useEffect(() => {
+    if (!user || authLoading) return;
+    
+    if (role === 'trainer' && !isAdmin) {
+      navigate('/trainer');
+    } else if (role === 'nutritionist' && !isAdmin) {
+      navigate('/nutritionist');
+    }
+  }, [role, isAdmin, navigate, user, authLoading]);
 
   // Load client data if selected
   useEffect(() => {
@@ -285,6 +296,59 @@ export default function Dashboard() {
   // Routine State
   const [routineData, setRoutineData] = useState({ sleep: '', water: '', stress: '' });
   const [routineSuccess, setRoutineSuccess] = useState(false);
+  const [showRoutineSummary, setShowRoutineSummary] = useState(false);
+  const [routineTips, setRoutineTips] = useState<string | null>(null);
+  const [isGeneratingRoutineTips, setIsGeneratingRoutineTips] = useState(false);
+
+  // Profile Edit State
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editProfileForm, setEditProfileForm] = useState({
+    displayName: user?.displayName || '',
+    phone: profile?.phone || '',
+    photoURL: user?.photoURL || ''
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setIsUpdatingProfile(true);
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      const { updateProfile: updateFirebaseProfile } = await import('firebase/auth');
+      const { auth } = await import('../firebase');
+      
+      if (auth.currentUser) {
+        await updateFirebaseProfile(auth.currentUser, {
+          displayName: editProfileForm.displayName,
+          photoURL: editProfileForm.photoURL
+        });
+      }
+
+      await updateDoc(doc(db, 'users', user.uid), {
+        displayName: editProfileForm.displayName,
+        phone: editProfileForm.phone,
+        photoURL: editProfileForm.photoURL,
+        updatedAt: new Date().toISOString()
+      });
+
+      showToast('Perfil atualizado com sucesso!');
+      setShowEditProfileModal(false);
+      // Force refresh data would be ideal, but userStore might need a refresh method
+      // For now, local state usually works if we sync it, but since we use useUser(),
+      // we might need to wait for Firestore listener or refresh page.
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      showToast('Erro ao atualizar perfil', 'error');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  // Nutri State
+  const [showMacroDetails, setShowMacroDetails] = useState(false);
+  const [showSupplementGuide, setShowSupplementGuide] = useState(false);
 
   // Premium State
   const [premiumGoals, setPremiumGoals] = useState('');
@@ -570,34 +634,49 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={toggleTheme}
-              className="p-2 sm:p-2.5 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-full text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-all group relative shrink-0"
-              title={theme === 'dark' ? 'Mudar para modo sistema' : theme === 'system' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
-            >
-              <div className="relative">
-                {theme === 'dark' && <Moon className="w-4 sm:w-5 h-4 sm:h-5 group-hover:-rotate-12 transition-transform" />}
-                {theme === 'light' && <Sun className="w-4 sm:w-5 h-4 sm:h-5 group-hover:rotate-45 transition-transform" />}
-                {theme === 'system' && (
-                  <div className="relative text-purple-600 dark:text-purple-400">
-                    <Zap className="w-4 sm:w-5 h-4 sm:h-5" />
-                  </div>
-                )}
-              </div>
-            </button>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="hidden xs:flex flex-col items-end">
+              <p className="text-[11px] sm:text-xs font-black text-black dark:text-white uppercase tracking-wider truncate max-w-[120px] leading-tight">
+                {user?.displayName || 'Usuário'}
+              </p>
+              <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold leading-tight">
+                Ver Perfil
+              </p>
+            </div>
 
             {user?.photoURL ? (
-              <img src={user.photoURL} alt={user.displayName || 'User'} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200 dark:border-white/20 shrink-0" />
+              <img 
+                src={user.photoURL} 
+                alt={user.displayName || 'User'} 
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-purple-500/50 cursor-pointer hover:scale-105 transition-all shadow-lg shadow-purple-500/20"
+                onClick={() => {
+                  setEditProfileForm({
+                    displayName: user?.displayName || '',
+                    phone: profile?.phone || '',
+                    photoURL: user?.photoURL || ''
+                  });
+                  setShowEditProfileModal(true);
+                }}
+              />
             ) : (
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-purple-600/10 flex items-center justify-center border border-purple-500/30 text-purple-600 dark:text-purple-400 font-bold shrink-0 text-xs sm:text-sm">
+              <div 
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-600/10 flex items-center justify-center border-2 border-purple-500/30 text-purple-600 dark:text-purple-400 font-black cursor-pointer hover:scale-105 transition-all text-sm sm:text-lg"
+                onClick={() => {
+                  setEditProfileForm({
+                    displayName: user?.displayName || '',
+                    phone: profile?.phone || '',
+                    photoURL: user?.photoURL || ''
+                  });
+                  setShowEditProfileModal(true);
+                }}
+              >
                 {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
               </div>
             )}
 
             <button 
               onClick={handleLogout} 
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg sm:rounded-xl transition-all font-bold text-[10px] sm:text-sm shrink-0"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all font-bold text-[10px] sm:text-sm shrink-0"
               title="Sair da conta"
             >
               <LogOut className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
@@ -842,16 +921,26 @@ export default function Dashboard() {
                     />
                   </div>
                   
-                  <button 
-                    onClick={() => {
-                      setRoutineSuccess(true);
-                      setRoutineData({ sleep: '', water: '', stress: '' });
-                      setTimeout(() => setRoutineSuccess(false), 3000);
-                    }}
-                    className="w-full bg-orange-500 text-white p-4 rounded-xl font-bold hover:bg-orange-600 transition-colors"
-                  >
-                    Salvar Rotina
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button 
+                      onClick={() => {
+                        setRoutineSuccess(true);
+                        setRoutineData({ sleep: '', water: '', stress: '' });
+                        setTimeout(() => setRoutineSuccess(false), 3000);
+                      }}
+                      className="flex-1 bg-orange-500 text-white p-4 rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20"
+                    >
+                      Salvar Rotina
+                    </button>
+                    {planType === 'PREMIUM' && (
+                      <button 
+                        onClick={() => setShowRoutineSummary(true)}
+                        className="flex-1 bg-white dark:bg-zinc-900 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-xl font-bold hover:bg-orange-50/50 dark:hover:bg-orange-500/10 transition-colors"
+                      >
+                        Resumo da Rotina
+                      </button>
+                    )}
+                  </div>
                   {routineSuccess && (
                     <div className="mt-4 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 text-sm text-center">
                       Rotina registrada com sucesso! A IA usará esses dados para otimizar seu próximo treino.
@@ -968,9 +1057,9 @@ export default function Dashboard() {
                 <div className="grid gap-4">
                   {plan.days.map((day, idx) => (
                     <div key={`day-${idx}-${day.day}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-3 sm:p-6 hover:border-purple-500/30 transition-colors shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400">{day.day}</h4>
-                        <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white">{day.focus}</span>
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400 shrink-0">{day.day}</h4>
+                        <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white break-words max-w-full">{day.focus}</span>
                       </div>
                       
                       <div className="space-y-4">
@@ -1049,20 +1138,20 @@ export default function Dashboard() {
               <div id="diet-macros" className="grid grid-cols-2 md:grid-cols-4 gap-4 scroll-mt-24">
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Calorias</p>
-                  <p className="text-4xl font-black text-black dark:text-white">{plan?.diet?.calories || '---'}</p>
+                  <p className="text-3xl font-black text-black dark:text-white">{(plan?.diet?.calories || '---').toString().replace(/kcal/i, '')}</p>
                   <p className="text-xs text-gray-500 mt-1">kcal/dia</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Proteína</p>
-                  <p className="text-4xl font-black text-purple-600 dark:text-purple-400">{plan?.diet?.macros?.protein || '0'}g</p>
+                  <p className="text-3xl font-black text-purple-600 dark:text-purple-400">{(plan?.diet?.macros?.protein || '0').toString().replace(/g/g, '')}g</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Carboidratos</p>
-                  <p className="text-4xl font-black text-green-600 dark:text-green-400">{plan?.diet?.macros?.carbs || '0'}g</p>
+                  <p className="text-3xl font-black text-green-600 dark:text-green-400">{(plan?.diet?.macros?.carbs || '0').toString().replace(/g/g, '')}g</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-2xl p-6 text-center">
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">Gorduras</p>
-                  <p className="text-4xl font-black text-yellow-600 dark:text-yellow-400">{plan?.diet?.macros?.fat || '0'}g</p>
+                  <p className="text-3xl font-black text-yellow-600 dark:text-yellow-400">{(plan?.diet?.macros?.fat || '0').toString().replace(/g/g, '')}g</p>
                 </div>
               </div>
 
@@ -1529,45 +1618,57 @@ export default function Dashboard() {
                           <p className="text-gray-500 dark:text-gray-400">Suporte Nutricional 24/7</p>
                         </div>
                       </div>
-                      <div className="bg-white/50 dark:bg-black/40 p-4 rounded-xl border border-gray-200 dark:border-white/5 mb-8">
-                        <p className="text-sm font-bold text-green-600 dark:text-green-400 uppercase tracking-widest mb-1 italic">Consultoria Nutricional Inteligente</p>
-                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed font-mono text-xs">
-                          {profile.objective === 'hipertrofia' ? "FASE: Superávit Calórico Controlado" : "FASE: Déficit Calórico Otimizado"}
-                        </p>
-                        <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">
-                          Analiso seu peso atual ({profile.weight}kg) e nível de atividade para calcular macros em tempo real e sugerir substituições inteligentes.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div 
-                          className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-green-500/30 transition-all"
-                          onClick={() => {
-                            setActiveTab('diet');
-                            setTimeout(() => {
-                              const el = document.getElementById('diet-meals');
-                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            }, 500);
-                          }}
-                        >
-                          <Apple className="w-10 h-10 mx-auto mb-3 text-green-600 dark:text-green-500" />
-                          <p className="text-lg font-bold text-black dark:text-white">Base Alimentar</p>
-                          <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">Ver Cardápio Completo</p>
-                        </div>
-                        <div 
-                          className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-blue-500/30 transition-all"
-                          onClick={() => {
-                            setActiveTab('diet');
-                            setTimeout(() => {
-                              const el = document.getElementById('diet-macros');
-                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            }, 500);
-                          }}
-                        >
-                          <Activity className="w-10 h-10 mx-auto mb-3 text-blue-600 dark:text-blue-500" />
-                          <p className="text-lg font-bold text-black dark:text-white">Macros Diários</p>
-                          <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">Resumo Nutricional</p>
-                        </div>
-                      </div>
+                <div className="bg-white/50 dark:bg-black/40 p-4 rounded-xl border border-gray-200 dark:border-white/5 mb-8">
+                  <p className="text-sm font-bold text-green-600 dark:text-green-400 uppercase tracking-widest mb-1 italic">Consultoria Nutricional Inteligente</p>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed font-mono text-xs">
+                    {profile.objective === 'hipertrofia' ? "FASE: Superávit Calórico Controlado" : "FASE: Déficit Calórico Otimizado"}
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">
+                    Analiso seu peso atual ({profile.weight}kg) e nível de atividade para calcular macros em tempo real e sugerir substituições inteligentes.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div 
+                    className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-green-500/30 transition-all group"
+                    onClick={() => {
+                      if (planType === 'PREMIUM') {
+                        setShowSupplementGuide(true);
+                      }
+                      setActiveTab('diet');
+                      setTimeout(() => {
+                        const el = document.getElementById('diet-meals');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 500);
+                    }}
+                  >
+                    <Apple className="w-10 h-10 mx-auto mb-3 text-green-600 dark:text-green-500 group-hover:scale-110 transition-transform" />
+                    <p className="text-lg font-bold text-black dark:text-white">Base Alimentar</p>
+                    <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">
+                      {planType === 'PREMIUM' ? 'Plano & Suplementos' : 'Ver Cardápio Completo'}
+                    </p>
+                  </div>
+                  <div 
+                    className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-blue-500/30 transition-all group"
+                    onClick={() => {
+                      if (planType === 'PREMIUM') {
+                        setShowMacroDetails(true);
+                      } else {
+                        setActiveTab('diet');
+                        setTimeout(() => {
+                          const el = document.getElementById('diet-macros');
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 500);
+                      }
+                    }}
+                  >
+                    <Activity className="w-10 h-10 mx-auto mb-3 text-blue-600 dark:text-blue-500 group-hover:scale-110 transition-transform" />
+                    <p className="text-lg font-bold text-black dark:text-white">Macros Diários</p>
+                    <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">
+                      {planType === 'PREMIUM' ? 'Resumo Estratégico' : 'Resumo Nutricional'}
+                    </p>
+                  </div>
+                </div>
                     </div>
                   )}
                 </div>
@@ -1582,6 +1683,339 @@ export default function Dashboard() {
         <p className="font-bold tracking-tight">© 2026 FitAI. Desenvolvido por NVM Project Management</p>
         <p className="font-mono bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded border border-gray-200 dark:border-white/5 uppercase tracking-widest text-xs">Versão {APP_VERSION}</p>
       </footer>
+
+      {/* Premium Nutri Modals */}
+      <AnimatePresence>
+        {showMacroDetails && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMacroDetails(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-zinc-950 border border-white/10 w-full max-w-lg rounded-[2rem] p-8 relative overflow-hidden"
+            >
+              <h3 className="text-2xl font-black mb-6 flex items-center gap-3">
+                <Activity className="w-6 h-6 text-blue-500" /> Resumo Estratégico
+              </h3>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-white/5 p-4 rounded-xl text-center border border-white/5">
+                    <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Proteína</p>
+                    <p className="text-xl font-black text-purple-400">{plan.diet?.macros?.protein}g</p>
+                    <p className="text-[9px] text-gray-600 mt-1">Escrutínio: {Math.round((parseInt(plan.diet?.macros?.protein) * 4 / parseInt(plan.diet?.calories)) * 100)}% das kcal</p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl text-center border border-white/5">
+                    <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Carbos</p>
+                    <p className="text-xl font-black text-green-400">{plan.diet?.macros?.carbs}g</p>
+                    <p className="text-[9px] text-gray-600 mt-1">Escrutínio: {Math.round((parseInt(plan.diet?.macros?.carbs) * 4 / parseInt(plan.diet?.calories)) * 100)}% das kcal</p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl text-center border border-white/5">
+                    <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Gordura</p>
+                    <p className="text-xl font-black text-yellow-400">{plan.diet?.macros?.fat}g</p>
+                    <p className="text-[9px] text-gray-600 mt-1">Escrutínio: {Math.round((parseInt(plan.diet?.macros?.fat) * 9 / parseInt(plan.diet?.calories)) * 100)}% das kcal</p>
+                  </div>
+                </div>
+
+                <div className="bg-blue-600/10 border border-blue-500/20 p-5 rounded-2xl">
+                  <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-3">Diretriz da IA</p>
+                  <p className="text-sm text-gray-300 leading-relaxed italic">
+                    "Baseado no seu perfil de {profile.fitnessLevel}, mantemos uma ingestão de proteína de {(parseInt(plan.diet?.macros?.protein) / profile.weight).toFixed(1)}g/kg para garantir a manutenção da massa magra enquanto otimizamos o metabolismo."
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowMacroDetails(false)}
+                className="w-full mt-8 bg-white text-black font-black py-4 rounded-xl uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
+              >
+                Entendi
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {showSupplementGuide && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSupplementGuide(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-zinc-950 border border-white/10 w-full max-w-xl rounded-[2rem] p-8 relative overflow-y-auto max-h-[90vh]"
+            >
+              <h3 className="text-2xl font-black mb-6 flex items-center gap-3">
+                <Sparkles className="w-6 h-6 text-orange-500" /> Base Alimentar & Suplementos
+              </h3>
+              
+              <div className="space-y-8">
+                {/* Diet Base Section */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                    <Apple className="w-4 h-4" /> Plano Alimentar Base
+                  </h4>
+                  <div className="space-y-3">
+                    {plan.diet?.meals?.map((meal: any, idx: number) => (
+                      <div key={idx} className="bg-white/5 border border-white/10 p-4 rounded-xl">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="font-bold text-green-500 text-sm">{meal.name}</p>
+                          <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full">{meal.time}</span>
+                        </div>
+                        <p className="text-xs text-gray-400 leading-relaxed truncate">{meal.foods.join(', ')}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-px bg-white/10" />
+
+                {/* Supplements Section */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-black text-orange-500 uppercase tracking-widest flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" /> Guia de Suplementos
+                  </h4>
+                  <div className="space-y-4">
+                    {plan.diet?.recommendations?.map((rec: string, i: number) => {
+                      const parts = rec.split(':');
+                      const title = parts[0];
+                      const desc = parts.slice(1).join(':');
+                      
+                      return (
+                        <div key={i} className="bg-white/5 border border-white/10 p-5 rounded-2xl hover:border-orange-500/30 transition-colors">
+                          <h4 className="font-black text-orange-500 text-sm uppercase mb-2">{title}</h4>
+                          <p className="text-sm text-gray-300 leading-relaxed font-medium">
+                            {desc || rec}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                  <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-1">Aviso Profissional</p>
+                  <p className="text-[11px] text-gray-400 italic">As dosagens são sugestões baseadas em protocolos clínicos. Consulte sempre um médico ou nutricionista antes de iniciar qualquer suplementação.</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowSupplementGuide(false)}
+                className="w-full mt-8 bg-orange-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-xs hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+              >
+                Voltar
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {showRoutineSummary && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowRoutineSummary(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-zinc-950 border border-white/10 w-full max-w-lg rounded-[2rem] p-8 relative overflow-hidden"
+            >
+              <h3 className="text-2xl font-black mb-6 flex items-center gap-3">
+                <Calendar className="w-6 h-6 text-orange-500" /> Resumo da Rotina
+              </h3>
+              
+              <div className="space-y-6">
+                <div className="p-5 bg-white/5 rounded-2xl border border-white/5">
+                  <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">Métricas Consolidadas</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <p className="text-[10px] text-gray-400 uppercase">Sono Médio</p>
+                      <p className="text-xl font-bold">7.2h</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] text-gray-400 uppercase">Hidratação</p>
+                      <p className="text-xl font-bold">2.4L</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-xs font-black text-orange-500 uppercase tracking-widest">Otimização por IA</p>
+                  <button 
+                    onClick={async () => {
+                      setIsGeneratingRoutineTips(true);
+                      // Simulate AI call
+                      setTimeout(() => {
+                        setRoutineTips("Com base no seu nível de estresse (4) e sono (7h), sua recuperação está em 85%. Sugiro aumentar a carga no treino de amanhã em 2kg nos exercícios multiarticulares e focar em 3L de água hoje para compensar o calor.");
+                        setIsGeneratingRoutineTips(false);
+                      }, 1500);
+                    }}
+                    className="w-full bg-orange-500/10 border border-orange-500/30 text-orange-500 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2"
+                  >
+                    {isGeneratingRoutineTips ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    Solicitar Dica de Otimização
+                  </button>
+
+                  {routineTips && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-orange-500/5 border border-orange-500/20 p-4 rounded-xl italic text-sm text-gray-400 leading-relaxed"
+                    >
+                      "{routineTips}"
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowRoutineSummary(false)}
+                className="w-full mt-8 bg-white text-black font-black py-4 rounded-xl uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
+              >
+                Fechar
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {showEditProfileModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowEditProfileModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-zinc-950 border border-white/10 w-full max-w-lg rounded-[2.5rem] p-8 relative overflow-hidden"
+            >
+              <h3 className="text-3xl font-black mb-6 flex items-center gap-3">
+                <Users className="w-8 h-8 text-purple-500" /> Editar Perfil
+              </h3>
+
+              <form onSubmit={handleUpdateProfile} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Nome Completo</label>
+                  <input 
+                    type="text"
+                    value={editProfileForm.displayName}
+                    onChange={(e) => setEditProfileForm({...editProfileForm, displayName: e.target.value})}
+                    placeholder="Seu nome"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">E-mail (Login Principal)</label>
+                  <input 
+                    type="email"
+                    value={user?.email || ''}
+                    disabled
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-gray-500 font-bold opacity-50 cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
+                  <input 
+                    type="tel"
+                    value={editProfileForm.phone}
+                    onChange={(e) => setEditProfileForm({...editProfileForm, phone: e.target.value})}
+                    placeholder="Ex: (11) 99999-9999"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Sua Foto</label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                      {editProfileForm.photoURL ? (
+                        <img src={editProfileForm.photoURL} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="w-6 h-6 text-gray-600" />
+                      )}
+                    </div>
+                    <label className="flex-1">
+                      <div className="bg-purple-600/10 border border-dashed border-purple-500/30 hover:bg-purple-600/20 transition-all rounded-2xl p-4 text-center cursor-pointer group">
+                        <Upload className="w-5 h-5 text-purple-500 mx-auto mb-1 group-hover:scale-110 transition-transform" />
+                        <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Fazer Upload</p>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setEditProfileForm({ ...editProfileForm, photoURL: reader.result as string });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">URL da Foto (Opcional)</label>
+                  <input 
+                    type="url"
+                    value={editProfileForm.photoURL}
+                    onChange={(e) => setEditProfileForm({...editProfileForm, photoURL: e.target.value})}
+                    placeholder="https://exemplo.com/suafoto.jpg"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex gap-4 mt-8">
+                  <button 
+                    type="button"
+                    onClick={() => setShowEditProfileModal(false)}
+                    className="flex-1 bg-white/5 border border-white/10 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs hover:bg-white/10 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isUpdatingProfile}
+                    className="flex-1 bg-purple-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs hover:bg-purple-500 transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2"
+                  >
+                    {isUpdatingProfile ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>Salvar Alterações</>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Admin Panel Modal */}
       <AnimatePresence>

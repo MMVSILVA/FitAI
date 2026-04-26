@@ -6,7 +6,10 @@ let stripeClient: Stripe | null = null;
 function getStripe(): Stripe {
   if (!stripeClient) {
     const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) throw new Error("STRIPE_SECRET_KEY missing");
+    if (!key) {
+      console.error("STRIPE_SECRET_KEY is undefined in process.env");
+      throw new Error("A chave secreta do Stripe (STRIPE_SECRET_KEY) não foi configurada. Verifique as configurações do projeto.");
+    }
     stripeClient = new Stripe(key, { apiVersion: '2024-06-20' as any });
   }
   return stripeClient;
@@ -21,7 +24,12 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
       ? process.env.STRIPE_PRICE_ID_PREMIUM 
       : process.env.STRIPE_PRICE_ID_PRO;
 
-    if (!priceId) return res.status(500).json({ error: "Preço não configurado" });
+    if (!priceId) {
+      console.error(`Price ID missing for plan ${plan}. Checked env: ${plan === "PREMIUM" ? "STRIPE_PRICE_ID_PREMIUM" : "STRIPE_PRICE_ID_PRO"}`);
+      return res.status(500).json({ 
+        error: `O ID do preço no Stripe (${plan}) não foi configurado nas variáveis de ambiente do servidor.` 
+      });
+    }
 
     const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
     const host = req.get("host");
