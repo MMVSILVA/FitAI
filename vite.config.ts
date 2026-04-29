@@ -25,7 +25,23 @@ export default defineConfig(({mode}) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
-          skipWaiting: true
+          skipWaiting: true,
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/v2\.exercisedb\.io\/media\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'exercise-images',
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 60 * 60 * 24 * 30, // 30 Days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            }
+          ]
         },
         manifest: {
           name: 'FitAI - Personal & Nutri',

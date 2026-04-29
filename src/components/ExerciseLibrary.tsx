@@ -356,22 +356,13 @@ export const ExerciseLibrary = () => {
               </div>
 
               <div className="p-6 space-y-6">
-                <div className="relative rounded-[2rem] overflow-hidden bg-black aspect-video flex items-center justify-center group/video shadow-2xl border border-white/10 ring-1 ring-white/5">
-                  <video 
+                <div className="relative rounded-[32px] overflow-hidden bg-black aspect-video flex items-center justify-center group/video shadow-2xl border border-white/10">
+                  <ExerciseImage 
                     src={selectedExercise.gifUrl} 
-                    className="w-full h-full object-contain scale-105"
-                    autoPlay 
-                    muted 
-                    loop 
-                    playsInline
-                    poster={selectedExercise.gifUrl}
-                  >
-                    <img 
-                      src={selectedExercise.gifUrl} 
-                      alt={selectedExercise.name}
-                      className="w-full h-full object-contain"
-                    />
-                  </video>
+                    alt={selectedExercise.name}
+                    className="w-full h-full"
+                    proxy={true}
+                  />
                   
                   {/* Pro UI Overlays */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30 pointer-events-none" />

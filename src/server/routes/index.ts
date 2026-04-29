@@ -1,7 +1,16 @@
 import express from 'express';
 import * as paymentController from '../controllers/paymentController.ts';
 
-const router = express.Router();
+const router = express.Router({
+  caseSensitive: false,
+  mergeParams: true
+});
+
+// Debug middleware for the router
+router.use((req, res, next) => {
+  console.log(`Router Level Match: ${req.url}`);
+  next();
+});
 
 // Simple in-memory cache for exercise searches
 const exerciseCache = new Map<string, { data: any, timestamp: number }>();
@@ -26,9 +35,8 @@ router.get('/exercises/search', async (req, res) => {
       return res.json(cached.data);
     }
 
-    // Use only OSS API
-    // Ensure we're using the correct OSS search endpoint if provided
-    let ossUrl = 'https://oss.exercisedb.dev/api/v1/exercises';
+    // Use a more stable mirror for OSS API
+    let ossUrl = 'https://db.exercisedb.io/api/v1/exercises';
     const params = new URLSearchParams();
     params.append('limit', (limit as string) || '20');
     if (name) params.append('name', name as string);
@@ -37,7 +45,12 @@ router.get('/exercises/search', async (req, res) => {
     ossUrl = `${ossUrl}?${params.toString()}`;
     
     console.log(`Fetching from OSS API: ${ossUrl}`);
-    const response = await fetch(ossUrl);
+    const response = await fetch(ossUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      }
+    });
     
     if (response.status === 404) {
       console.warn(`OSS API returned 404 for ${ossUrl}. This usually means no results or wrong endpoint.`);
@@ -107,7 +120,11 @@ router.get('/exercises/bodyparts', async (req, res) => {
 // Liveness Check Proxy
 router.get('/exercises/liveness', async (req, res) => {
   try {
-    const response = await fetch('https://oss.exercisedb.dev/api/v1/liveness');
+    const response = await fetch('https://db.exercisedb.io/api/v1/liveness', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
     if (!response.ok) {
       return res.status(response.status).json({ error: `Upstream error: ${response.status}` });
     }
@@ -117,6 +134,9 @@ router.get('/exercises/liveness', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Debug Ping
+router.get('/ping', (req, res) => res.json({ message: 'pong', timestamp: Date.now() }));
 
 // GIF Proxy
 router.get('/exercises/proxy-gif', async (req, res) => {
@@ -242,6 +262,17 @@ router.get('/exercises/unsplash-image', async (req, res) => {
     console.error("Unsplash Search Error:", error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Catch-all for /api specifically to debug why it falls through
+router.use((req, res) => {
+  console.log(`API 404 fallthrough: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ 
+    success: false, 
+    error: 'API Route not found', 
+    requestedPath: req.originalUrl,
+    availableRoutes: ['/exercises/search', '/exercises/bodyparts', '/exercises/liveness', '/ping']
+  });
 });
 
 export default router;

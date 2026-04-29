@@ -11,11 +11,17 @@ const app = express();
 // Stripe Webhook MUST stay before general JSON middleware to receive raw body
 app.post("/api/webhook", express.raw({ type: "application/json" }), handleWebhook);
 
+// direct root health check
+app.get("/healthz", (req, res) => res.json({ status: "OK", timestamp: "2026-04-29T17:53", version: "1.0.4" }));
+
 // General Middleware
 app.use(express.json());
 
 // API Routes
-app.use("/api", apiRoutes);
+app.use("/api", (req, res, next) => {
+  console.log(`API Request: ${req.method} ${req.url}`);
+  next();
+}, apiRoutes);
 
 async function startServer() {
   const PORT = process.env.PORT || 3000;

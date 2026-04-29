@@ -34,26 +34,37 @@ export function UpdateNotification() {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, []);
 
-  // Lógica de ATUALIZAÇÃO (Solicita autorização)
-  useEffect(() => {
-    if (needUpdate || firestoreUpdate) {
-      console.log("UpdateNotification: Atualização detectada, aguardando autorização do usuário.");
-    }
-  }, [needUpdate, firestoreUpdate]);
+    // Verificação imediata e periódica de atualização do Service Worker
+    const checkUpdates = () => {
+      if (swResult.updateServiceWorker) {
+        console.log("PWA: Checking for updates...");
+        swResult.updateServiceWorker(false);
+      }
+    };
+
+    // Verifica logo ao abrir
+    checkUpdates();
+
+    // E periodicamente
+    const interval = setInterval(checkUpdates, 30 * 60 * 1000); // A cada 30 min para ser mais ágil
+
+    return () => clearInterval(interval);
+  }, [swResult]);
 
   // Disparar notificação nativa automática no celular quando houver atualização
   useEffect(() => {
     if ((needUpdate || firestoreUpdate) && 'Notification' in window && Notification.permission === 'granted') {
       try {
         const newVersion = firestoreUpdate?.version || 'Nova versão';
-        const n = new Notification(`FitAI v${newVersion} Disponível!`, {
-          body: `Uma nova atualização (${newVersion}) está pronta para ser instalada. Toque para atualizar o seu FitAI agora.`,
+        const n = new Notification(`🚀 FitAI v${newVersion}`, {
+          body: `Nova atualização disponível! Clique para instalar as melhorias agora.`,
           icon: '/favicon.svg',
-          tag: 'fitai-update', // Evita duplicatas
+          badge: '/favicon.svg',
+          tag: 'fitai-update', 
+          requireInteraction: true,
           // @ts-ignore
-          vibrate: [200, 100, 200]
+          vibrate: [200, 100, 200, 100, 200]
         });
 
         n.onclick = () => {
