@@ -20,12 +20,13 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
     const { plan, userId, userEmail } = req.body;
     const stripe = getStripe();
 
-    const priceId = plan === "PREMIUM" 
-      ? process.env.STRIPE_PRICE_ID_PREMIUM 
-      : process.env.STRIPE_PRICE_ID_PRO;
+    let priceId = "";
+    if (plan === "PROFESSIONAL") priceId = process.env.STRIPE_PRICE_ID_PROFESSIONAL || "";
+    else if (plan === "PREMIUM") priceId = process.env.STRIPE_PRICE_ID_PREMIUM || "price_1TOm3CCVEgijuso4h63UP1b3";
+    else priceId = process.env.STRIPE_PRICE_ID_PRO || "";
 
     if (!priceId) {
-      console.error(`Price ID missing for plan ${plan}. Checked env: ${plan === "PREMIUM" ? "STRIPE_PRICE_ID_PREMIUM" : "STRIPE_PRICE_ID_PRO"}`);
+      console.error(`Price ID missing for plan ${plan}. Checked envs: STRIPE_PRICE_ID_PROFESSIONAL, STRIPE_PRICE_ID_PREMIUM, STRIPE_PRICE_ID_PRO`);
       return res.status(500).json({ 
         error: `O ID do preço no Stripe (${plan}) não foi configurado nas variáveis de ambiente do servidor.` 
       });
@@ -66,23 +67,46 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = session.client_reference_id;
       const plan = session.metadata?.plan;
+      const stripeSubscriptionId = session.subscription as string;
 
-      if (userId && plan) {
+      if (userId && plan && stripeSubscriptionId) {
+        const stripe = getStripe();
+        const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId) as any;
+        
         const { getAdminDb } = await import('../lib/firebase-admin.ts');
         const db = getAdminDb();
         
-        const subscriptionEndsAt = new Date();
-        subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + 30);
+        // Use Stripe's actual period end
+        const subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
 
         await db.collection('users').doc(userId).update({
           planType: plan,
-          role: plan === 'PREMIUM' ? 'premium_user' : 'user',
+          role: plan === 'PROFESSIONAL' ? 'trainer' : (plan === 'PREMIUM' ? 'premium_user' : 'user'),
           isPremium: true,
+          stripeSubscriptionId,
           subscriptionEndsAt: subscriptionEndsAt.toISOString(),
           updatedAt: new Date().toISOString()
         });
         
         console.log(`Plan ${plan} activated for user ${userId}. Expires at ${subscriptionEndsAt.toISOString()}`);
+      }
+    }
+
+    if (event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object as Stripe.Subscription;
+      const { getAdminDb } = await import('../lib/firebase-admin.ts');
+      const db = getAdminDb();
+      
+      const usersSnap = await db.collection('users').where('stripeSubscriptionId', '==', subscription.id).get();
+      if (!usersSnap.empty) {
+        const userDoc = usersSnap.docs[0];
+        await userDoc.ref.update({
+          planType: 'FREE',
+          isPremium: false,
+          subscriptionEndsAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        console.log(`Subscription deleted for user ${userDoc.id}`);
       }
     }
 

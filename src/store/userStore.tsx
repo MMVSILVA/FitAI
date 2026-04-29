@@ -40,12 +40,6 @@ interface UserState {
 
 const UserContext = createContext<UserState | undefined>(undefined);
 
-const ADMIN_EMAILS = [
-  'vinidoctor@gmail.com',
-  'vinisilva02@hotmail.com',
-  'nangelicaalcantara@gmail.com'
-];
-
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -60,9 +54,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [linkedTrainerId, setLinkedTrainerId] = useState<string | undefined>();
   const [linkedNutritionistId, setLinkedNutritionistId] = useState<string | undefined>();
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>('system');
 
-  const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email) : false;
+  useEffect(() => {
+    if (user?.email) {
+      fetch(`/api/auth/admin-check?email=${encodeURIComponent(user.email)}`)
+        .then(r => r.json())
+        .then(data => setIsAdmin(data.isAdmin))
+        .catch(() => setIsAdmin(false));
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
@@ -100,7 +104,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           hasCache = true;
         }
 
-        const isAdmin = loggedUser?.email ? ADMIN_EMAILS.includes(loggedUser.email) : false;
         const docRef = doc(db, 'users', loggedUser!.uid);
         
         let snapshotReceived = false;
@@ -134,7 +137,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (data.planType) {
                 setPlanType(data.planType as PlanType);
               } else if (isAdmin) {
-                setPlanType('PREMIUM');
+                setPlanType('PROFESSIONAL');
               } else {
                 setPlanType('FREE');
               }
@@ -173,7 +176,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 uid: loggedUser.uid,
                 email: loggedUser.email,
                 role: 'user',
-                planType: isAdmin ? 'PREMIUM' : 'FREE',
+                planType: isAdmin ? 'PROFESSIONAL' : 'FREE',
                 createdAt: new Date().toISOString()
               };
               await setDoc(docRef, initialData);
@@ -185,7 +188,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const migrationData = {
                   profile: JSON.parse(localProfile),
                   plan: JSON.parse(localPlan),
-                  planType: isAdmin ? 'PREMIUM' : (localStorage.getItem('fitai_plan_type') || 'FREE'),
+                  planType: isAdmin ? 'PROFESSIONAL' : (localStorage.getItem('fitai_plan_type') || 'FREE'),
                   trialEndsAt: localStorage.getItem('fitai_trial_ends') || null
                 };
                 await setDoc(docRef, migrationData, { merge: true });

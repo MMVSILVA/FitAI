@@ -184,12 +184,12 @@ export default function Landing() {
             <p className="text-gray-400 mt-4">Comece de graça, evolua quando quiser.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <PricingCard 
               name="Free"
               price="R$ 0"
               description="Para quem quer testar a tecnologia."
-              features={["Treino inicial gerado por IA", "Cálculo de macros básico", "Acesso por 7 dias"]}
+              features={["1 geração de treino por IA", "Cálculo de macros básico", "Acesso limitado"]}
               buttonText="Começar Grátis"
               buttonLink="/onboarding"
             />
@@ -197,7 +197,6 @@ export default function Landing() {
               name="Pro"
               price="R$ 39,90"
               period="/mês"
-              highlighted={true}
               description="O plano ideal para resultados reais."
               features={["Treinos adaptativos ilimitados", "Plano alimentar completo", "Progressão de carga automática", "Suporte prioritário"]}
               buttonText="Assinar Pro"
@@ -207,10 +206,20 @@ export default function Landing() {
               name="Premium"
               price="R$ 59,90"
               period="/mês"
+              highlighted={true}
               description="Acompanhamento nível atleta."
               features={["Tudo do plano Pro", "Chat 24h com Coach IA", "Ajustes diários de dieta", "Análise avançada de progresso"]}
               buttonText="Assinar Premium"
               buttonLink="/checkout?plan=PREMIUM"
+            />
+            <PricingCard 
+              name="Professional"
+              price="R$ 149,90"
+              period="/mês"
+              description="Para treinadores e alta performance."
+              features={["Tudo do plano Premium", "Gestão de alunos/clientes", "Consultas prioritárias", "Dashboard profissional"]}
+              buttonText="Assinar Professional"
+              buttonLink="/checkout?plan=PROFESSIONAL"
             />
           </div>
         </div>

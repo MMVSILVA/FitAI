@@ -1,5 +1,7 @@
 import express from 'express';
 import * as paymentController from '../controllers/paymentController.ts';
+import * as aiController from '../controllers/aiController.ts';
+import { isAdminEmail } from '../config/admins';
 
 const router = express.Router({
   caseSensitive: false,
@@ -11,6 +13,16 @@ router.use((req, res, next) => {
   console.log(`Router Level Match: ${req.url}`);
   next();
 });
+
+// Admin Check
+router.get('/auth/admin-check', (req, res) => {
+  const email = req.query.email as string;
+  res.json({ isAdmin: isAdminEmail(email) });
+});
+
+// AI Routes
+router.post('/ai/generate-plan', aiController.generatePlan);
+router.post('/ai/translate', aiController.translateExercise);
 
 // Simple in-memory cache for exercise searches
 const exerciseCache = new Map<string, { data: any, timestamp: number }>();
@@ -25,7 +37,30 @@ router.post('/create-checkout-session', paymentController.createCheckoutSession)
 // ExerciseDB Proxy (avoids CORS)
 router.get('/exercises/search', async (req, res) => {
   try {
-    const { name, limit, cursor } = req.query;
+    let { name, limit, cursor } = req.query;
+    
+    // Quick translation for common terms
+    const ptToEn: Record<string, string> = {
+      'peito': 'chest',
+      'costas': 'back',
+      'perna': 'leg',
+      'ombro': 'shoulder',
+      'braço': 'arm',
+      'abdominal': 'abs',
+      'bíceps': 'biceps',
+      'tríceps': 'triceps',
+      'glúteo': 'glute',
+      'panturrilha': 'calf'
+    };
+    
+    if (name && typeof name === 'string') {
+      const lower = name.toLowerCase().trim();
+      if (ptToEn[lower]) {
+        console.log(`Translating search: ${name} -> ${ptToEn[lower]}`);
+        name = ptToEn[lower];
+      }
+    }
+
     const cacheKey = `search-${name}-${limit}-${cursor}`;
 
     // Check cache
@@ -35,62 +70,99 @@ router.get('/exercises/search', async (req, res) => {
       return res.json(cached.data);
     }
 
-    // Use a more stable mirror for OSS API
-    let ossUrl = 'https://db.exercisedb.io/api/v1/exercises';
-    const params = new URLSearchParams();
-    params.append('limit', (limit as string) || '20');
-    if (name) params.append('name', name as string);
-    if (cursor) params.append('cursor', cursor as string);
-    
-    ossUrl = `${ossUrl}?${params.toString()}`;
-    
-    console.log(`Fetching from OSS API: ${ossUrl}`);
-    const response = await fetch(ossUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
+    const mirrors = [
+      'https://db.exercisedb.io/api/v1/exercises',
+      'https://oss.exercisedb.dev/api/v1/exercises',
+      'https://v2.exercisedb.io/api/v1/exercises'
+    ];
+
+    let finalData = null;
+    let lastError = null;
+
+    for (const base of mirrors) {
+      try {
+        let ossUrl = base;
+        const params = new URLSearchParams();
+        params.append('limit', (limit as string) || '20');
+        if (cursor) params.append('cursor', cursor as string);
+        
+        // Some mirrors might prefer /exercises/name/{name}
+        if (name) {
+          ossUrl = `${base}/name/${encodeURIComponent(name as string)}`;
+        }
+        
+        if (params.toString()) {
+          ossUrl = `${ossUrl}?${params.toString()}`;
+        }
+        
+        console.log(`Trying mirror: ${ossUrl}`);
+        const response = await fetch(ossUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'Accept': 'application/json'
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Normalize...
+          const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : []);
+          const normalizedData = rawData.map((item: any) => ({
+            exerciseId: item.exerciseId || item.id || Math.random().toString(36).substr(2, 9),
+            name: item.name,
+            gifUrl: item.gifUrl,
+            bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
+            equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
+            targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
+            secondaryMuscles: item.secondaryMuscles || [],
+            instructions: item.instructions || []
+          }));
+
+          finalData = {
+            success: true,
+            data: normalizedData,
+            meta: data.meta || { hasNextPage: false, nextCursor: null }
+          };
+          break;
+        } else if (response.status === 404 && name) {
+          // Try fallback search param instead of path if path failed
+          const altUrl = `${base}?limit=${limit || 20}&name=${encodeURIComponent(name as string)}`;
+          console.log(`Path search 404, trying alt param: ${altUrl}`);
+          const altResponse = await fetch(altUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (altResponse.ok) {
+            const altData = await altResponse.json();
+            const altRaw = altData.success ? (altData.data || []) : (Array.isArray(altData) ? altData : []);
+            finalData = {
+              success: true,
+              data: altRaw.map((item: any) => ({
+                exerciseId: item.exerciseId || item.id,
+                name: item.name,
+                gifUrl: item.gifUrl,
+                bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
+                equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
+                targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
+                secondaryMuscles: item.secondaryMuscles || [],
+                instructions: item.instructions || []
+              })),
+              meta: altData.meta || { hasNextPage: false, nextCursor: null }
+            };
+            break;
+          }
+        }
+      } catch (e: any) {
+        lastError = e;
+        console.warn(`Mirror ${base} failed:`, e.message);
       }
-    });
-    
-    if (response.status === 404) {
-      console.warn(`OSS API returned 404 for ${ossUrl}. This usually means no results or wrong endpoint.`);
-      // Return empty data instead of erroring out to keep UI clean
-      return res.json({ success: true, data: [], meta: { hasNextPage: false, nextCursor: null } });
     }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`OSS API Error [${response.status}]:`, errorText);
-      throw new Error(`Upstream error: ${response.status}`);
+    if (!finalData) {
+      if (lastError) throw lastError;
+      return res.status(503).json({ success: false, error: 'All exercise mirrors are unavailable' });
     }
-
-    const data = await response.json();
-    
-    // Normalize data for the frontend interface
-    const rawData = data.success ? (data.data || []) : [];
-    const normalizedData = rawData.map((item: any) => ({
-      exerciseId: item.exerciseId || item.id,
-      name: item.name,
-      gifUrl: item.gifUrl,
-      bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
-      equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
-      targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
-      secondaryMuscles: item.secondaryMuscles || [],
-      instructions: item.instructions || []
-    }));
-
-    const finalData = {
-      success: true,
-      data: normalizedData,
-      meta: data.meta || {
-        hasNextPage: false,
-        nextCursor: null
-      }
-    };
 
     // Save to cache
     exerciseCache.set(cacheKey, { data: finalData, timestamp: Date.now() });
-
     res.json(finalData);
   } catch (error: any) {
     console.error("Exercise Search Error:", error);

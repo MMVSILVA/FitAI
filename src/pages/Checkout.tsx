@@ -6,7 +6,7 @@ import { CheckCircle2, CreditCard, ShieldCheck, ArrowLeft, ExternalLink, Refresh
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
-  const plan = searchParams.get('plan') as 'PRO' | 'PREMIUM' || 'PRO';
+  const plan = searchParams.get('plan') as 'PRO' | 'PREMIUM' | 'PROFESSIONAL' || 'PRO';
   const navigate = useNavigate();
   const { user, upgradePlan } = useUser();
   const [loading, setLoading] = useState(false);
@@ -14,15 +14,29 @@ export default function Checkout() {
 
   const priceMap = {
     'PRO': '39,90',
-    'PREMIUM': '59,90'
+    'PREMIUM': '59,90',
+    'PROFESSIONAL': '149,90'
   };
-  const price = priceMap[plan as 'PRO' | 'PREMIUM'];
+  const price = priceMap[plan as 'PRO' | 'PREMIUM' | 'PROFESSIONAL'];
 
-  // Links reais de pagamento do Stripe
-  const stripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO || 'https://buy.stripe.com/test_14A8wO452ctd2in7RD6oo00';
-  const stripeLinkPremium = import.meta.env.VITE_STRIPE_LINK_PREMIUM || 'https://buy.stripe.com/test_4gMbJ08ligJtcX1dbX6oo01';
+  // Links reais de pagamento do Stripe - NUNCA use URLs de teste fixas em produção
+  const stripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO;
+  const stripeLinkPremium = import.meta.env.VITE_STRIPE_LINK_PREMIUM;
+  const stripeLinkProfessional = import.meta.env.VITE_STRIPE_LINK_PROFESSIONAL;
 
-  const handlePayment = async () => {
+  const getManualLink = () => {
+    let base = '';
+    if (plan === 'PROFESSIONAL') base = stripeLinkProfessional;
+    else if (plan === 'PREMIUM') base = stripeLinkPremium;
+    else base = stripeLinkPro;
+    
+    if (!base) return null;
+    
+    const separator = base.includes('?') ? '&' : '?';
+    return `${base}${user?.uid ? separator + 'client_reference_id=' + user.uid : ''}`;
+  };
+
+  const handleCheckout = async () => {
     if (!user) {
       setError("Você precisa estar logado para realizar a assinatura.");
       return;
@@ -120,11 +134,23 @@ export default function Checkout() {
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
                 Acompanhamento de evolução
               </li>
-              {plan === 'PREMIUM' && (
+              {(plan === 'PREMIUM' || plan === 'PROFESSIONAL') && (
                 <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   Chat 24h com Coach IA
                 </li>
+              )}
+              {plan === 'PROFESSIONAL' && (
+                <>
+                  <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    Suporte Prioritário
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    Consultas exclusivas
+                  </li>
+                </>
               )}
             </ul>
           </div>
@@ -143,7 +169,7 @@ export default function Checkout() {
 
           <div className="w-full space-y-4">
             <button 
-              onClick={handlePayment}
+              onClick={handleCheckout}
               disabled={loading}
               className="w-full bg-green-600 dark:bg-green-500 text-white dark:text-black p-4 rounded-xl font-bold text-lg hover:after:bg-green-500 dark:hover:bg-green-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
@@ -158,11 +184,11 @@ export default function Checkout() {
               )}
             </button>
 
-            {error && (
+            {error && getManualLink() && (
               <div className="space-y-3">
                 <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>
                 <a 
-                  href={`${plan === 'PREMIUM' ? stripeLinkPremium : stripeLinkPro}${user?.uid ? (stripeLinkPro.includes('?') ? '&' : '?') + 'client_reference_id=' + user.uid : ''}`}
+                  href={getManualLink()!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full bg-gray-200 dark:bg-white/10 text-black dark:text-white p-4 rounded-xl font-bold text-sm hover:bg-gray-300 dark:hover:bg-white/20 transition-colors"
@@ -170,6 +196,9 @@ export default function Checkout() {
                   Ir para Pagamento Direto
                 </a>
               </div>
+            )}
+            {error && !getManualLink() && (
+               <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>
             )}
           </div>
           

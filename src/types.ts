@@ -1,5 +1,5 @@
 export type UserRole = 'user' | 'premium_user' | 'trainer' | 'nutritionist' | 'admin';
-export type PlanType = 'FREE' | 'PRO' | 'PREMIUM';
+export type PlanType = 'FREE' | 'PRO' | 'PREMIUM' | 'PROFESSIONAL';
 
 export interface UserProfile {
   uid: string;
@@ -28,6 +28,7 @@ export interface UserProfile {
   theme?: 'light' | 'dark' | 'system';
   trialEndsAt?: string;
   subscriptionEndsAt?: string;
+  planGenerationsLeft?: number; // For FREE tier limit
   createdAt: string;
 }
 

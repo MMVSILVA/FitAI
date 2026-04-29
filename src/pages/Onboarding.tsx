@@ -118,7 +118,7 @@ export default function Onboarding() {
       }
 
       setProfile(profileData);
-      const planRes = await generatePlan(profileData);
+      const planRes = await generatePlan(profileData, user.uid);
       
       // Combine workout and diet into a single object as defined in types.ts
       const completePlan = {

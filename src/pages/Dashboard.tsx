@@ -34,6 +34,7 @@ function ExerciseRow({
   key?: any;
 }) {
   const { updateExerciseWeight, addExerciseProgress, planType } = useUser();
+  const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFESSIONAL';
   const [isLogging, setIsLogging] = useState(false);
   const [logSuccess, setLogSuccess] = useState(false);
 
@@ -103,7 +104,7 @@ function ExerciseRow({
                 </div>
               </div>
               
-              {planType === 'PREMIUM' && (
+              {isPremiumUser && (
                 <button 
                   onClick={handleLogProgress}
                   disabled={!exercise.weight || isLogging}
@@ -188,8 +189,9 @@ export default function Dashboard() {
   
   const isFree = planType === 'FREE';
   const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
-  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFESSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
   const isBlocked = isTrialExpired || isSubscriptionExpired;
+  const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFESSIONAL';
 
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library'>('workout');
   const [trainerEmail, setTrainerEmail] = useState('');
@@ -386,7 +388,7 @@ export default function Dashboard() {
       const { db } = await import('../firebase');
       await updateDoc(doc(db, 'users', user.uid), {
         planType: newPlan,
-        isPremium: newPlan === 'PREMIUM',
+        isPremium: newPlan === 'PREMIUM' || newPlan === 'PROFESSIONAL',
         updatedAt: new Date().toISOString()
       });
       
@@ -442,7 +444,7 @@ export default function Dashboard() {
         objective: `${profile?.objective}. Pedido específico para o personal: ${ptMessage}. Metas adicionais: ${premiumGoals}`
       };
       
-      const res = await generatePlan(customProfile);
+      const res = await generatePlan(customProfile, user?.uid || '');
       
       // Use the setPlan from the component's useUser hook
       setPlan(res.workout);
@@ -471,7 +473,7 @@ export default function Dashboard() {
 
   // Subscription expiration check and auto-reversion
   useEffect(() => {
-    const isSimulationExpired = (planType === 'PRO' || planType === 'PREMIUM') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+    const isSimulationExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFESSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
     
     if (isSimulationExpired && user && !isAdmin) {
       const revertToFree = async () => {
@@ -869,25 +871,25 @@ export default function Dashboard() {
             onClick={() => setActiveTab('personal')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'personal' 
-                ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-purple-900 border border-purple-500 text-white shadow-xl') 
+                ? (isPremiumUser ? 'bg-purple-900 border border-purple-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
             Personal
-            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
+            {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           <button 
             onClick={() => setActiveTab('nutrition')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'nutrition' 
-              ? (planType === 'PRO' || isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-green-900 border border-green-500 text-white shadow-xl') 
+              ? (isPremiumUser ? 'bg-green-900 border border-green-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
               : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${planType === 'PRO' || isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
             Nutri
-            {(planType === 'PRO' || isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
+            {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
         </div>
 
@@ -958,7 +960,7 @@ export default function Dashboard() {
                     >
                       Salvar Rotina
                     </button>
-                    {planType === 'PREMIUM' && (
+                    {isPremiumUser && (
                       <button 
                         onClick={() => setShowRoutineSummary(true)}
                         className="flex-1 bg-white dark:bg-zinc-900 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-xl font-bold hover:bg-orange-50/50 dark:hover:bg-orange-500/10 transition-colors"
@@ -1658,7 +1660,7 @@ export default function Dashboard() {
                   <div 
                     className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-green-500/30 transition-all group"
                     onClick={() => {
-                      if (planType === 'PREMIUM') {
+                      if (isPremiumUser) {
                         setShowSupplementGuide(true);
                       }
                       setActiveTab('diet');
@@ -1671,13 +1673,13 @@ export default function Dashboard() {
                     <Apple className="w-10 h-10 mx-auto mb-3 text-green-600 dark:text-green-500 group-hover:scale-110 transition-transform" />
                     <p className="text-lg font-bold text-black dark:text-white">Base Alimentar</p>
                     <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">
-                      {planType === 'PREMIUM' ? 'Plano & Suplementos' : 'Ver Cardápio Completo'}
+                      {isPremiumUser ? 'Plano & Suplementos' : 'Ver Cardápio Completo'}
                     </p>
                   </div>
                   <div 
                     className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/5 p-6 rounded-2xl text-center shadow-sm cursor-pointer hover:border-blue-500/30 transition-all group"
                     onClick={() => {
-                      if (planType === 'PREMIUM') {
+                      if (isPremiumUser) {
                         setShowMacroDetails(true);
                       } else {
                         setActiveTab('diet');
@@ -1691,7 +1693,7 @@ export default function Dashboard() {
                     <Activity className="w-10 h-10 mx-auto mb-3 text-blue-600 dark:text-blue-500 group-hover:scale-110 transition-transform" />
                     <p className="text-lg font-bold text-black dark:text-white">Macros Diários</p>
                     <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">
-                      {planType === 'PREMIUM' ? 'Resumo Estratégico' : 'Resumo Nutricional'}
+                      {isPremiumUser ? 'Resumo Estratégico' : 'Resumo Nutricional'}
                     </p>
                   </div>
                 </div>
@@ -2098,8 +2100,8 @@ export default function Dashboard() {
                 {/* Alterar Plano */}
                 <section>
                   <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Simular Plano do Usuário</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {['FREE', 'PRO', 'PREMIUM'].map((p) => (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {['FREE', 'PRO', 'PREMIUM', 'PROFESSIONAL'].map((p) => (
                       <button
                         key={p}
                         onClick={() => handleAdminPlanChange(p as PlanType)}
