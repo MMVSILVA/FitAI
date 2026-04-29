@@ -356,12 +356,74 @@ export const ExerciseLibrary = () => {
               </div>
 
               <div className="p-6 space-y-6">
-                <div className="relative rounded-2xl overflow-hidden bg-white/5 border border-white/10 aspect-video flex items-center justify-center">
-                  <ExerciseImage 
+                <div className="relative rounded-[2rem] overflow-hidden bg-black aspect-video flex items-center justify-center group/video shadow-2xl border border-white/10 ring-1 ring-white/5">
+                  <video 
                     src={selectedExercise.gifUrl} 
-                    alt={selectedExercise.name}
-                    className="w-full h-full object-contain"
-                  />
+                    className="w-full h-full object-contain scale-105"
+                    autoPlay 
+                    muted 
+                    loop 
+                    playsInline
+                    poster={selectedExercise.gifUrl}
+                  >
+                    <img 
+                      src={selectedExercise.gifUrl} 
+                      alt={selectedExercise.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </video>
+                  
+                  {/* Pro UI Overlays */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30 pointer-events-none" />
+                  
+                  <div className="absolute top-5 left-5 flex items-center gap-2 pointer-events-none">
+                    <div className="px-2.5 py-1 bg-red-600 rounded-md flex items-center gap-1.5 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-white">REC • LIVE 4K</span>
+                    </div>
+                    <div className="px-2 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-md shadow-lg">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-white tracking-[0.2em]">ULTRA HD</span>
+                    </div>
+                  </div>
+
+                  <div className="absolute top-5 right-5 pointer-events-none">
+                    <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center backdrop-blur-md bg-black/20">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
+                    </div>
+                  </div>
+
+                  <div className="absolute bottom-6 left-6 right-6 flex items-center justify-between pointer-events-none">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-purple-600/20 backdrop-blur-xl flex items-center justify-center border border-purple-500/30">
+                        <Activity className="w-6 h-6 text-purple-400" />
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-white leading-none mb-1">Demonstração Pro</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-green-400 uppercase">Estabilidade Ativa</span>
+                          <span className="w-1 h-1 rounded-full bg-white/20" />
+                          <span className="text-[9px] font-bold text-white/40 uppercase">Ai Analysis</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="hidden sm:flex items-center gap-4">
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex gap-0.5">
+                          {[1,2,3,4,5].map(i => (
+                            <div key={i} className={`w-1 h-3 rounded-full ${i <= 4 ? 'bg-purple-500' : 'bg-white/10'}`} />
+                          ))}
+                        </div>
+                        <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Signal</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-all duration-500 bg-black/20 backdrop-blur-[2px]">
+                    <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-3xl flex items-center justify-center border border-white/20 shadow-2xl transform scale-90 group-hover/video:scale-100 transition-transform duration-500">
+                      <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-white border-b-[12px] border-b-transparent ml-2" />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

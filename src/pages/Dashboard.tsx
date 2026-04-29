@@ -134,21 +134,35 @@ function ExerciseRow({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {exercise.tips && (
-              <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-purple-500/20 transition-colors">
+              <div className="bg-gray-100 dark:bg-zinc-900/40 p-4 rounded-xl border border-gray-200 dark:border-white/5 hover:border-purple-500/20 transition-colors">
                 <p className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1.5">Dica</p>
                 <p className="text-xs text-gray-500 leading-snug">{exercise.tips}</p>
               </div>
             )}
             {exercise.breathing && (
-              <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-blue-500/20 transition-colors">
+              <div className="bg-gray-100 dark:bg-zinc-900/40 p-4 rounded-xl border border-gray-200 dark:border-white/5 hover:border-blue-500/20 transition-colors">
                 <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5">Respiração</p>
                 <p className="text-xs text-gray-500 leading-snug">{exercise.breathing}</p>
               </div>
             )}
             {exercise.cadence && (
-              <div className="bg-gray-100 dark:bg-zinc-900/40 p-3 rounded-xl border border-gray-200 dark:border-white/5 hover:border-green-500/20 transition-colors">
+              <div className="bg-gray-100 dark:bg-zinc-900/40 p-4 rounded-xl border border-gray-200 dark:border-white/5 hover:border-green-500/20 transition-colors">
                 <p className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest mb-1.5">Cadência</p>
-                <p className="text-xs text-gray-500 leading-snug">{exercise.cadence}</p>
+                <p className="text-sm font-bold text-gray-800 dark:text-white mb-1">{exercise.cadence}</p>
+                {(() => {
+                  const parts = (exercise.cadence || '').split(':');
+                  if (parts.length === 3) {
+                    return <p className="text-[10px] text-gray-500 leading-tight mt-1">
+                      <span className="text-purple-600 dark:text-purple-400 font-black">{parts[0]}s</span> desc | <span className="text-purple-600 dark:text-purple-400 font-black">{parts[1]}s</span> isom | <span className="text-purple-600 dark:text-purple-400 font-black">{parts[2]}s</span> sub
+                    </p>;
+                  }
+                  if (parts.length === 4) {
+                    return <p className="text-[10px] text-gray-500 leading-tight mt-1">
+                      <span className="text-purple-600 dark:text-purple-400 font-black">{parts[0]}s</span> desc | <span className="text-purple-600 dark:text-purple-400 font-black">{parts[1]}s</span> isom | <span className="text-purple-600 dark:text-purple-400 font-black">{parts[2]}s</span> sub | <span className="text-purple-600 dark:text-purple-400 font-black">{parts[3]}s</span> isom
+                    </p>;
+                  }
+                  return null;
+                })()}
               </div>
             )}
           </div>
@@ -516,49 +530,61 @@ export default function Dashboard() {
     const isExpired = type === 'expired';
     
     return (
-      <div className="absolute inset-0 backdrop-blur-md bg-black/80 z-10 flex flex-col items-center justify-center p-6 text-center overflow-y-auto">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 mt-8 ${isExpired ? 'bg-red-600/20' : 'bg-purple-600/20'}`}>
-          <Lock className={`w-8 h-8 ${isExpired ? 'text-red-500' : 'text-purple-500'}`} />
+      <div className="absolute inset-0 backdrop-blur-xl bg-black/90 z-50 flex flex-col items-center justify-start p-8 sm:p-12 text-center overflow-y-auto pb-24 rounded-3xl">
+        <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mb-6 mt-12 ${isExpired ? 'bg-red-600/20' : 'bg-purple-600/20'}`}>
+          <Lock className={`w-8 h-8 sm:w-10 sm:h-10 ${isExpired ? 'text-red-500' : 'text-purple-500'}`} />
         </div>
-        <h4 className="text-2xl font-bold mb-2">
+        <h4 className="text-2xl sm:text-4xl font-black mb-3 tracking-tighter">
           {isExpired ? (isSubscriptionExpired ? 'Sua assinatura expirou' : 'Seu período de teste acabou') : 'Recurso Bloqueado'}
         </h4>
-        <p className="text-gray-300 max-w-md mb-8">
+        <p className="text-gray-400 max-w-lg mb-10 text-sm sm:text-lg font-medium leading-relaxed">
           {isExpired ? (
             isSubscriptionExpired 
               ? "Seus 30 dias de acesso premium chegaram ao fim. Renove sua assinatura para continuar usando todos os recursos."
               : "Para continuar acessando seus treinos, dietas e evolução, escolha um de nossos planos."
           ) : (
-            <>Ative a assinatura <strong className="uppercase">{type}</strong> para ativar os recursos de <strong>{feature}</strong>.</>
+            <>Ative a assinatura <strong className="uppercase text-purple-400">{type}</strong> para liberar o recurso de <br/><span className="text-white text-xl sm:text-2xl mt-2 inline-block font-black tracking-tight">{feature}</span>.</>
           )}
         </p>
         
-        <div className="grid sm:grid-cols-2 gap-4 w-full max-w-2xl text-left">
-          <div className="bg-zinc-900 border border-white/10 p-6 rounded-2xl flex flex-col">
-            <h5 className="text-xl font-bold mb-2 text-white">Pro</h5>
-            <p className="text-3xl font-bold text-purple-400 mb-4">R$ 39,90<span className="text-sm text-gray-500">/mês</span></p>
-            <ul className="text-sm text-gray-400 space-y-2 mb-6 flex-1">
-              <li>✓ Treinos ilimitados</li>
-              <li>✓ Dieta completa</li>
-              <li>✓ Evolução detalhada</li>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-3xl text-left mb-12">
+          <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2rem] flex flex-col shadow-2xl">
+            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Pro</h5>
+            <p className="text-4xl font-black text-purple-400 mb-6">R$ 39,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
+            <ul className="text-sm text-gray-400 space-y-3 mb-8 flex-1 font-medium">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Treinos ilimitados
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Dieta completa
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Evolução detalhada
+              </li>
             </ul>
-            <Link to="/checkout?plan=PRO" className="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold transition-colors text-center">
+            <Link to="/checkout?plan=PRO" className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs">
               Assinar Pro
             </Link>
           </div>
 
-          <div className="bg-purple-900/20 border border-purple-500 p-6 rounded-2xl flex flex-col relative text-left">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider py-1 px-3 rounded-full">
+          <div className="bg-purple-900/10 border-2 border-purple-500 p-8 rounded-[2rem] flex flex-col relative text-left shadow-2xl shadow-purple-500/10">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest py-1.5 px-4 rounded-full shadow-lg">
               Recomendado
             </div>
-            <h5 className="text-xl font-bold mb-2 text-white">Premium</h5>
-            <p className="text-3xl font-bold text-purple-400 mb-4">R$ 59,90<span className="text-sm text-gray-500">/mês</span></p>
-            <ul className="text-sm text-gray-400 space-y-2 mb-6 flex-1">
-              <li>✓ Tudo do Pro</li>
-              <li>✓ Chat 24h com Coach IA</li>
-              <li>✓ Ajustes diários</li>
+            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Premium</h5>
+            <p className="text-4xl font-black text-purple-400 mb-6">R$ 59,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
+            <ul className="text-sm text-gray-400 space-y-3 mb-8 flex-1 font-medium">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Tudo do Pro
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Chat 24h com Coach IA
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Ajustes diários
+              </li>
             </ul>
-            <Link to="/checkout?plan=PREMIUM" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold transition-colors text-center">
+            <Link to="/checkout?plan=PREMIUM" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs shadow-xl shadow-purple-600/30">
               Assinar Premium
             </Link>
           </div>
