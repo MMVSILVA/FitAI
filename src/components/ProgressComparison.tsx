@@ -45,7 +45,7 @@ export const ProgressComparison: React.FC = () => {
     }
   }, [selectedExercises]);
 
-  if (planType !== 'PREMIUM') {
+  if (planType === 'FREE') {
     return (
       <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-purple-500/20 rounded-[2.5rem] p-8 sm:p-12 text-center flex flex-col items-center shadow-2xl relative overflow-hidden group">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-50" />

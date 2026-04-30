@@ -125,10 +125,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (data.profile) {
                 setProfileState(data.profile);
                 localStorage.setItem(`fitai_profile_${loggedUser.uid}`, JSON.stringify(data.profile));
+              } else {
+                setProfileState(null);
+                localStorage.removeItem(`fitai_profile_${loggedUser.uid}`);
               }
+
               if (data.plan) {
                 setPlanState(data.plan);
                 localStorage.setItem(`fitai_plan_${loggedUser.uid}`, JSON.stringify(data.plan));
+              } else {
+                setPlanState(null);
+                localStorage.removeItem(`fitai_plan_${loggedUser.uid}`);
               }
               if (data.role) setRoleState(data.role as UserRole);
               if (data.clients) setClients(data.clients);
@@ -165,12 +172,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (hasCache) {
           setAuthLoading(false);
         } else {
-          // Safety timeout: if no cache and no snapshot in 1.5s, just show onboarding
+          // Safety timeout: if no cache and no snapshot in 3s, just show onboarding
           setTimeout(() => {
             if (!snapshotReceived) {
               setAuthLoading(false);
             }
-          }, 1500);
+          }, 3000);
         }
 
         // Run heavy migration/init stuff in the background

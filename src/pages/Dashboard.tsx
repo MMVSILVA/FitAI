@@ -5,8 +5,8 @@ import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { UserRole, PlanType } from '../types';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
-  Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, 
-  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload
+  Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
+  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -191,7 +191,7 @@ export default function Dashboard() {
   const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
   const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFESSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
   const isBlocked = isTrialExpired || isSubscriptionExpired;
-  const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFESSIONAL';
+  const isPremiumUser = planType !== 'FREE';
 
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library'>('workout');
   const [trainerEmail, setTrainerEmail] = useState('');
@@ -214,15 +214,10 @@ export default function Dashboard() {
 
   const navigate = useNavigate();
 
-  // Role-based redirection
+  // Role-based redirection is now handled in Login.tsx
+  // We allow everyone to go to /dashboard, then show tabs based on permissions
   useEffect(() => {
     if (!user || authLoading) return;
-    
-    if (role === 'trainer' && !isAdmin) {
-      navigate('/trainer');
-    } else if (role === 'nutritionist' && !isAdmin) {
-      navigate('/nutritionist');
-    }
   }, [role, isAdmin, navigate, user, authLoading]);
 
   // Load client data if selected
@@ -310,7 +305,7 @@ export default function Dashboard() {
   const [showTimer, setShowTimer] = useState(false);
 
   // Routine State
-  const [routineData, setRoutineData] = useState({ sleep: '', water: '', stress: '' });
+  const [routineData, setRoutineData] = useState({ sleep: '', water: '', stress: '', humor: '', energy: '', dietAdherence: 'total' });
   const [routineSuccess, setRoutineSuccess] = useState(false);
   const [showRoutineSummary, setShowRoutineSummary] = useState(false);
   const [routineTips, setRoutineTips] = useState<string | null>(null);
@@ -375,6 +370,93 @@ export default function Dashboard() {
 
   // Admin Modal State
   const [showAdminModal, setShowAdminModal] = useState(false);
+  
+  // Chat States
+  const [selectedProfessional, setSelectedProfessional] = useState<{id: string, name: string, role: string, photoURL?: string} | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [professionals, setProfessionals] = useState<any[]>([]);
+
+  // Fetch linked professionals for chat
+  useEffect(() => {
+    async function fetchProfessionals() {
+      if (!user) return;
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      
+      const linkedIds = [];
+      if (profile.trainerId) linkedIds.push(profile.trainerId);
+      if (profile.nutritionistId) linkedIds.push(profile.nutritionistId);
+      
+      if (linkedIds.length === 0) return;
+
+      try {
+        const q = query(collection(db, 'users'), where('uid', 'in', linkedIds));
+        const snap = await getDocs(q);
+        const data = snap.docs.map(d => ({
+          id: d.data().uid,
+          name: d.data().displayName || d.data().email,
+          role: d.data().role,
+          photoURL: d.data().photoURL
+        }));
+        setProfessionals(data);
+        if (data.length > 0 && !selectedProfessional) {
+          setSelectedProfessional(data[0]);
+        }
+      } catch (err) {
+        console.error("Error fetching professionals:", err);
+      }
+    }
+    fetchProfessionals();
+  }, [user, profile.trainerId, profile.nutritionistId]);
+
+  // Real-time Chat
+  useEffect(() => {
+    if (!user || !selectedProfessional) return;
+    
+    let unsubscribeChat: any;
+    async function setupChat() {
+      const { collection, query, where, onSnapshot, orderBy } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      
+      unsubscribeChat = onSnapshot(collection(db, 'messages'), (snapshot) => {
+        const msgs = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as any))
+          .filter(m => 
+            (m.fromId === user.uid && m.toId === selectedProfessional.id) ||
+            (m.fromId === selectedProfessional.id && m.toId === user.uid)
+          )
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        setChatMessages(msgs);
+      });
+    }
+    setupChat();
+    return () => unsubscribeChat?.();
+  }, [user, selectedProfessional]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !selectedProfessional || !newMessage.trim()) return;
+
+    setIsSending(true);
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      await addDoc(collection(db, 'messages'), {
+        fromId: user.uid,
+        toId: selectedProfessional.id,
+        participants: [user.uid, selectedProfessional.id],
+        text: newMessage.trim(),
+        timestamp: new Date().toISOString()
+      });
+      setNewMessage('');
+    } catch (error) {
+      console.error("Error sending message:", error);
+    } finally {
+      setIsSending(false);
+    }
+  };
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminFeedback, setAdminFeedback] = useState({ type: '', msg: '' });
   const [updateMsgInput, setUpdateMsgInput] = useState('Nova versão disponível com melhorias e correções!');
@@ -513,6 +595,14 @@ export default function Dashboard() {
     logout();
     navigate('/login');
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+      </div>
+    );
+  }
 
   if (!profile || !plan) {
     return <Navigate to="/onboarding" />;
@@ -895,7 +985,7 @@ export default function Dashboard() {
             }`}
           >
             <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
-            Personal
+            {isAdmin || role === 'trainer' ? 'Gestão Trainer' : 'Personal'}
             {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           <button 
@@ -907,8 +997,19 @@ export default function Dashboard() {
             }`}
           >
             <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
-            Nutri
+            {isAdmin || role === 'nutritionist' ? 'Gestão Nutri' : 'Nutri'}
             {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('chat')}
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+              activeTab === 'chat' 
+              ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/20' 
+              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+            Chat
           </button>
         </div>
 
@@ -925,75 +1026,117 @@ export default function Dashboard() {
               {isBlocked ? (
                 <Paywall feature="Rotina Diária" type="expired" />
               ) : isFree ? (
-                <Paywall feature="Rotina Diária" type="premium" />
+                <Paywall feature="Rotina Diária" type="pro" />
               ) : null}
               <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                  Registro de Rotina Diária
+                  Registro de Rotina Diária Pro
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-8">
-                  Registre sua rotina para que a IA possa entender seu contexto e ajustar seu plano de forma mais inteligente.
+                <p className="text-gray-500 dark:text-gray-400 mb-8 font-medium">
+                  Monitore seu bem-estar diário para ajustes precisos nos protocolos.
                 </p>
                 
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Horas de sono na última noite</label>
-                    <input 
-                      type="text" 
-                      value={routineData.sleep}
-                      onChange={e => setRoutineData({...routineData, sleep: e.target.value})}
-                      placeholder="Ex: 7 horas"
-                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Água consumida hoje</label>
-                    <input 
-                      type="text" 
-                      value={routineData.water}
-                      onChange={e => setRoutineData({...routineData, water: e.target.value})}
-                      placeholder="Ex: 2 litros"
-                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Nível de estresse (1-10)</label>
-                    <input 
-                      type="text" 
-                      value={routineData.stress}
-                      onChange={e => setRoutineData({...routineData, stress: e.target.value})}
-                      placeholder="Ex: 4"
-                      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
-                    />
-                  </div>
-                  
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <button 
-                      onClick={() => {
-                        setRoutineSuccess(true);
-                        setRoutineData({ sleep: '', water: '', stress: '' });
-                        setTimeout(() => setRoutineSuccess(false), 3000);
-                      }}
-                      className="flex-1 bg-orange-500 text-white p-4 rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20"
-                    >
-                      Salvar Rotina
-                    </button>
-                    {isPremiumUser && (
-                      <button 
-                        onClick={() => setShowRoutineSummary(true)}
-                        className="flex-1 bg-white dark:bg-zinc-900 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-xl font-bold hover:bg-orange-50/50 dark:hover:bg-orange-500/10 transition-colors"
-                      >
-                        Resumo da Rotina
-                      </button>
-                    )}
-                  </div>
-                  {routineSuccess && (
-                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 text-sm text-center">
-                      Rotina registrada com sucesso! A IA usará esses dados para otimizar seu próximo treino.
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Horas de sono</label>
+                      <input 
+                        type="text" 
+                        value={routineData.sleep}
+                        onChange={e => setRoutineData({...routineData, sleep: e.target.value})}
+                        placeholder="Ex: 7 horas"
+                        className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                      />
                     </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Água consumida</label>
+                      <input 
+                        type="text" 
+                        value={routineData.water}
+                        onChange={e => setRoutineData({...routineData, water: e.target.value})}
+                        placeholder="Ex: 2 litros"
+                        className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Nível de estresse (1-10)</label>
+                      <input 
+                        type="text" 
+                        value={routineData.stress}
+                        onChange={e => setRoutineData({...routineData, stress: e.target.value})}
+                        placeholder="Ex: 4"
+                        className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Energia / Disposição (1-10)</label>
+                      <input 
+                        type="text" 
+                        value={routineData.energy}
+                        onChange={e => setRoutineData({...routineData, energy: e.target.value})}
+                        placeholder="Ex: 8"
+                        className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Humor Predominante</label>
+                      <select 
+                        value={routineData.humor}
+                        onChange={e => setRoutineData({...routineData, humor: e.target.value})}
+                        className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="otimo">🚀 Ótimo</option>
+                        <option value="bom">😊 Bom</option>
+                        <option value="neutro">😐 Neutro</option>
+                        <option value="cansado">😫 Cansado</option>
+                        <option value="estressado">😡 Estressado</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Adesão à Dieta</label>
+                      <select 
+                        value={routineData.dietAdherence}
+                        onChange={e => setRoutineData({...routineData, dietAdherence: e.target.value as any})}
+                        className="w-full bg-white dark:bg-black border border-gray-200 dark:border-white/20 rounded-xl p-4 text-black dark:text-white focus:border-orange-500 outline-none transition-all shadow-sm"
+                      >
+                        <option value="total">✅ 100% (Segui Totalmente)</option>
+                        <option value="parcial">⚠️ Parcial (Fugi de 1 refeição)</option>
+                        <option value="nao">❌ Não Segui</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button 
+                    onClick={() => {
+                      setRoutineSuccess(true);
+                      setRoutineData({ sleep: '', water: '', stress: '', humor: '', energy: '', dietAdherence: 'total' });
+                      setTimeout(() => setRoutineSuccess(false), 3000);
+                    }}
+                    className="flex-1 bg-orange-500 text-white p-4 rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20 uppercase tracking-widest text-xs"
+                  >
+                    Salvar Registro Diário
+                  </button>
+                  {isPremiumUser && (
+                    <button 
+                      onClick={() => setShowRoutineSummary(true)}
+                      className="flex-1 bg-white dark:bg-zinc-900 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-xl font-bold hover:bg-orange-50/50 dark:hover:bg-orange-500/10 transition-colors uppercase tracking-widest text-xs"
+                    >
+                      Análise IA da Semana
+                    </button>
                   )}
                 </div>
+                {routineSuccess && (
+                  <div className="mt-4 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 text-sm text-center font-bold">
+                    Registro salvo! Seu coach poderá analisar esses dados no painel profissional.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1092,6 +1235,116 @@ export default function Dashboard() {
             </div>
           )}
 
+          {activeTab === 'chat' && (
+            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden flex flex-col md:flex-row h-[70vh]">
+              {/* Professionals List */}
+              <div className="w-full md:w-72 bg-white dark:bg-black/20 border-r border-gray-200 dark:border-white/10 p-6 flex flex-col">
+                <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-600" /> Profissionais
+                </h3>
+                <div className="space-y-3 flex-1 overflow-y-auto">
+                  {professionals.map(pro => (
+                    <button 
+                      key={pro.id}
+                      onClick={() => setSelectedProfessional(pro)}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${
+                        selectedProfessional?.id === pro.id ? 'bg-purple-600/10 border border-purple-500/30' : 'hover:bg-gray-100 dark:hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <div className="w-12 h-12 bg-gray-200 dark:bg-zinc-800 rounded-full overflow-hidden shrink-0 border border-white/10">
+                        <img src={pro.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${pro.name}`} alt="avatar" />
+                      </div>
+                      <div className="text-left overflow-hidden">
+                        <p className="font-bold text-sm truncate">{pro.name}</p>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black opacity-60">
+                          {pro.role === 'trainer' ? 'Personal' : 'Nutricionista'}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                  {professionals.length === 0 && (
+                    <div className="py-12 text-center text-gray-500 italic text-sm">
+                      Nenhum profissional vinculado ainda.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Chat Window */}
+              <div className="flex-1 flex flex-col bg-white dark:bg-transparent">
+                {selectedProfessional ? (
+                  <>
+                    <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/5 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-gray-200 dark:bg-zinc-800 rounded-full overflow-hidden border border-white/5">
+                           <img src={selectedProfessional.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${selectedProfessional.name}`} alt="avatar" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm sm:text-base">{selectedProfessional.name}</h4>
+                          <div className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Ativo</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
+                      {chatMessages.map(msg => (
+                        <div key={msg.id} className={`flex ${msg.fromId === user?.uid ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] sm:max-w-[70%] p-4 rounded-2xl text-sm sm:text-base leading-relaxed ${
+                            msg.fromId === user?.uid 
+                              ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20 rounded-tr-none' 
+                              : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 rounded-tl-none'
+                          }`}>
+                            {msg.text}
+                            <p className={`text-[9px] mt-2 font-bold uppercase tracking-widest ${msg.fromId === user?.uid ? 'text-white/60' : 'text-gray-500'}`}>
+                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {chatMessages.length === 0 && (
+                        <div className="h-full flex flex-col items-center justify-center text-center py-20 px-4">
+                          <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
+                            <MessageCircle className="w-8 h-8 text-gray-300 dark:text-gray-700" />
+                          </div>
+                          <h4 className="font-bold text-gray-400 mb-2">Sem mensagens ainda</h4>
+                          <p className="text-sm text-gray-500 max-w-xs">Envie uma mensagem para {selectedProfessional.name} para iniciar seu acompanhamento.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <form onSubmit={handleSendMessage} className="p-4 sm:p-6 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/5 flex gap-3">
+                      <input 
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Escreva sua mensagem..."
+                        className="flex-1 bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-2xl px-6 py-3 sm:py-4 text-sm sm:text-base outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner"
+                      />
+                      <button 
+                        type="submit"
+                        disabled={isSending || !newMessage.trim()}
+                        className="bg-purple-600 text-white p-3 sm:p-4 rounded-2xl hover:bg-purple-700 disabled:opacity-50 transition-all shadow-xl shadow-purple-600/20 active:scale-95 shrink-0"
+                      >
+                        <Send className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gray-50 dark:bg-black/20">
+                    <MessageCircle className="w-20 h-20 text-gray-200 dark:text-gray-800 mb-8" />
+                    <h3 className="text-2xl font-black mb-4">Chat com Profissionais</h3>
+                    <p className="text-gray-500 max-w-md font-medium leading-relaxed">
+                      Selecione um profissional vinculado para iniciar uma conversa e receber suporte personalizado.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'workout' && (
             <div className="space-y-6 sm:space-y-8 relative w-full overflow-x-hidden">
               {isBlocked && <Paywall feature="Treinos" type="expired" />}
@@ -1158,6 +1411,20 @@ export default function Dashboard() {
                       <div className="w-full bg-gray-200 dark:bg-white/5 h-2 rounded-full overflow-hidden">
                         <div className="bg-green-500 h-full" style={{ width: `${plan.consistencyScore}%` }} />
                       </div>
+
+                      {plan.recommendations && plan.recommendations.length > 0 && (
+                        <div className="mt-8 space-y-4">
+                           <h4 className="font-bold text-xs uppercase tracking-widest text-purple-500">Recados do Coach</h4>
+                           <div className="space-y-3">
+                             {plan.recommendations.map((note, i) => (
+                               <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-xl text-sm italic text-gray-400">
+                                 "{note}"
+                               </div>
+                             ))}
+                           </div>
+                        </div>
+                      )}
+
                       <div className="space-y-2 mt-6">
                         {plan.strategies?.map((strat: string, i: number) => (
                           <div key={`strat-${i}`} className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -1242,6 +1509,21 @@ export default function Dashboard() {
                             </ul>
                           </div>
                         )}
+
+                        {plan.diet.orientations && plan.diet.orientations.length > 0 && (
+                          <div className="mt-4 p-6 bg-green-600/5 dark:bg-green-900/10 border border-green-500/20 rounded-2xl">
+                            <h4 className="font-bold text-green-600 dark:text-green-400 mb-4 flex items-center gap-2">
+                              <Apple className="w-4 h-4" /> Orientações Nutricionais Finais
+                            </h4>
+                            <ul className="space-y-3">
+                              {plan.diet.orientations.map((orient, i) => (
+                                <li key={i} className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed border-l-2 border-green-500/30 pl-4 py-1 italic">
+                                  {orient}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center p-12 text-center">
@@ -1263,36 +1545,43 @@ export default function Dashboard() {
               ) : planType === 'PRO' || isFree ? (
                 <Paywall feature="Personal Trainer" type="premium" />
               ) : null}
+
+              {(isAdmin || role === 'trainer') ? (
+                <div className="bg-zinc-950 border border-purple-500/20 rounded-3xl p-6 sm:p-12 text-center flex flex-col items-center">
+                  <Users className="w-20 h-20 text-purple-500 mb-6 opacity-30" />
+                  <h3 className="text-3xl font-black mb-2 tracking-tighter">Gestão de Treinos</h3>
+                  <p className="text-gray-400 mb-10 max-w-lg font-medium leading-relaxed">
+                    Você tem acesso às ferramentas de Personal Trainer. Clique no botão abaixo para gerenciar seus alunos e protocolos de treino.
+                  </p>
+                  <Link 
+                    to="/trainer" 
+                    className="bg-purple-600 hover:bg-purple-500 text-white px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-purple-600/30 flex items-center gap-3 group"
+                  >
+                    Acessar Painel Trainer
+                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </div>
+              ) : null}
+
               {/* Admin Section: Role Management */}
               {isAdmin && (
-                <div className="bg-gray-100 dark:bg-zinc-950 border border-red-500/20 rounded-3xl p-6">
+                <div className="mb-8 p-6 bg-red-500/5 border border-red-500/20 rounded-3xl">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div>
-                      <h4 className="font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <h4 className="font-bold text-red-600 dark:text-red-400 flex items-center gap-2 uppercase tracking-widest text-xs">
                         <Lock className="w-4 h-4" /> Painel Admin: Gestão de Profissionais
                       </h4>
-                      <p className="text-sm text-gray-500">Promova usuários para Trainer ou Nutricionista</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Seu modo atual:</span>
-                      <button 
-                        onClick={() => setRole(role === 'user' ? 'trainer' : 'user')}
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                          role === 'trainer' ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        {role === 'trainer' ? 'Modo Trainer' : 'Modo Aluno'}
-                      </button>
+                      <p className="text-sm text-gray-500">Promova qualquer usuário inserindo o e-mail</p>
                     </div>
                   </div>
                   
-                  <div className="grid sm:grid-cols-3 gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <input 
                       type="email" 
                       value={targetUserEmail}
                       onChange={e => setTargetUserEmail(e.target.value)}
                       placeholder="E-mail do usuário..."
-                      className="sm:col-span-1 bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-xl p-3 text-sm text-black dark:text-white"
+                      className="flex-1 bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-xl p-3 text-sm text-black dark:text-white"
                     />
                     <select 
                       value={targetUserRole}
@@ -1306,13 +1595,13 @@ export default function Dashboard() {
                     <button 
                       onClick={handleSetRole}
                       disabled={linkLoading}
-                      className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl text-sm transition-all"
+                      className="bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-3 rounded-xl text-sm transition-all"
                     >
-                      {linkLoading ? 'Processando...' : 'Atualizar Role'}
+                      {linkLoading ? 'Salvando...' : 'Aplicar Role'}
                     </button>
                   </div>
                   {linkMessage.text && (
-                    <p className={`mt-3 text-xs text-center ${linkMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                    <p className={`mt-3 text-xs text-center ${linkMessage.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>
                       {linkMessage.text}
                     </p>
                   )}
@@ -1601,37 +1890,21 @@ export default function Dashboard() {
               ) : planType === 'PRO' || isFree ? (
                 <Paywall feature="Nutricionista" type="premium" />
               ) : null}
-              {/* Admin Section: Role Management */}
-              {isAdmin && (
-                <div className="bg-gray-100 dark:bg-zinc-950 border border-green-500/20 rounded-3xl p-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div>
-                      <h4 className="font-bold text-green-600 dark:text-green-400 flex items-center gap-2">
-                        <Lock className="w-4 h-4" /> Painel Admin: Gestão Nutricional
-                      </h4>
-                      <p className="text-sm text-gray-500">Promova usuários para Nutricionista</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Seu modo atual:</span>
-                      <button 
-                        onClick={() => setRole(role === 'user' ? 'nutritionist' : 'user')}
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                          role === 'nutritionist' ? 'bg-green-600' : 'bg-gray-200 dark:bg-white/10'
-                        }`}
-                      >
-                        {role === 'nutritionist' ? 'Modo Nutri' : 'Modo Aluno'}
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">Use a ferramenta de gestão no topo para promover usuários.</p>
-                </div>
-              )}
-
-              {role === 'nutritionist' ? (
-                <div className="bg-gray-50 dark:bg-zinc-950 border border-green-500/20 rounded-3xl p-8 flex flex-col items-center justify-center text-center py-24 shadow-sm">
-                  <Apple className="w-16 h-16 text-green-500 mb-6" />
-                  <h3 className="text-2xl font-bold text-black dark:text-white">Painel Nutricional Profissional</h3>
-                  <p className="text-gray-500 max-w-md">Gerencie dietas, macros e protocolos alimentares de seus pacientes vinculados com precisão clínica.</p>
+              
+              {(isAdmin || role === 'nutritionist') ? (
+                <div className="bg-zinc-950 border border-green-500/20 rounded-3xl p-6 sm:p-12 text-center flex flex-col items-center">
+                  <Apple className="w-20 h-20 text-green-500 mb-6 opacity-30" />
+                  <h3 className="text-3xl font-black mb-2 tracking-tighter">Gestão Nutricional</h3>
+                  <p className="text-gray-400 mb-10 max-w-lg font-medium leading-relaxed">
+                    Você tem acesso às ferramentas de Nutricionista. Clique no botão abaixo para gerenciar pacientes e protocolos.
+                  </p>
+                  <Link 
+                    to="/nutritionist" 
+                    className="bg-green-600 hover:bg-green-500 text-white px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-green-600/30 flex items-center gap-3 group"
+                  >
+                    Acessar Painel Nutri
+                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </div>
               ) : (
                 <div className="space-y-8">

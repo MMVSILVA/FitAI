@@ -30,6 +30,8 @@ export interface UserProfile {
   subscriptionEndsAt?: string;
   planGenerationsLeft?: number; // For FREE tier limit
   createdAt: string;
+  adherenceLogs?: AdherenceLog[];
+  photoURL?: string;
 }
 
 export interface Exercise {
@@ -69,8 +71,17 @@ export interface DietPlan {
     name: string;
     time: string;
     foods: string[];
+    isAdhered?: boolean;
   }[];
   recommendations: string[];
+  orientations?: string[]; // Espaço para orientações nutricionais detalhadas
+  professionalNotes?: string; // Notas restritas ao profissional ou para o paciente
+}
+
+export interface AdherenceLog {
+  date: string;
+  mealName: string;
+  adhered: boolean;
 }
 
 export interface WorkoutPlan {
@@ -83,6 +94,8 @@ export interface WorkoutPlan {
   progression: string;
   consistencyScore: number;
   strategies: string[];
+  recommendations?: string[]; // Orientações gerais do Personal
+  professionalNotes?: string; // Notas privadas/orientações profissionais
   diet?: DietPlan;
 }
 

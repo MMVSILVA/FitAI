@@ -8,15 +8,18 @@ import { Dumbbell, Loader2, ArrowRight, ChevronLeft, CheckCircle2 } from 'lucide
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { user, authLoading, setProfile, setPlan, startTrial } = useUser();
+  const { user, authLoading, profile, plan, setProfile, setPlan, startTrial } = useUser();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/login');
+    } else if (!authLoading && profile && plan) {
+      // Se já tem dados salvos no Firestore, pula o onboarding
+      navigate('/dashboard');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, profile, plan, navigate]);
 
   const [formData, setFormData] = useState(() => {
     const saved = localStorage.getItem('fitai_onboarding_form');

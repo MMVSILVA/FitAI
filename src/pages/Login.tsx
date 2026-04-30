@@ -12,7 +12,7 @@ import { LegalConsent } from '../components/LegalConsent';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { user, profile, plan, role, authLoading } = useUser();
+  const { user, profile, plan, role, authLoading, isAdmin } = useUser();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,15 +30,35 @@ export default function Login() {
   useEffect(() => {
     // Navigate once user and basic role info is available
     if (user && !authLoading) {
-      console.log("Direcionando usuário logado...", { email: user.email, role });
+      console.log("Direcionando usuário logado...", { email: user.email, role, isAdmin });
       
-      const targetPath = role === 'trainer' ? '/trainer' : 
-                         role === 'nutritionist' ? '/nutritionist' :
-                         (!profile || !plan) ? '/onboarding' : '/dashboard';
+      // Prioritize Professional Panels ONLY if they are NOT the main "user" flow
+      // or if they explicitly have that role and NO plan yet.
+      // However, usually, a trainer/nutri who is also a user might want their dashboard.
+      
+      // Redirecionamento inteligente:
+      // 1. Admins sempre vão para o dashboard principal
+      // 2. Usuários com plano (profile e plan) vão para o dashboard principal
+      // 3. Profissionais sem plano de treino vão para seus painéis específicos
+      // 4. Novos usuários vão para onboarding
+      
+      let targetPath = '/onboarding';
+      
+      if (isAdmin) {
+        targetPath = '/dashboard';
+      } else if (profile && plan) {
+        targetPath = '/dashboard';
+      } else if (role === 'trainer') {
+        targetPath = '/trainer';
+      } else if (role === 'nutritionist') {
+        targetPath = '/nutritionist';
+      } else {
+        targetPath = '/onboarding';
+      }
       
       navigate(targetPath);
     }
-  }, [user, profile, plan, role, authLoading, navigate]);
+  }, [user, profile, plan, role, authLoading, isAdmin, navigate]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
