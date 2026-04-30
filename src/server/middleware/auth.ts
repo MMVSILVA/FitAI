@@ -1,23 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
-// We'll use firebase-admin in the server context
-// Since server.ts exposes db, we can use it or re-init in a service
+import { getFirebaseAdmin } from '../lib/firebase-admin.ts';
 
-export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+export interface AuthRequest extends Request {
+  uid?: string;
+  userEmail?: string;
+}
+
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Não autorizado' });
+    return res.status(401).json({ error: 'No authorization token provided' });
   }
 
-  // In a real production SaaS, we would verify the Firebase ID Token here
-  // For this implementation, we assume the token is passed and validated or handled by client-side auth for Firestore
-  // To keep it simple but "Enterprise-ready", we provide the structure
-  next();
-};
+  const idToken = authHeader.split('Bearer ')[1];
 
-export const roleMiddleware = (allowedRoles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    // Logic to check user role from DB if needed
-    // For now, it's a placeholder for the RBAC architecture
+  try {
+    const admin = getFirebaseAdmin();
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.uid = decodedToken.uid;
+    req.userEmail = decodedToken.email;
     next();
-  };
+  } catch (error) {
+    console.error('Error verifying Firebase ID token:', error);
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
 };

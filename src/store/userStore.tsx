@@ -59,10 +59,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user?.email) {
-      fetch(`/api/auth/admin-check?email=${encodeURIComponent(user.email)}`)
-        .then(r => r.json())
-        .then(data => setIsAdmin(data.isAdmin))
-        .catch(() => setIsAdmin(false));
+      user.getIdToken().then(token => {
+        fetch(`/api/auth/admin-check?email=${encodeURIComponent(user.email!)}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+          .then(r => r.json())
+          .then(data => setIsAdmin(data.isAdmin))
+          .catch(() => setIsAdmin(false));
+      });
     } else {
       setIsAdmin(false);
     }

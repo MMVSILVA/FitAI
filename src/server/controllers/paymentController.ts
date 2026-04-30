@@ -22,7 +22,7 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
 
     let priceId = "";
     if (plan === "PROFESSIONAL") priceId = process.env.STRIPE_PRICE_ID_PROFESSIONAL || "";
-    else if (plan === "PREMIUM") priceId = process.env.STRIPE_PRICE_ID_PREMIUM || "price_1TOm3CCVEgijuso4h63UP1b3";
+    else if (plan === "PREMIUM") priceId = process.env.STRIPE_PRICE_ID_PREMIUM || "";
     else priceId = process.env.STRIPE_PRICE_ID_PRO || "";
 
     if (!priceId) {

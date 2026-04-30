@@ -1,6 +1,7 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { GoogleGenAI } from "@google/genai";
-import { getAdminDb } from '../lib/firebase-admin';
+import { getAdminDb } from '../lib/firebase-admin.ts';
+import { AuthRequest } from '../middleware/auth.ts';
 
 // Initialize Gemini with server-side key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
@@ -26,10 +27,10 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   throw lastError;
 }
 
-export const generatePlan = async (req: Request, res: Response) => {
+export const generatePlan = async (req: AuthRequest, res: Response) => {
   try {
-    const { userData, userId } = req.body;
-    if (!userId) return res.status(401).json({ error: 'User ID required' });
+    const userId = req.uid;
+    if (!userId) return res.status(401).json({ error: 'User ID required from authentication' });
 
     const db = getAdminDb();
     const userSnap = await db.collection('users').doc(userId).get();
@@ -169,12 +170,9 @@ export const generatePlan = async (req: Request, res: Response) => {
       Responda apenas com o JSON puro, sem markdown.
     `;
     
-    // I will copy the full prompt from the original aiService.ts
-    // For now, I'm defining the structure.
-
     const response = await withRetry(() => ai.models.generateContent({
       model: MODEL_NAME,
-      contents: req.body.prompt || prompt, // Support both custom prompt or template
+      contents: prompt, // Strictly use internal prompt template to prevent injection
     }));
 
     const text = response.text;
@@ -197,7 +195,7 @@ export const generatePlan = async (req: Request, res: Response) => {
   }
 };
 
-export const translateExercise = async (req: Request, res: Response) => {
+export const translateExercise = async (req: AuthRequest, res: Response) => {
   try {
     const { instructions } = req.body;
     const textToTranslate = instructions.join('\n');

@@ -1,7 +1,8 @@
 import express from 'express';
 import * as paymentController from '../controllers/paymentController.ts';
 import * as aiController from '../controllers/aiController.ts';
-import { isAdminEmail } from '../config/admins';
+import { isAdminEmail } from '../config/admins.ts';
+import { authMiddleware, AuthRequest } from '../middleware/auth.ts';
 
 const router = express.Router({
   caseSensitive: false,
@@ -15,14 +16,22 @@ router.use((req, res, next) => {
 });
 
 // Admin Check
-router.get('/auth/admin-check', (req, res) => {
-  const email = req.query.email as string;
-  res.json({ isAdmin: isAdminEmail(email) });
+router.get('/auth/admin-check', authMiddleware, (req: AuthRequest, res) => {
+  // Use the email from the verified token, or use the provided email if it matches the token's email
+  const queryEmail = req.query.email as string;
+  const verifiedEmail = req.userEmail;
+
+  if (queryEmail && verifiedEmail && queryEmail.toLowerCase() !== verifiedEmail.toLowerCase()) {
+    return res.status(403).json({ error: 'Token email does not match requested email' });
+  }
+
+  const emailToCheck = verifiedEmail || queryEmail;
+  res.json({ isAdmin: isAdminEmail(emailToCheck) });
 });
 
 // AI Routes
-router.post('/ai/generate-plan', aiController.generatePlan);
-router.post('/ai/translate', aiController.translateExercise);
+router.post('/ai/generate-plan', authMiddleware, aiController.generatePlan);
+router.post('/ai/translate', authMiddleware, aiController.translateExercise);
 
 // Simple in-memory cache for exercise searches
 const exerciseCache = new Map<string, { data: any, timestamp: number }>();

@@ -549,7 +549,7 @@ export default function Dashboard() {
           )}
         </p>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-3xl text-left mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl text-left mb-12">
           <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2rem] flex flex-col shadow-2xl">
             <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Pro</h5>
             <p className="text-4xl font-black text-purple-400 mb-6">R$ 39,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
@@ -588,6 +588,25 @@ export default function Dashboard() {
             </ul>
             <Link to="/checkout?plan=PREMIUM" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs shadow-xl shadow-purple-600/30">
               Assinar Premium
+            </Link>
+          </div>
+
+          <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2rem] flex flex-col shadow-2xl">
+            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Professional</h5>
+            <p className="text-4xl font-black text-green-400 mb-6">R$ 149,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
+            <ul className="text-sm text-gray-400 space-y-3 mb-8 flex-1 font-medium">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" /> Tudo do Premium
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" /> Gestão de Alunos (Trainer)
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" /> Suporte VIP
+              </li>
+            </ul>
+            <Link to="/checkout?plan=PROFESSIONAL" className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs">
+              Assinar Professional
             </Link>
           </div>
         </div>
