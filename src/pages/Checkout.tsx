@@ -37,10 +37,6 @@ export default function Checkout() {
   };
 
   const handleCheckout = async () => {
-    if (!user) {
-      setError("Você precisa estar logado para realizar a assinatura.");
-      return;
-    }
     setLoading(true);
     setError(null);
     const origin = window.location.origin;

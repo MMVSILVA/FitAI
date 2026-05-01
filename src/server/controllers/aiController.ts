@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import express from 'express';
 import { GoogleGenAI } from "@google/genai";
 import { getAdminDb } from '../lib/firebase-admin.ts';
 import { AuthRequest } from '../middleware/auth.ts';
@@ -27,7 +27,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   throw lastError;
 }
 
-export const generatePlan = async (req: AuthRequest, res: Response) => {
+export const generatePlan = async (req: AuthRequest, res: express.Response) => {
   try {
     const userId = req.uid;
     if (!userId) return res.status(401).json({ error: 'User ID required from authentication' });
@@ -195,7 +195,7 @@ export const generatePlan = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const translateExercise = async (req: AuthRequest, res: Response) => {
+export const translateExercise = async (req: AuthRequest, res: express.Response) => {
   try {
     const { instructions } = req.body;
     const textToTranslate = instructions.join('\n');

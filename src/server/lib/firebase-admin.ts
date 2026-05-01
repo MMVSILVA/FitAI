@@ -1,5 +1,15 @@
 import admin from 'firebase-admin';
-import firebaseConfig from '../../../firebase-applet-config.json' with { type: 'json' };
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+let firebaseConfig: any;
+try {
+  const configPath = join(process.cwd(), 'firebase-applet-config.json');
+  firebaseConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+} catch (e) {
+  console.error("Warning: Failed to load firebase-applet-config.json. Firebase features may not work.");
+  firebaseConfig = {};
+}
 
 let adminApp: admin.app.App | null = null;
 

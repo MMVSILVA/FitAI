@@ -8,9 +8,16 @@ function getStripe(): Stripe {
     const key = process.env.STRIPE_SECRET_KEY;
     if (!key) {
       console.error("STRIPE_SECRET_KEY is undefined in process.env");
-      throw new Error("A chave secreta do Stripe (STRIPE_SECRET_KEY) não foi configurada. Verifique as configurações do projeto.");
+      throw new Error("A chave secreta do Stripe (STRIPE_SECRET_KEY) não foi configurada nas variáveis de ambiente do servidor.");
     }
-    stripeClient = new Stripe(key, { apiVersion: '2024-06-20' as any });
+    
+    // Validação básica do formato da chave
+    if (!key.startsWith('sk_') && !key.startsWith('rk_')) {
+      console.error("STRIPE_SECRET_KEY invalid format. Must start with sk_ or rk_");
+      throw new Error("A chave do Stripe configurada é inválida. Chaves secretas devem começar com 'sk_' e chaves restritas com 'rk_'. Verifique suas variáveis de ambiente.");
+    }
+
+    stripeClient = new Stripe(key, { apiVersion: '2023-10-16' as any });
   }
   return stripeClient;
 }
@@ -32,12 +39,19 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
       });
     }
 
+    if (priceId.startsWith('prod_')) {
+      console.error(`Product ID provided instead of Price ID: ${priceId}`);
+      return res.status(400).json({
+        error: `Você forneceu um ID de Produto (${priceId}) em vez de um ID de Preço. No Stripe, chaves que começam com 'prod_' são produtos. Por favor, use o ID do Preço associado (que começa com 'price_').`
+      });
+    }
+
     const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
     const host = req.get("host");
     const baseUrl = `${protocol}://${host}`;
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
+      payment_method_types: ["card", "boleto"],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       success_url: `${baseUrl}/dashboard?success=true`,
@@ -65,30 +79,49 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.client_reference_id;
+      let userId = session.client_reference_id;
+      const userEmail = session.customer_details?.email;
       const plan = session.metadata?.plan;
       const stripeSubscriptionId = session.subscription as string;
 
-      if (userId && plan && stripeSubscriptionId) {
+      if ((userId || userEmail) && plan && stripeSubscriptionId) {
         const stripe = getStripe();
         const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId) as any;
         
         const { getAdminDb } = await import('../lib/firebase-admin.ts');
         const db = getAdminDb();
         
-        // Use Stripe's actual period end
-        const subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+        // If userId is missing, try to find user by email
+        if (!userId && userEmail) {
+          const usersSnap = await db.collection('users').where('email', '==', userEmail).get();
+          if (!usersSnap.empty) {
+            userId = usersSnap.docs[0].id;
+            console.log(`Found user ${userId} by email ${userEmail} for plan activation.`);
+          }
+        }
 
-        await db.collection('users').doc(userId).update({
+        const subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+        const dataToUpdate = {
           planType: plan,
           role: plan === 'PROFESSIONAL' ? 'trainer' : (plan === 'PREMIUM' ? 'premium_user' : 'user'),
           isPremium: true,
           stripeSubscriptionId,
           subscriptionEndsAt: subscriptionEndsAt.toISOString(),
           updatedAt: new Date().toISOString()
-        });
-        
-        console.log(`Plan ${plan} activated for user ${userId}. Expires at ${subscriptionEndsAt.toISOString()}`);
+        };
+
+        if (userId) {
+          await db.collection('users').doc(userId).update(dataToUpdate);
+          console.log(`Plan ${plan} activated for existing user ${userId}.`);
+        } else if (userEmail) {
+          // Create placeholder for guest payment
+          await db.collection('users').doc(`pending_${userEmail}`).set({
+            ...dataToUpdate,
+            email: userEmail,
+            isPendingActivation: true
+          });
+          console.log(`Created placeholder activation for guest ${userEmail}.`);
+        }
       }
     }
 

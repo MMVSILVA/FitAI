@@ -1,12 +1,12 @@
-import { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import { getFirebaseAdmin } from '../lib/firebase-admin.ts';
 
-export interface AuthRequest extends Request {
+export interface AuthRequest extends express.Request {
   uid?: string;
   userEmail?: string;
 }
 
-export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authMiddleware = async (req: AuthRequest, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'No authorization token provided' });

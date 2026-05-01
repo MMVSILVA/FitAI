@@ -98,16 +98,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const loggedUser = currentUser || auth.currentUser;
 
         // Optimistic Load from Cache
-        const cachedProfile = localStorage.getItem(`fitai_profile_${loggedUser.uid}`);
-        const cachedPlan = localStorage.getItem(`fitai_plan_${loggedUser.uid}`);
         let hasCache = false;
-        if (cachedProfile) {
-          setProfileState(JSON.parse(cachedProfile));
-          hasCache = true;
-        }
-        if (cachedPlan) {
-          setPlanState(JSON.parse(cachedPlan));
-          hasCache = true;
+        try {
+          const cachedProfile = localStorage.getItem(`fitai_profile_${loggedUser.uid}`);
+          const cachedPlan = localStorage.getItem(`fitai_plan_${loggedUser.uid}`);
+          
+          if (cachedProfile) {
+            setProfileState(JSON.parse(cachedProfile));
+            hasCache = true;
+          }
+          if (cachedPlan) {
+            setPlanState(JSON.parse(cachedPlan));
+            hasCache = true;
+          }
+        } catch (e) {
+          console.warn("Cached data corrupted:", e);
         }
 
         const docRef = doc(db, 'users', loggedUser!.uid);
@@ -185,13 +190,34 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             const docSnap = await getDoc(docRef);
             if (!docSnap.exists()) {
-              const initialData = {
+              const initialData: any = {
                 uid: loggedUser.uid,
                 email: loggedUser.email,
                 role: 'user',
                 planType: isAdmin ? 'PROFESSIONAL' : 'FREE',
                 createdAt: new Date().toISOString()
               };
+
+              // Check for pending guest payment
+              try {
+                const pendingRef = doc(db, 'users', `pending_${loggedUser.email}`);
+                const pendingSnap = await getDoc(pendingRef);
+                if (pendingSnap.exists()) {
+                  const pendingData = pendingSnap.data();
+                  console.log("Merging pending guest payment for:", loggedUser.email);
+                  initialData.planType = pendingData.planType;
+                  initialData.role = pendingData.role;
+                  initialData.isPremium = pendingData.isPremium;
+                  initialData.stripeSubscriptionId = pendingData.stripeSubscriptionId;
+                  initialData.subscriptionEndsAt = pendingData.subscriptionEndsAt;
+                  
+                  // Delete placeholder after migration
+                  import('firebase/firestore').then(({ deleteDoc }) => deleteDoc(pendingRef));
+                }
+              } catch (pendingErr) {
+                console.error("Error checking pending payment:", pendingErr);
+              }
+
               await setDoc(docRef, initialData);
             } else if (!docSnap.data()?.profile && !isAdmin) {
               // Migration check
