@@ -40,9 +40,6 @@ const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 // Health check
 router.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Core routes
-router.post('/create-checkout-session', paymentController.createCheckoutSession);
-
 // ExerciseDB Proxy (avoids CORS)
 router.get('/exercises/search', async (req, res) => {
   try {

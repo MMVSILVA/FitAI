@@ -2,20 +2,26 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
+import cors from "cors";
 import path from "path";
+import * as paymentController from "./src/server/controllers/paymentController.ts";
 import apiRoutes from "./src/server/routes/index.ts";
-import { handleWebhook } from "./src/server/controllers/paymentController.ts";
 
 const app = express();
 
-// Stripe Webhook MUST stay before general JSON middleware to receive raw body
-app.post("/api/webhook", express.raw({ type: "application/json" }), handleWebhook);
+app.use(cors());
 
-// direct root health check
-app.get("/healthz", (req, res) => res.json({ status: "OK", timestamp: "2026-04-29T17:53", version: "1.0.4" }));
+// Stripe Webhook MUST stay before general JSON middleware to receive raw body
+app.post("/api/webhook", express.raw({ type: "application/json" }), paymentController.handleWebhook);
 
 // General Middleware
 app.use(express.json());
+
+// Direct Payment Routes (Avoid router fallthrough issues)
+app.post("/api/create-checkout-session", (req, res, next) => {
+  console.log("Direct Payment Request received:", req.method, req.url);
+  paymentController.createCheckoutSession(req, res);
+});
 
 // API Routes
 app.use("/api", (req, res, next) => {
