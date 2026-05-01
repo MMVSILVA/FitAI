@@ -34,7 +34,7 @@ function ExerciseRow({
   key?: any;
 }) {
   const { updateExerciseWeight, addExerciseProgress, planType } = useUser();
-  const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFESSIONAL';
+  const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFESSIONAL' || planType === 'PROFISSIONAL';
   const [isLogging, setIsLogging] = useState(false);
   const [logSuccess, setLogSuccess] = useState(false);
 
@@ -189,7 +189,7 @@ export default function Dashboard() {
   
   const isFree = planType === 'FREE';
   const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
-  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFESSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFISSIONAL' || planType === 'PROFISSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
   const isBlocked = isTrialExpired || isSubscriptionExpired;
   const isPremiumUser = planType !== 'FREE';
 
@@ -470,7 +470,7 @@ export default function Dashboard() {
       const { db } = await import('../firebase');
       await updateDoc(doc(db, 'users', user.uid), {
         planType: newPlan,
-        isPremium: newPlan === 'PREMIUM' || newPlan === 'PROFESSIONAL',
+        isPremium: newPlan === 'PREMIUM' || newPlan === 'PROFISSIONAL' || newPlan === 'PROFISSIONAL',
         updatedAt: new Date().toISOString()
       });
       
@@ -555,7 +555,7 @@ export default function Dashboard() {
 
   // Subscription expiration check and auto-reversion
   useEffect(() => {
-    const isSimulationExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFESSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+    const isSimulationExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFESSIONAL' || planType === 'PROFISSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
     
     if (isSimulationExpired && user && !isAdmin) {
       const revertToFree = async () => {
@@ -682,7 +682,7 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2rem] flex flex-col shadow-2xl">
-            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Professional</h5>
+            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Profissional</h5>
             <p className="text-4xl font-black text-green-400 mb-6">R$ 149,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
             <ul className="text-sm text-gray-400 space-y-3 mb-8 flex-1 font-medium">
               <li className="flex items-center gap-2">
@@ -695,8 +695,8 @@ export default function Dashboard() {
                 <CheckCircle2 className="w-4 h-4 text-green-500" /> Suporte VIP
               </li>
             </ul>
-            <Link to="/checkout?plan=PROFESSIONAL" className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs">
-              Assinar Professional
+            <Link to="/checkout?plan=PROFISSIONAL" className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs">
+              Assinar Profissional
             </Link>
           </div>
         </div>
@@ -2393,7 +2393,7 @@ export default function Dashboard() {
                 <section>
                   <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Simular Plano do Usuário</label>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    {['FREE', 'PRO', 'PREMIUM', 'PROFESSIONAL'].map((p) => (
+                    {['FREE', 'PRO', 'PREMIUM', 'PROFESSIONAL', 'PROFISSIONAL'].map((p) => (
                       <button
                         key={p}
                         onClick={() => handleAdminPlanChange(p as PlanType)}

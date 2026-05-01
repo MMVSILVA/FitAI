@@ -1,5 +1,5 @@
 export type UserRole = 'user' | 'premium_user' | 'trainer' | 'nutritionist' | 'admin';
-export type PlanType = 'FREE' | 'PRO' | 'PREMIUM' | 'PROFESSIONAL';
+export type PlanType = 'FREE' | 'PRO' | 'PREMIUM' | 'PROFISSIONAL';
 
 export interface UserProfile {
   uid: string;

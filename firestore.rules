@@ -57,7 +57,7 @@ service cloud.firestore {
              data.email is string && data.email.size() <= 256 &&
              data.displayName is string && data.displayName.size() <= 100 &&
              data.role in ['user', 'trainer', 'admin'] &&
-             data.planType in ['FREE', 'PRO', 'PREMIUM', 'PROFESSIONAL'] &&
+             data.planType in ['FREE', 'PRO', 'PREMIUM', 'PROFESSIONAL', 'PROFISSIONAL'] &&
              (data.weight == null || data.weight is number) &&
              (data.height == null || data.height is number) &&
              (data.createdAt is string || data.createdAt == request.time);
@@ -91,7 +91,7 @@ service cloud.firestore {
 
     function isPremium() {
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.planType == 'PREMIUM';
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.planType in ['PRO', 'PREMIUM', 'PROFESSIONAL', 'PROFISSIONAL'];
     }
 
     // ==========================================

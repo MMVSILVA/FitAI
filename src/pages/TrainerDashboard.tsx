@@ -12,7 +12,7 @@ import { UserProfile, WorkoutPlan } from '../types';
 
 export default function TrainerDashboard() {
   const { user, profile, clients: clientIds, isAdmin, planType, subscriptionEndsAt } = useUser();
-  const isBlocked = (planType !== 'PROFESSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
+  const isBlocked = (planType !== 'PROFISSIONAL' && planType !== 'PROFESSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'clients' | 'chat' | 'settings'>('overview');
@@ -286,7 +286,7 @@ export default function TrainerDashboard() {
           <h2 className="text-3xl font-black text-white">Painel Bloqueado</h2>
           <p className="text-gray-400">Para utilizar as ferramentas de Treinador Profissional, sua assinatura profissional deve estar ativa.</p>
           <div className="pt-4">
-            <a href="/checkout?plan=PROFESSIONAL" className="inline-block bg-purple-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-500 transition-all">
+            <a href="/checkout?plan=PROFISSIONAL" className="inline-block bg-purple-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-500 transition-all">
               Ativar Assinatura Pro
             </a>
           </div>

@@ -155,7 +155,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (data.planType) {
                 setPlanType(data.planType as PlanType);
               } else if (isAdmin) {
-                setPlanType('PROFESSIONAL');
+                setPlanType('PROFISSIONAL');
               } else {
                 setPlanType('FREE');
               }
@@ -194,7 +194,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 uid: loggedUser.uid,
                 email: loggedUser.email,
                 role: 'user',
-                planType: isAdmin ? 'PROFESSIONAL' : 'FREE',
+                planType: isAdmin ? 'PROFISSIONAL' : 'FREE',
                 createdAt: new Date().toISOString()
               };
 
@@ -227,7 +227,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const migrationData = {
                   profile: JSON.parse(localProfile),
                   plan: JSON.parse(localPlan),
-                  planType: isAdmin ? 'PROFESSIONAL' : (localStorage.getItem('fitai_plan_type') || 'FREE'),
+                  planType: isAdmin ? 'PROFISSIONAL' : (localStorage.getItem('fitai_plan_type') || 'FREE'),
                   trialEndsAt: localStorage.getItem('fitai_trial_ends') || null
                 };
                 await setDoc(docRef, migrationData, { merge: true });

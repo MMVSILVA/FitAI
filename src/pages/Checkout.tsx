@@ -6,7 +6,7 @@ import { CheckCircle2, CreditCard, ShieldCheck, ArrowLeft, ExternalLink, Refresh
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
-  const plan = searchParams.get('plan') as 'PRO' | 'PREMIUM' | 'PROFESSIONAL' || 'PRO';
+  const plan = searchParams.get('plan') as 'PRO' | 'PREMIUM' | 'PROFISSIONAL' || 'PRO';
   const navigate = useNavigate();
   const { user, upgradePlan } = useUser();
   const [loading, setLoading] = useState(false);
@@ -15,18 +15,18 @@ export default function Checkout() {
   const priceMap = {
     'PRO': '39,90',
     'PREMIUM': '59,90',
-    'PROFESSIONAL': '149,90'
+    'PROFISSIONAL': '149,90'
   };
-  const price = priceMap[plan as 'PRO' | 'PREMIUM' | 'PROFESSIONAL'];
+  const price = priceMap[plan as 'PRO' | 'PREMIUM' | 'PROFISSIONAL'];
 
   // Links reais de pagamento do Stripe - NUNCA use URLs de teste fixas em produção
   const stripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO;
   const stripeLinkPremium = import.meta.env.VITE_STRIPE_LINK_PREMIUM;
-  const stripeLinkProfessional = import.meta.env.VITE_STRIPE_LINK_PROFESSIONAL;
+  const stripeLinkProfissional = import.meta.env.VITE_STRIPE_LINK_PROFISSIONAL;
 
   const getManualLink = () => {
     let base = '';
-    if (plan === 'PROFESSIONAL') base = stripeLinkProfessional;
+    if (plan === 'PROFISSIONAL') base = stripeLinkProfissional;
     else if (plan === 'PREMIUM') base = stripeLinkPremium;
     else base = stripeLinkPro;
     
@@ -130,13 +130,13 @@ export default function Checkout() {
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
                 Acompanhamento de evolução
               </li>
-              {(plan === 'PREMIUM' || plan === 'PROFESSIONAL') && (
+              {(plan === 'PREMIUM' || plan === 'PROFISSIONAL') && (
                 <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   Chat 24h com Coach IA
                 </li>
               )}
-              {plan === 'PROFESSIONAL' && (
+              {plan === 'PROFISSIONAL' && (
                 <>
                   <li className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
                     <CheckCircle2 className="w-5 h-5 text-green-500" />

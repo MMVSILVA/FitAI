@@ -213,13 +213,14 @@ export default function Landing() {
               buttonLink="/checkout?plan=PREMIUM"
             />
             <PricingCard 
-              name="Professional"
+              name="Profissional"
               price="R$ 149,90"
               period="/mês"
+              color="green"
               description="Para treinadores e alta performance."
               features={["Tudo do plano Premium", "Gestão de alunos/clientes", "Consultas prioritárias", "Dashboard profissional"]}
-              buttonText="Assinar Professional"
-              buttonLink="/checkout?plan=PROFESSIONAL"
+              buttonText="Assinar Profissional"
+              buttonLink="/checkout?plan=PROFISSIONAL"
             />
           </div>
         </div>
@@ -247,37 +248,42 @@ function FeatureCard({ icon, title, description }: { icon: React.ReactNode, titl
 }
 
 function PricingCard({ 
-  name, price, period = "", description, features, buttonText, buttonLink, highlighted = false 
+  name, price, period = "", description, features, buttonText, buttonLink, highlighted = false, color = "purple"
 }: { 
-  name: string, price: string, period?: string, description: string, features: string[], buttonText: string, buttonLink: string, highlighted?: boolean 
+  name: string, price: string, period?: string, description: string, features: string[], buttonText: string, buttonLink: string, highlighted?: boolean, color?: "purple" | "green"
 }) {
+  const accentColor = color === "green" ? "text-green-400" : "text-purple-400";
+  const buttonBg = color === "green" ? "bg-green-600 hover:bg-green-500" : "bg-purple-600 hover:bg-purple-500";
+  const checkColor = color === "green" ? "text-green-500" : "text-purple-500";
+  const borderActive = color === "green" ? "border-green-500" : "border-purple-500";
+
   return (
-    <div className={`p-8 rounded-3xl border ${highlighted ? 'bg-purple-900/20 border-purple-500 relative' : 'bg-white/5 border-white/10'}`}>
+    <div className={`p-8 rounded-3xl border transition-all hover:scale-[1.02] ${highlighted ? `bg-purple-900/20 ${borderActive} relative shadow-2xl shadow-purple-500/10` : 'bg-white/5 border-white/10'}`}>
       {highlighted && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-full">
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest py-1.5 px-4 rounded-full shadow-lg">
           Mais popular
         </div>
       )}
-      <h3 className="text-2xl font-bold mb-2">{name}</h3>
-      <p className="text-gray-400 text-sm mb-6">{description}</p>
+      <h3 className="text-2xl font-black mb-1 uppercase tracking-tight">{name}</h3>
+      <p className="text-gray-400 text-xs mb-6 font-medium">{description}</p>
       <div className="mb-8">
-        <span className="text-4xl font-bold">{price}</span>
-        <span className="text-gray-400">{period}</span>
+        <span className={`text-4xl font-black ${accentColor}`}>{price}</span>
+        <span className="text-gray-500 text-sm font-medium ml-1">{period}</span>
       </div>
       <ul className="space-y-4 mb-8">
         {features.map((feature, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm text-gray-300">
-            <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+          <li key={i} className="flex items-start gap-3 text-sm text-gray-300 font-medium">
+            <CheckCircle2 className={`w-5 h-5 ${color === "green" ? "text-green-500" : "text-purple-500"} shrink-0`} />
             <span>{feature}</span>
           </li>
         ))}
       </ul>
       <Link
         to={buttonLink}
-        className={`block w-full text-center py-3 rounded-xl font-bold transition-colors ${
-          highlighted 
-            ? 'bg-purple-600 hover:bg-purple-500 text-white' 
-            : 'bg-white/10 hover:bg-white/20 text-white'
+        className={`block w-full text-center py-4 rounded-2xl font-black transition-all uppercase tracking-widest text-xs shadow-xl ${
+          highlighted || color === "green"
+            ? `${buttonBg} text-white ${color === 'green' ? 'shadow-green-600/20' : 'shadow-purple-600/20'}` 
+            : 'bg-white/10 hover:bg-white/20 text-white font-black'
         }`}
       >
         {buttonText}

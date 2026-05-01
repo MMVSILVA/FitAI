@@ -4,22 +4,40 @@ import Stripe from 'stripe';
 let stripeClient: Stripe | null = null;
 
 function getStripe(): Stripe {
-  if (!stripeClient) {
-    const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) {
-      console.error("STRIPE_SECRET_KEY is undefined in process.env");
-      throw new Error("A chave secreta do Stripe (STRIPE_SECRET_KEY) não foi configurada nas variáveis de ambiente do servidor.");
-    }
-    
-    // Validação básica do formato da chave
-    if (!key.startsWith('sk_') && !key.startsWith('rk_')) {
-      console.error("STRIPE_SECRET_KEY invalid format. Must start with sk_ or rk_");
-      throw new Error("A chave do Stripe configurada é inválida. Chaves secretas devem começar com 'sk_' e chaves restritas com 'rk_'. Verifique suas variáveis de ambiente.");
-    }
-
-    stripeClient = new Stripe(key, { apiVersion: '2023-10-16' as any });
+  const rawKey = process.env.STRIPE_SECRET_KEY;
+  if (!rawKey) {
+    console.error("STRIPE_SECRET_KEY is undefined in process.env");
+    throw new Error("A chave secreta do Stripe (STRIPE_SECRET_KEY) não foi configurada nas variáveis de ambiente do servidor.");
   }
+  
+  let key = rawKey.trim();
+  
+  // Tenta extrair a chave real caso o usuário tenha colado texto extra (ex: "Chave: sk_...")
+  const match = key.match(/(sk_|rk_)[a-zA-Z0-9_]{15,}/);
+  if (match) {
+    key = match[0];
+  } else if (key.startsWith('mk_')) {
+    key = 'rk_' + key.substring(3);
+  }
+  
+  // Se a chave mudou ou o cliente ainda não existe, cria um novo
+  // (Nota: em produção o ideal é cachear, mas aqui ajuda a evitar chaves obsoletas)
+  if (!stripeClient || (stripeClient as any)._apiKey !== key) {
+    const censored = `${key.substring(0, 7)}...${key.substring(key.length - 4)}`;
+    console.log(`Initializing Stripe with key: ${censored} (length: ${key.length})`);
+    stripeClient = new Stripe(key, { apiVersion: '2023-10-16' as any });
+    (stripeClient as any)._apiKey = key; // Store to check for changes
+  }
+  
   return stripeClient;
+}
+
+function cleanPriceId(raw: string): string {
+  if (!raw) return "";
+  const cleaned = raw.trim();
+  // Tenta extrair o ID real caso tenha texto extra
+  const match = cleaned.match(/(price_|prod_)[a-zA-Z0-9_]{10,}/);
+  return match ? match[0] : cleaned;
 }
 
 export const createCheckoutSession = async (req: express.Request, res: express.Response) => {
@@ -27,22 +45,32 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
     const { plan, userId, userEmail } = req.body;
     const stripe = getStripe();
 
-    let priceId = "";
-    if (plan === "PROFESSIONAL") priceId = process.env.STRIPE_PRICE_ID_PROFESSIONAL || "";
-    else if (plan === "PREMIUM") priceId = process.env.STRIPE_PRICE_ID_PREMIUM || "";
-    else priceId = process.env.STRIPE_PRICE_ID_PRO || "";
+    let rawPriceId = "";
+    let envVarName = "";
+    if (plan === "PROFISSIONAL" || plan === "PROFESSIONAL") {
+      rawPriceId = process.env.STRIPE_PRICE_ID_PROFISSIONAL || process.env.STRIPE_PRICE_ID_PROFESSIONAL || "";
+      envVarName = process.env.STRIPE_PRICE_ID_PROFISSIONAL ? "STRIPE_PRICE_ID_PROFISSIONAL" : "STRIPE_PRICE_ID_PROFESSIONAL";
+    } else if (plan === "PREMIUM") {
+      rawPriceId = process.env.STRIPE_PRICE_ID_PREMIUM || "";
+      envVarName = "STRIPE_PRICE_ID_PREMIUM";
+    } else {
+      rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "";
+      envVarName = "STRIPE_PRICE_ID_PRO";
+    }
+
+    const priceId = cleanPriceId(rawPriceId);
 
     if (!priceId) {
-      console.error(`Price ID missing for plan ${plan}. Checked envs: STRIPE_PRICE_ID_PROFESSIONAL, STRIPE_PRICE_ID_PREMIUM, STRIPE_PRICE_ID_PRO`);
+      console.error(`Price ID missing for plan ${plan}. Checked env: ${envVarName}`);
       return res.status(500).json({ 
-        error: `O ID do preço no Stripe (${plan}) não foi configurado nas variáveis de ambiente do servidor.` 
+        error: `O ID do preço (${envVarName}) não foi configurado nas variáveis de ambiente do servidor.` 
       });
     }
 
     if (priceId.startsWith('prod_')) {
-      console.error(`Product ID provided instead of Price ID: ${priceId}`);
+      console.error(`Product ID provided instead of Price ID in ${envVarName}: ${priceId}`);
       return res.status(400).json({
-        error: `Você forneceu um ID de Produto (${priceId}) em vez de um ID de Preço. No Stripe, chaves que começam com 'prod_' são produtos. Por favor, use o ID do Preço associado (que começa com 'price_').`
+        error: `A variável ${envVarName} contém um ID de Produto (${priceId}) em vez de um ID de Preço. No Stripe, use o ID que começa com 'price_' (você o encontra clicando no preço dentro da página do produto no dashboard do Stripe).`
       });
     }
 
@@ -103,7 +131,7 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
         const subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
         const dataToUpdate = {
           planType: plan,
-          role: plan === 'PROFESSIONAL' ? 'trainer' : (plan === 'PREMIUM' ? 'premium_user' : 'user'),
+          role: (plan === 'PROFISSIONAL' || plan === 'PROFESSIONAL') ? 'trainer' : (plan === 'PREMIUM' ? 'premium_user' : 'user'),
           isPremium: true,
           stripeSubscriptionId,
           subscriptionEndsAt: subscriptionEndsAt.toISOString(),
