@@ -12,7 +12,7 @@ import { UserProfile, WorkoutPlan } from '../types';
 
 export default function TrainerDashboard() {
   const { user, profile, clients: clientIds, isAdmin, planType, subscriptionEndsAt } = useUser();
-  const isBlocked = (planType !== 'PROFISSIONAL' && planType !== 'PROFESSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
+  const isBlocked = (planType !== 'PROFISSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'clients' | 'chat' | 'settings'>('overview');

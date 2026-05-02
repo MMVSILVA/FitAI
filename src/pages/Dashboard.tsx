@@ -34,7 +34,7 @@ function ExerciseRow({
   key?: any;
 }) {
   const { updateExerciseWeight, addExerciseProgress, planType } = useUser();
-  const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFESSIONAL' || planType === 'PROFISSIONAL';
+  const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFISSIONAL';
   const [isLogging, setIsLogging] = useState(false);
   const [logSuccess, setLogSuccess] = useState(false);
 
@@ -189,7 +189,7 @@ export default function Dashboard() {
   
   const isFree = planType === 'FREE';
   const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
-  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFISSIONAL' || planType === 'PROFISSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+  const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFISSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
   const isBlocked = isTrialExpired || isSubscriptionExpired;
   const isPremiumUser = planType !== 'FREE';
 
@@ -555,7 +555,7 @@ export default function Dashboard() {
 
   // Subscription expiration check and auto-reversion
   useEffect(() => {
-    const isSimulationExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFESSIONAL' || planType === 'PROFISSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
+    const isSimulationExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFISSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
     
     if (isSimulationExpired && user && !isAdmin) {
       const revertToFree = async () => {
@@ -2393,7 +2393,7 @@ export default function Dashboard() {
                 <section>
                   <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Simular Plano do Usuário</label>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    {['FREE', 'PRO', 'PREMIUM', 'PROFESSIONAL', 'PROFISSIONAL'].map((p) => (
+                    {['FREE', 'PRO', 'PREMIUM', 'PROFISSIONAL'].map((p) => (
                       <button
                         key={p}
                         onClick={() => handleAdminPlanChange(p as PlanType)}

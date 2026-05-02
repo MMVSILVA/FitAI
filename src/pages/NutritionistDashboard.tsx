@@ -9,7 +9,7 @@ import { UserProfile, WorkoutPlan, DietPlan } from '../types';
 
 export default function NutritionistDashboard() {
   const { user, profile, clients: clientIds, updatePlanForUser, isAdmin, planType, subscriptionEndsAt } = useUser();
-  const isBlocked = (planType !== 'PROFISSIONAL' && planType !== 'PROFESSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
+  const isBlocked = (planType !== 'PROFISSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'patients' | 'chat' | 'settings'>('overview');

@@ -21,12 +21,10 @@ function getStripe(): Stripe {
   }
   
   // Se a chave mudou ou o cliente ainda não existe, cria um novo
-  // (Nota: em produção o ideal é cachear, mas aqui ajuda a evitar chaves obsoletas)
-  if (!stripeClient || (stripeClient as any)._apiKey !== key) {
+  if (!stripeClient) {
     const censored = `${key.substring(0, 7)}...${key.substring(key.length - 4)}`;
-    console.log(`Initializing Stripe with key: ${censored} (length: ${key.length})`);
+    console.log(`Initializing Stripe with key: ${censored}`);
     stripeClient = new Stripe(key, { apiVersion: '2023-10-16' as any });
-    (stripeClient as any)._apiKey = key; // Store to check for changes
   }
   
   return stripeClient;
@@ -35,7 +33,6 @@ function getStripe(): Stripe {
 function cleanPriceId(raw: string): string {
   if (!raw) return "";
   const cleaned = raw.trim();
-  // Tenta extrair o ID real caso tenha texto extra
   const match = cleaned.match(/(price_|prod_)[a-zA-Z0-9_]{10,}/);
   return match ? match[0] : cleaned;
 }
@@ -47,10 +44,13 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
 
     let rawPriceId = "";
     let envVarName = "";
-    if (plan === "PROFISSIONAL" || plan === "PROFESSIONAL") {
-      rawPriceId = process.env.STRIPE_PRICE_ID_PROFISSIONAL || process.env.STRIPE_PRICE_ID_PROFESSIONAL || "";
-      envVarName = process.env.STRIPE_PRICE_ID_PROFISSIONAL ? "STRIPE_PRICE_ID_PROFISSIONAL" : "STRIPE_PRICE_ID_PROFESSIONAL";
-    } else if (plan === "PREMIUM") {
+    
+    const normalizedPlan = (plan === "PROFESSIONAL" || plan === "PROFISSIONAL") ? "PROFISSIONAL" : plan;
+
+    if (normalizedPlan === "PROFISSIONAL") {
+      rawPriceId = process.env.STRIPE_PRICE_ID_PROFISSIONAL || "";
+      envVarName = "STRIPE_PRICE_ID_PROFISSIONAL";
+    } else if (normalizedPlan === "PREMIUM") {
       rawPriceId = process.env.STRIPE_PRICE_ID_PREMIUM || "";
       envVarName = "STRIPE_PRICE_ID_PREMIUM";
     } else {
@@ -61,16 +61,9 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
     const priceId = cleanPriceId(rawPriceId);
 
     if (!priceId) {
-      console.error(`Price ID missing for plan ${plan}. Checked env: ${envVarName}`);
+      console.error(`Price ID missing for plan ${normalizedPlan}. Checked env: ${envVarName}`);
       return res.status(500).json({ 
         error: `O ID do preço (${envVarName}) não foi configurado nas variáveis de ambiente do servidor.` 
-      });
-    }
-
-    if (priceId.startsWith('prod_')) {
-      console.error(`Product ID provided instead of Price ID in ${envVarName}: ${priceId}`);
-      return res.status(400).json({
-        error: `A variável ${envVarName} contém um ID de Produto (${priceId}) em vez de um ID de Preço. No Stripe, use o ID que começa com 'price_' (você o encontra clicando no preço dentro da página do produto no dashboard do Stripe).`
       });
     }
 
@@ -83,10 +76,10 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       success_url: `${baseUrl}/dashboard?success=true`,
-      cancel_url: `${baseUrl}/checkout?plan=${plan}&canceled=true`,
+      cancel_url: `${baseUrl}/checkout?plan=${normalizedPlan}&canceled=true`,
       client_reference_id: userId,
       customer_email: userEmail,
-      metadata: { plan }
+      metadata: { plan: normalizedPlan }
     });
 
     res.json({ url: session.url });
@@ -119,19 +112,19 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
         const { getAdminDb } = await import('../lib/firebase-admin.ts');
         const db = getAdminDb();
         
-        // If userId is missing, try to find user by email
         if (!userId && userEmail) {
           const usersSnap = await db.collection('users').where('email', '==', userEmail).get();
           if (!usersSnap.empty) {
             userId = usersSnap.docs[0].id;
-            console.log(`Found user ${userId} by email ${userEmail} for plan activation.`);
           }
         }
 
         const subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+        const dbPlan = (plan === 'PROFESSIONAL' || plan === 'PROFISSIONAL') ? 'PROFISSIONAL' : plan;
+        
         const dataToUpdate = {
-          planType: plan,
-          role: (plan === 'PROFISSIONAL' || plan === 'PROFESSIONAL') ? 'trainer' : (plan === 'PREMIUM' ? 'premium_user' : 'user'),
+          planType: dbPlan,
+          role: (dbPlan === 'PROFISSIONAL') ? 'trainer' : (dbPlan === 'PREMIUM' ? 'premium_user' : 'user'),
           isPremium: true,
           stripeSubscriptionId,
           subscriptionEndsAt: subscriptionEndsAt.toISOString(),
@@ -140,15 +133,12 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
 
         if (userId) {
           await db.collection('users').doc(userId).update(dataToUpdate);
-          console.log(`Plan ${plan} activated for existing user ${userId}.`);
         } else if (userEmail) {
-          // Create placeholder for guest payment
           await db.collection('users').doc(`pending_${userEmail}`).set({
             ...dataToUpdate,
             email: userEmail,
             isPendingActivation: true
           });
-          console.log(`Created placeholder activation for guest ${userEmail}.`);
         }
       }
     }
@@ -160,14 +150,12 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
       
       const usersSnap = await db.collection('users').where('stripeSubscriptionId', '==', subscription.id).get();
       if (!usersSnap.empty) {
-        const userDoc = usersSnap.docs[0];
-        await userDoc.ref.update({
+        await usersSnap.docs[0].ref.update({
           planType: 'FREE',
           isPremium: false,
           subscriptionEndsAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
-        console.log(`Subscription deleted for user ${userDoc.id}`);
       }
     }
 
