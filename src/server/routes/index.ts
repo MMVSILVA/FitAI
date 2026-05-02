@@ -11,7 +11,7 @@ const router = express.Router({
 
 // Debug middleware for the router
 router.use((req, res, next) => {
-  console.log(`Router Level Match: ${req.url}`);
+  console.log(`[ROUTER DEBUG] Match attempt for: ${req.url} (method: ${req.method})`);
   next();
 });
 
@@ -40,9 +40,8 @@ const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 // Health check
 router.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Payment Routes
-router.get('/create-checkout-session', (req, res) => res.json({ status: 'payment api route reachable' }));
-router.post('/create-checkout-session', paymentController.createCheckoutSession);
+// Payment Routes - Handled in server.ts for direct raw body support if needed, but keeping webhook there.
+// Webhook is handled in server.ts directly.
 
 // ExerciseDB Proxy (avoids CORS)
 router.get('/exercises/search', async (req, res) => {
@@ -81,9 +80,11 @@ router.get('/exercises/search', async (req, res) => {
     }
 
     const mirrors = [
-      'https://db.exercisedb.io/api/v1/exercises',
+      'https://exercisedblist.vercel.app/api/v1/exercises',
       'https://oss.exercisedb.dev/api/v1/exercises',
-      'https://v2.exercisedb.io/api/v1/exercises'
+      'https://v2.exercisedb.io/api/v1/exercises',
+      'https://v1.exercisedb.io/api/v1/exercises',
+      'https://db.exercisedb.io/api/v1/exercises'
     ];
 
     let finalData = null;
@@ -91,78 +92,72 @@ router.get('/exercises/search', async (req, res) => {
 
     for (const base of mirrors) {
       try {
-        let ossUrl = base;
+        const searchStrategies = [];
+        
+        // Strategy 1: Path based /name/{name}
+        if (name) {
+          searchStrategies.push(`${base}/name/${encodeURIComponent(name as string)}`);
+        }
+        
+        // Strategy 2: Query param based ?name={name}
         const params = new URLSearchParams();
         params.append('limit', (limit as string) || '20');
         if (cursor) params.append('cursor', cursor as string);
+        if (name) params.append('name', name as string);
+        searchStrategies.push(`${base}?${params.toString()}`);
         
-        // Some mirrors might prefer /exercises/name/{name}
-        if (name) {
-          ossUrl = `${base}/name/${encodeURIComponent(name as string)}`;
+        if (!name) {
+          searchStrategies.push(`${base}?limit=${limit || 20}${cursor ? `&cursor=${cursor}` : ''}`);
         }
-        
-        if (params.toString()) {
-          ossUrl = `${ossUrl}?${params.toString()}`;
-        }
-        
-        console.log(`Trying mirror: ${ossUrl}`);
-        const response = await fetch(ossUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-            'Accept': 'application/json'
-          },
-          signal: AbortSignal.timeout(5000)
-        });
 
-        if (response.ok) {
-          const data = await response.json();
-          // Normalize...
-          const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : []);
-          const normalizedData = rawData.map((item: any) => ({
-            exerciseId: item.exerciseId || item.id || Math.random().toString(36).substr(2, 9),
-            name: item.name,
-            gifUrl: item.gifUrl,
-            bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
-            equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
-            targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
-            secondaryMuscles: item.secondaryMuscles || [],
-            instructions: item.instructions || []
-          }));
+        for (const ossUrl of searchStrategies) {
+          console.log(`Trying strategy: ${ossUrl}`);
+          try {
+            const response = await fetch(ossUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) FitnessApp/1.0',
+                'Accept': 'application/json',
+                'Referer': 'https://exercisedb.io/'
+              },
+              signal: AbortSignal.timeout(8000)
+            });
 
-          finalData = {
-            success: true,
-            data: normalizedData,
-            meta: data.meta || { hasNextPage: false, nextCursor: null }
-          };
-          break;
-        } else if (response.status === 404 && name) {
-          // Try fallback search param instead of path if path failed
-          const altUrl = `${base}?limit=${limit || 20}&name=${encodeURIComponent(name as string)}`;
-          console.log(`Path search 404, trying alt param: ${altUrl}`);
-          const altResponse = await fetch(altUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          if (altResponse.ok) {
-            const altData = await altResponse.json();
-            const altRaw = altData.success ? (altData.data || []) : (Array.isArray(altData) ? altData : []);
-            finalData = {
-              success: true,
-              data: altRaw.map((item: any) => ({
-                exerciseId: item.exerciseId || item.id,
-                name: item.name,
-                gifUrl: item.gifUrl,
-                bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
-                equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
-                targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
-                secondaryMuscles: item.secondaryMuscles || [],
-                instructions: item.instructions || []
-              })),
-              meta: altData.meta || { hasNextPage: false, nextCursor: null }
-            };
-            break;
+            const contentType = response.headers.get('content-type');
+            if (response.ok && contentType && contentType.includes('application/json')) {
+              const data = await response.json();
+              const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : []);
+              
+              if (rawData.length > 0 || !name) { 
+                const normalizedData = rawData.map((item: any) => ({
+                  exerciseId: item.exerciseId || item.id || `ex-${Math.random().toString(36).substr(2, 9)}`,
+                  name: item.name,
+                  gifUrl: item.gifUrl,
+                  bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
+                  equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
+                  targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
+                  secondaryMuscles: item.secondaryMuscles || [],
+                  instructions: item.instructions || []
+                }));
+
+                finalData = {
+                  success: true,
+                  data: normalizedData,
+                  meta: data.meta || { hasNextPage: normalizedData.length >= (parseInt(limit as string) || 20), nextCursor: null }
+                };
+                break;
+              }
+            } else if (!response.ok) {
+              console.warn(`Mirror strategy ${ossUrl} failed with status: ${response.status}`);
+            }
+          } catch (strategyError) {
+            console.warn(`Strategy failed: ${ossUrl}`, (strategyError as any).message);
           }
         }
+        
+        if (finalData) break;
       } catch (e: any) {
         lastError = e;
-        console.warn(`Mirror ${base} failed:`, e.message);
+        console.warn(`Mirror ${base} failed entirely:`, e.message);
       }
     }
 
@@ -235,19 +230,16 @@ router.get('/exercises/proxy-gif', async (req, res) => {
 
     let response = await fetch(imageUrl, { headers });
     
-    // If 404 and it's an ExerciseDB-style URL, try common mirrors
-    if (!response.ok && response.status === 404 && (imageUrl.includes('exercisedb') || imageUrl.includes('media'))) {
+    // If it's an ExerciseDB-style URL, try common mirrors
+    if (imageUrl.includes('exercisedb') || imageUrl.includes('media') || !response.ok) {
       const fileName = imageUrl.split('/').pop();
-      if (fileName) {
+      if (fileName && fileName.endsWith('.gif')) {
         const mirrors = [
-          `https://v2.exercisedb.io/media/${fileName}`,
-          `https://oss.exercisedb.dev/media/${fileName}`,
-          `https://g.static-all-about-fitness.com/media/${fileName}`,
-          `https://db.exercisedb.io/media/${fileName}`,
-          `https://verve-static.s3.amazonaws.com/media/${fileName}`,
-          `https://edb-static-prod.s3.amazonaws.com/media/exercises/gifs/${fileName}`,
-          `https://fitness-program-api.herokuapp.com/media/${fileName}`,
           `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${fileName}`,
+          `https://v2.exercisedb.io/media/${fileName}`,
+          `https://db.exercisedb.io/media/${fileName}`,
+          `https://oss.exercisedb.dev/media/${fileName}`,
+          `https://fitness-program-api.herokuapp.com/media/${fileName}`,
         ].filter(m => m !== imageUrl);
 
         for (const mirrorUrl of mirrors) {
@@ -346,15 +338,5 @@ router.get('/exercises/unsplash-image', async (req, res) => {
   }
 });
 
-// Catch-all for /api specifically to debug why it falls through
-router.use((req, res) => {
-  console.log(`API 404 fallthrough: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ 
-    success: false, 
-    error: 'API Route not found', 
-    requestedPath: req.originalUrl,
-    availableRoutes: ['/exercises/search', '/exercises/bodyparts', '/exercises/liveness', '/ping']
-  });
-});
-
+// No fallthrough - let server.ts handle it
 export default router;

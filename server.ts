@@ -17,7 +17,26 @@ app.post("/api/webhook", express.raw({ type: "application/json" }), paymentContr
 // General Middleware
 app.use(express.json());
 
+// API routes logger
+app.use("/api", (req, res, next) => {
+  console.log(`[API REQUEST] ${req.method} ${req.path} | Query: ${JSON.stringify(req.query)}`);
+  next();
+});
+
+// Direct payment route to avoid router issues and ensure it's caught
+app.post("/api/create-checkout-session", async (req, res) => {
+  console.log("MATCHED POST /api/create-checkout-session in server.ts");
+  try {
+    const { createCheckoutSession } = await import("./src/server/controllers/paymentController.ts");
+    await createCheckoutSession(req, res);
+  } catch (err: any) {
+    console.error("Error in direct payment route:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // API Routes
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api", apiRoutes);
 
 async function startServer() {

@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '../store/userStore';
-import { Navigate, Link, useNavigate } from 'react-router-dom';
-import { UserRole, PlanType } from '../types';
+import { Navigate, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { UserRole, PlanType, UserProfile, WorkoutPlan } from '../types';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
-  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send
+  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { APP_VERSION } from '../constants';
 import { Logo } from '../components/Logo';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
 import { ProgressComparison } from '../components/ProgressComparison';
 import { Toast, ToastType } from '../components/Toast';
+import { ProfessionalProfileView } from '../components/ProfessionalProfileView';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 
 import { translate, translateExerciseName, ptToEnSearch } from '../lib/exerciseTranslations';
@@ -24,13 +27,17 @@ function ExerciseRow({
   dayIdx, 
   exerciseIdx, 
   restSeconds, 
-  onStartRest 
+  onStartRest,
+  checked,
+  onToggleCheck
 }: { 
   exercise: any; 
   dayIdx: number; 
   exerciseIdx: number; 
   restSeconds: number; 
   onStartRest: (s: number) => void;
+  checked?: boolean;
+  onToggleCheck?: (id: string) => void;
   key?: any;
 }) {
   const { updateExerciseWeight, addExerciseProgress, planType } = useUser();
@@ -55,22 +62,31 @@ function ExerciseRow({
   return (
     <div className="flex flex-col gap-4 py-6 border-b border-gray-200 dark:border-white/5 last:border-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors px-1 sm:px-2 rounded-xl w-full max-w-full overflow-hidden">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 w-full">
-        <div className="flex-1 min-w-0 w-full">
-          <p className="font-extrabold text-2xl sm:text-3xl text-black dark:text-white tracking-tight break-words">{translateExerciseName(exercise.name)}</p>
-          {exercise.englishName && (
-            <p className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium italic break-words">{exercise.englishName}</p>
-          )}
-          <div className="flex flex-wrap items-center gap-2 mt-1.5 min-w-0">
-            {exercise.group && (
-              <span className="text-[9px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-purple-500/20 whitespace-nowrap">
-                {exercise.group}
-              </span>
+        <div className="flex-1 min-w-0 w-full flex items-center gap-4">
+          <button 
+            onClick={() => onToggleCheck?.(`${dayIdx}-${exerciseIdx}`)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all ${
+              checked 
+                ? 'bg-green-500 text-white shadow-lg shadow-green-500/40 ring-4 ring-green-500/20' 
+                : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-white border border-white/10'
+            }`}
+          >
+            <CheckCircle2 className={`w-6 h-6 ${checked ? 'scale-110' : 'scale-90'}`} />
+          </button>
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <p className={`font-extrabold text-2xl sm:text-3xl tracking-tight break-words transition-all ${checked ? 'opacity-40 line-through text-gray-500' : 'text-black dark:text-white'}`}>
+              {translateExerciseName(exercise.name)}
+            </p>
+            {exercise.englishName && (
+              <p className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium italic break-words">{exercise.englishName}</p>
             )}
-            {exercise.equipment && (
-              <span className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-blue-500/20 whitespace-nowrap">
-                {exercise.equipment}
-              </span>
-            )}
+            <div className="flex flex-wrap items-center gap-2 mt-1.5 min-w-0">
+              {exercise.group && (
+                <span className="text-[9px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-purple-500/20 whitespace-nowrap">
+                  {exercise.group}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <span className="text-[10px] sm:text-xs font-bold text-gray-500 bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-white/10 px-3 py-1 rounded-full uppercase tracking-widest shrink-0 self-start sm:self-center">
@@ -182,18 +198,110 @@ function ExerciseRow({
 
 export default function Dashboard() {
   const { 
-    user, profile, plan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
+    user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser,
     toggleTheme, theme 
   } = useUser();
   
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewingAsUserId = searchParams.get('viewAs');
+  const initialTab = (searchParams.get('tab') as any) || 'workout';
+
+  const handleTabChange = (tab: any) => {
+    setActiveTab(tab);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set('tab', tab);
+      return newParams;
+    });
+  };
+  const [viewedProfile, setViewedProfile] = useState<UserProfile | null>(null);
+  const [viewedPlan, setViewedPlan] = useState<WorkoutPlan | null>(null);
+  const [isViewingAs, setIsViewingAs] = useState(false);
+
+  useEffect(() => {
+    if (viewingAsUserId && user && myProfile) {
+      let unsubscribe: () => void;
+      
+      const setupStudentListener = async () => {
+        const { doc, onSnapshot } = await import('firebase/firestore');
+        const { db } = await import('../firebase');
+        
+        unsubscribe = onSnapshot(doc(db, 'users', viewingAsUserId), (studentDoc) => {
+          if (studentDoc.exists()) {
+            const data = studentDoc.data();
+            const isAuthorized = isAdmin || 
+                               data.trainerId === user.uid || 
+                               data.nutritionistId === user.uid ||
+                               myProfile.uid === viewingAsUserId;
+
+            if (isAuthorized) {
+              const profileData = data.profile || data;
+              setViewedProfile({ ...profileData, uid: studentDoc.id, email: data.email }); 
+              setViewedPlan(data.plan || profileData.plan || null);
+              setIsViewingAs(true);
+            } else {
+              setIsViewingAs(false);
+            }
+          }
+        }, (error) => {
+          console.error("Error watching student data:", error);
+          setIsViewingAs(false);
+        });
+      };
+      
+      setupStudentListener();
+      return () => unsubscribe?.();
+    } else {
+      setIsViewingAs(false);
+      setViewedProfile(null);
+      setViewedPlan(null);
+    }
+  }, [viewingAsUserId, user, isAdmin, myProfile?.uid]);
+
+  const profile = isViewingAs ? viewedProfile : myProfile;
+  const plan = isViewingAs ? (viewedPlan || (viewedProfile as any)?.plan) : myPlan;
+
   const isFree = planType === 'FREE';
   const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
   const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFISSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
   const isBlocked = isTrialExpired || isSubscriptionExpired;
   const isPremiumUser = planType !== 'FREE';
 
-  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library'>('workout');
+  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin'>(initialTab);
+  const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
+
+  // Load completed exercises from profile
+  useEffect(() => {
+    if (profile?.completedExercises && Array.isArray(profile.completedExercises)) {
+      setCompletedExercises(new Set(profile.completedExercises));
+    } else {
+      setCompletedExercises(new Set());
+    }
+  }, [profile?.uid, profile?.completedExercises]);
+
+  const handleToggleExercise = async (id: string) => {
+    if (isViewingAs) return; // Professionals shouldn't check student exercises
+    
+    const next = new Set(completedExercises);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    
+    setCompletedExercises(next);
+    
+    if (user) {
+      try {
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const { db } = await import('../firebase');
+        await updateDoc(doc(db, 'users', user.uid), {
+          completedExercises: Array.from(next),
+          updatedAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Error saving completed exercises:", err);
+      }
+    }
+  };
   const [trainerEmail, setTrainerEmail] = useState('');
   const [targetUserEmail, setTargetUserEmail] = useState('');
   const [targetUserRole, setTargetUserRole] = useState<UserRole>('trainer');
@@ -370,6 +478,7 @@ export default function Dashboard() {
 
   // Admin Modal State
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showProfessionalProfile, setShowProfessionalProfile] = useState<UserProfile | null>(null);
   
   // Chat States
   const [selectedProfessional, setSelectedProfessional] = useState<{id: string, name: string, role: string, photoURL?: string} | null>(null);
@@ -461,6 +570,43 @@ export default function Dashboard() {
   const [adminFeedback, setAdminFeedback] = useState({ type: '', msg: '' });
   const [updateMsgInput, setUpdateMsgInput] = useState('Nova versão disponível com melhorias e correções!');
   const [versionInput, setVersionInput] = useState(APP_VERSION);
+  const [adminStats, setAdminStats] = useState({ users: 0, trainers: 0, nutritionists: 0, loading: false });
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+
+  const fetchAdminStats = async () => {
+    if (!isAdmin) return;
+    setAdminStats(prev => ({ ...prev, loading: true }));
+    setAdminUsersLoading(true);
+    try {
+      const { collection, getDocs } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      
+      const usersRef = collection(db, 'users');
+      const snap = await getDocs(usersRef);
+      
+      const usersList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllUsers(usersList);
+
+      setAdminStats({
+        users: usersList.filter((u: any) => u.role === 'user').length,
+        trainers: usersList.filter((u: any) => u.role === 'trainer').length,
+        nutritionists: usersList.filter((u: any) => u.role === 'nutritionist').length,
+        loading: false
+      });
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      setAdminStats(prev => ({ ...prev, loading: false }));
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showAdminModal || activeTab === 'admin') {
+      fetchAdminStats();
+    }
+  }, [showAdminModal, activeTab]);
 
   const handleAdminPlanChange = async (newPlan: PlanType) => {
     if (!isAdmin || !user) return;
@@ -470,7 +616,7 @@ export default function Dashboard() {
       const { db } = await import('../firebase');
       await updateDoc(doc(db, 'users', user.uid), {
         planType: newPlan,
-        isPremium: newPlan === 'PREMIUM' || newPlan === 'PROFISSIONAL' || newPlan === 'PROFISSIONAL',
+        isPremium: newPlan === 'PREMIUM' || newPlan === 'PROFISSIONAL' || newPlan === 'PRO',
         updatedAt: new Date().toISOString()
       });
       
@@ -596,6 +742,18 @@ export default function Dashboard() {
     navigate('/login');
   };
 
+  const handleViewProfessional = async (profId: string | undefined) => {
+    if (!profId) return;
+    try {
+      const profDoc = await getDoc(doc(db, 'users', profId));
+      if (profDoc.exists()) {
+        setShowProfessionalProfile({ uid: profDoc.id, ...profDoc.data() } as UserProfile);
+      }
+    } catch (error) {
+      console.error("Error fetching professional profile:", error);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
@@ -610,12 +768,12 @@ export default function Dashboard() {
 
   const imcData = calculateIMC();
 
-  // Mock data for evolution chart
+  // Evolution chart data - ordering as requested (Current on left, then weeks)
   const chartData = [
-    { name: 'Sem 1', peso: (profile?.weight || 0) + 2 },
-    { name: 'Sem 2', peso: (profile?.weight || 0) + 1 },
-    { name: 'Sem 3', peso: (profile?.weight || 0) + 0.5 },
-    { name: 'Atual', peso: profile?.weight || 0 },
+    { name: 'ATUAL', peso: profile?.weight || 0, massa: (profile?.weight || 0) * 0.4 },
+    { name: 'SEMANA 2', peso: (profile?.weight || 0) - 0.8, massa: (profile?.weight || 0) * 0.4 + 0.2 },
+    { name: 'SEMANA 3', peso: (profile?.weight || 0) - 1.5, massa: (profile?.weight || 0) * 0.4 + 0.5 },
+    { name: 'SEMANA 4', peso: (profile?.weight || 0) - 2.2, massa: (profile?.weight || 0) * 0.4 + 0.8 },
   ];
 
   const Paywall = ({ feature, type = 'pro' }: { feature: string; type?: 'pro' | 'premium' | 'expired' }) => {
@@ -715,6 +873,15 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen w-full max-w-[100vw] bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-purple-500/30 pb-20 overflow-x-hidden">
+      {isViewingAs && (
+        <div className="bg-purple-600 text-white p-3 text-center text-xs font-black flex items-center justify-center gap-4 fixed top-0 left-0 w-full z-[100] shadow-xl">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            <span className="uppercase tracking-widest">MODO VISUALIZAÇÃO: {profile?.displayName || viewingAsUserId}</span>
+          </div>
+          <Link to="/dashboard" className="bg-white text-purple-600 px-3 py-1 rounded-full hover:bg-gray-100 transition-all font-bold">Encerrar</Link>
+        </div>
+      )}
       <AnimatePresence>
         {user?.email === 'nangelicaalcantara@gmail.com' && (
           <motion.div 
@@ -738,8 +905,24 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      {/* Viewing As Banner */}
+      {isViewingAs && (
+        <div className="bg-purple-600 text-white py-2 px-4 flex justify-between items-center sticky top-0 z-[100] shadow-xl">
+          <div className="flex items-center gap-2 font-bold text-sm">
+            <Users className="w-4 h-4" />
+            VISÃO DO ALUNO: <span className="uppercase">{profile?.displayName || profile?.email}</span>
+          </div>
+          <button 
+            onClick={() => navigate(role === 'trainer' ? '/trainer-dashboard' : role === 'nutritionist' ? '/nutritionist-dashboard' : '/dashboard')}
+            className="bg-white/20 hover:bg-white/30 text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest transition-all"
+          >
+            VOLTAR AO PAINEL
+          </button>
+        </div>
+      )}
+
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10">
+      <header className={`sticky ${isViewingAs ? 'top-[44px]' : 'top-0'} z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10`}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
             <Logo className="w-8 h-8 sm:w-12 sm:h-12 drop-shadow-[0_0_15px_rgba(168,85,247,0.4)] shrink-0" />
@@ -925,7 +1108,7 @@ export default function Dashboard() {
         {/* Tabs */}
         <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto scrollbar-hide -mx-3 px-3">
           <button 
-            onClick={() => setActiveTab('workout')}
+            onClick={() => handleTabChange('workout')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'workout' ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
@@ -934,7 +1117,7 @@ export default function Dashboard() {
             Treino
           </button>
           <button 
-            onClick={() => setActiveTab('library')}
+            onClick={() => handleTabChange('library')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'library' ? 'bg-zinc-700 text-white border border-white/20 shadow-xl' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
@@ -943,7 +1126,7 @@ export default function Dashboard() {
             Biblioteca
           </button>
           <button 
-            onClick={() => setActiveTab('diet')}
+            onClick={() => handleTabChange('diet')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'diet' ? 'bg-green-500 text-black shadow-xl shadow-green-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
@@ -952,7 +1135,7 @@ export default function Dashboard() {
             Dieta
           </button>
           <button 
-            onClick={() => setActiveTab('evolution')}
+            onClick={() => handleTabChange('evolution')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'evolution' 
                 ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-blue-500 text-white shadow-xl shadow-blue-500/20') 
@@ -964,7 +1147,7 @@ export default function Dashboard() {
             {(isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           <button 
-            onClick={() => setActiveTab('routine')}
+            onClick={() => handleTabChange('routine')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'routine' 
                 ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-orange-500 text-white shadow-xl shadow-orange-500/20') 
@@ -977,7 +1160,7 @@ export default function Dashboard() {
           </button>
           
           <button 
-            onClick={() => setActiveTab('personal')}
+            onClick={() => handleTabChange('personal')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'personal' 
                 ? (isPremiumUser ? 'bg-purple-900 border border-purple-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
@@ -989,7 +1172,7 @@ export default function Dashboard() {
             {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           <button 
-            onClick={() => setActiveTab('nutrition')}
+            onClick={() => handleTabChange('nutrition')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'nutrition' 
               ? (isPremiumUser ? 'bg-green-900 border border-green-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
@@ -1001,7 +1184,7 @@ export default function Dashboard() {
             {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           <button 
-            onClick={() => setActiveTab('chat')}
+            onClick={() => handleTabChange('chat')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'chat' 
               ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/20' 
@@ -1011,6 +1194,20 @@ export default function Dashboard() {
             <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             Chat
           </button>
+          
+          {isAdmin && (
+            <button 
+              onClick={() => handleTabChange('admin')}
+              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+                activeTab === 'admin' 
+                ? 'bg-red-600 text-white shadow-xl shadow-red-600/20' 
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
+              }`}
+            >
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
+              Admin
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -1171,36 +1368,77 @@ export default function Dashboard() {
                         <p className="text-3xl font-black text-black dark:text-white">{imcData?.value}</p>
                         <p className="text-[10px] font-bold text-purple-600 dark:text-purple-500 uppercase mt-1">{imcData?.category}</p>
                       </div>
-                      <div className="bg-gray-100 dark:bg-black border border-gray-200 dark:border-white/5 p-6 rounded-2xl">
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Objetivo</p>
-                        <p className="text-lg font-bold leading-tight text-black dark:text-white">{Array.isArray(profile.objective) ? profile.objective[0] : profile.objective}</p>
+                      <div className="bg-gray-100 dark:bg-black border border-gray-200 dark:border-white/5 p-6 rounded-2xl ring-2 ring-purple-500/20">
+                        <p className="text-[10px] text-purple-500 font-black uppercase tracking-widest mb-2">Objetivo Principal</p>
+                        <p className="text-2xl font-black leading-tight text-black dark:text-white uppercase tracking-tighter italic">
+                          {Array.isArray(profile.objective) 
+                            ? profile.objective.map(o => String(o).toUpperCase()).join(' & ') 
+                            : String(profile.objective || '').toUpperCase()}
+                        </p>
                       </div>
                       <div className="bg-gray-100 dark:bg-black border border-gray-200 dark:border-white/5 p-6 rounded-2xl">
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Status</p>
-                        <div className="flex items-center gap-2 text-green-600 dark:text-green-500">
-                          <CheckCircle2 className="w-5 h-5" />
-                          <p className="text-lg font-bold">Em dia</p>
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> Progresso Treino
+                        </p>
+                        <div className="flex items-end justify-between mb-2">
+                           <p className="text-3xl font-black text-black dark:text-white">
+                             {Math.round((completedExercises.size / (plan?.days.reduce((acc, d) => acc + d.exercises.length, 0) || 1)) * 100)}%
+                           </p>
+                           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest italic opacity-60">Hoje</p>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-200 dark:bg-white/5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-green-500 rounded-full transition-all duration-1000" 
+                            style={{ width: `${(completedExercises.size / (plan?.days.reduce((acc, d) => acc + d.exercises.length, 0) || 1)) * 100}%` }}
+                          />
                         </div>
                       </div>
                     </div>
 
-                    <div className="h-[300px] w-full">
+                    <div className="h-[400px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData}>
                           <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#222' : '#ddd'} vertical={false} />
-                          <XAxis dataKey="name" stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#555" fontSize={12} tickLine={false} axisLine={false} />
+                          <XAxis 
+                            dataKey="name" 
+                            stroke="#555" 
+                            fontSize={10} 
+                            tickLine={false} 
+                            axisLine={false}
+                            padding={{ left: 20, right: 20 }}
+                          />
+                          <YAxis stroke="#555" fontSize={10} tickLine={false} axisLine={false} />
                           <Tooltip 
-                            contentStyle={{ backgroundColor: theme === 'dark' ? '#111' : '#fff', border: `1px solid ${theme === 'dark' ? '#333' : '#eee'}`, borderRadius: '8px' }}
-                            itemStyle={{ color: '#a855f7' }}
+                            contentStyle={{ 
+                              backgroundColor: theme === 'dark' ? '#0a0a0a' : '#fff', 
+                              border: `1px solid ${theme === 'dark' ? '#333' : '#eee'}`, 
+                              borderRadius: '16px',
+                              boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                            }}
+                            itemStyle={{ fontWeight: '900', fontSize: '12px' }}
+                          />
+                          <Legend 
+                            verticalAlign="top" 
+                            height={36} 
+                            wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}
                           />
                           <Line 
+                            name="Peso Corporal (kg)"
                             type="monotone" 
                             dataKey="peso" 
                             stroke="#a855f7" 
                             strokeWidth={4} 
-                            dot={{ r: 6, fill: '#a855f7', strokeWidth: 0 }} 
-                            activeDot={{ r: 8, strokeWidth: 0 }}
+                            dot={{ r: 4, fill: '#a855f7', strokeWidth: 0 }} 
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                          />
+                          <Line 
+                            name="Massa Magra (est.)"
+                            type="monotone" 
+                            dataKey="massa" 
+                            stroke="#10b981" 
+                            strokeWidth={4} 
+                            dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} 
+                            activeDot={{ r: 6, strokeWidth: 0 }}
                           />
                         </LineChart>
                       </ResponsiveContainer>
@@ -1366,7 +1604,19 @@ export default function Dashboard() {
                         {day.exercises.map((ex, i) => {
                            const restSeconds = parseInt(ex.rest.replace(/\D/g, '')) || 60;
                            const uniqueKey = ex.id ? `${ex.id}-${i}` : `${ex.name}-${i}`;
-                           return <ExerciseRow key={uniqueKey} exercise={ex} dayIdx={idx} exerciseIdx={i} restSeconds={restSeconds} onStartRest={startRest} />;
+                           const exerciseId = `${idx}-${i}`;
+                           return (
+                             <ExerciseRow 
+                               key={uniqueKey} 
+                               exercise={ex} 
+                               dayIdx={idx} 
+                               exerciseIdx={i} 
+                               restSeconds={restSeconds} 
+                               onStartRest={startRest}
+                               checked={completedExercises.has(exerciseId)}
+                               onToggleCheck={handleToggleExercise}
+                             />
+                           );
                         })}
                       </div>
                     </div>
@@ -1818,9 +2068,12 @@ export default function Dashboard() {
                       <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
                         Seu treinador tem acesso total à sua evolução, podendo realizar ajustes diretos em seu protocolo de treino e carga com precisão profissional.
                       </p>
-                      <button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
-                        <Activity className="w-5 h-5" />
-                        Abrir Chat com Treinador
+                      <button 
+                        onClick={() => handleViewProfessional(linkedTrainerId)}
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20"
+                      >
+                        <Users className="w-5 h-5" />
+                        Ver Perfil do seu Treinador
                       </button>
                     </div>
                   ) : (
@@ -1922,9 +2175,12 @@ export default function Dashboard() {
                       <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
                         Sua estratégia alimentar está sendo otimizada por um especialista humano. Seus protocolos são sincronizados com seu gasto calórico real.
                       </p>
-                      <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-600/20">
-                        <Apple className="w-5 h-5" />
-                        Ver Recomendações do Nutricionista
+                      <button 
+                        onClick={() => handleViewProfessional(linkedNutritionistId)}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-600/20"
+                      >
+                        <Users className="w-5 h-5" />
+                        Ver Perfil do seu Nutricionista
                       </button>
                     </div>
                   ) : (
@@ -1955,7 +2211,7 @@ export default function Dashboard() {
                       if (isPremiumUser) {
                         setShowSupplementGuide(true);
                       }
-                      setActiveTab('diet');
+                      handleTabChange('diet');
                       setTimeout(() => {
                         const el = document.getElementById('diet-meals');
                         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1974,7 +2230,7 @@ export default function Dashboard() {
                       if (isPremiumUser) {
                         setShowMacroDetails(true);
                       } else {
-                        setActiveTab('diet');
+                        handleTabChange('diet');
                         setTimeout(() => {
                           const el = document.getElementById('diet-macros');
                           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1995,6 +2251,151 @@ export default function Dashboard() {
               )}
             </div>
           )}
+
+          {activeTab === 'admin' && isAdmin && (
+            <div className="space-y-8 pb-20">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+                <h2 className="text-3xl font-black text-black dark:text-white tracking-tighter flex items-center gap-3">
+                  <Zap className="w-8 h-8 text-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)]" /> Painel Master Admin
+                </h2>
+                <div className="flex items-center gap-2 bg-red-600/10 border border-red-500/20 px-4 py-2 rounded-xl">
+                  <Activity className="w-4 h-4 text-red-500 animate-pulse" />
+                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">LIVE STATUS: ONLINE</span>
+                </div>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 {[
+                   { label: 'Usuários Ativos', val: adminStats.users, sub: 'Clientes Finais', icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                   { label: 'Time Personal', val: adminStats.trainers, sub: 'Treinadores Cadastrados', icon: Dumbbell, color: 'text-green-500', bg: 'bg-green-500/10' },
+                   { label: 'Time Nutri', val: adminStats.nutritionists, sub: 'Dietistas Cadastrados', icon: Apple, color: 'text-purple-500', bg: 'bg-purple-500/10' }
+                 ].map((stat, i) => (
+                   <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    key={stat.label} 
+                    className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group shadow-2xl"
+                   >
+                     <div className={`absolute top-0 right-0 w-32 h-32 ${stat.bg} blur-[60px] opacity-20 -mr-10 -mt-10 group-hover:opacity-40 transition-opacity`} />
+                     <div className="flex items-center justify-between mb-4">
+                        <div className={`p-4 rounded-2xl ${stat.bg}`}>
+                          <stat.icon className={`w-8 h-8 ${stat.color}`} />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-5xl font-black text-black dark:text-white tracking-tighter group-hover:scale-110 transition-transform">
+                            {adminStats.loading ? <Loader2 className="w-8 h-8 animate-spin" /> : stat.val}
+                          </p>
+                        </div>
+                     </div>
+                     <div>
+                       <p className="text-lg font-black text-black dark:text-white leading-none">{stat.label}</p>
+                       <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">{stat.sub}</p>
+                     </div>
+                   </motion.div>
+                 ))}
+              </div>
+
+              {/* User Management List */}
+              <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-[3rem] p-8 shadow-2xl">
+                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                    <div>
+                       <h3 className="text-2xl font-black text-black dark:text-white tracking-tighter">Gerenciamento Global</h3>
+                       <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1 italic">Visualizando todos os registros da base</p>
+                    </div>
+                    <div className="flex gap-2">
+                       <button 
+                         onClick={fetchAdminStats}
+                         className="p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all"
+                         title="Atualizar Base"
+                       >
+                         <Zap className="w-5 h-5 text-yellow-500" />
+                       </button>
+                    </div>
+                 </div>
+
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                       <thead>
+                          <tr className="border-b border-gray-100 dark:border-white/5">
+                             <th className="pb-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Usuário / ID</th>
+                             <th className="pb-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Role</th>
+                             <th className="pb-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Plano</th>
+                             <th className="pb-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Ações</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-gray-50 dark:divide-white/5">
+                          {adminUsersLoading ? (
+                             <tr>
+                                <td colSpan={4} className="py-20 text-center">
+                                   <Loader2 className="w-12 h-12 text-red-600 animate-spin mx-auto mb-4" />
+                                   <p className="font-bold text-gray-500 italic">Sincronizando com a base de dados...</p>
+                                </td>
+                             </tr>
+                          ) : allUsers.map((u) => (
+                             <tr key={u.id} className="group hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                                <td className="py-6">
+                                   <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden">
+                                        {u.photoURL ? <img src={u.photoURL} alt="" className="w-full h-full object-cover" /> : <div className="text-lg font-black text-white/20 italic">AI</div>}
+                                      </div>
+                                      <div>
+                                         <p className="font-bold text-black dark:text-white text-sm">{u.displayName || u.email}</p>
+                                         <p className="text-[10px] text-gray-500 font-mono tracking-tighter opacity-60">ID: {u.id?.suffix || u.id}</p>
+                                      </div>
+                                   </div>
+                                </td>
+                                <td className="py-6 text-center">
+                                   <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-white/10 ${
+                                     u.role === 'trainer' ? 'bg-green-500/10 text-green-500' :
+                                     u.role === 'nutritionist' ? 'bg-purple-500/10 text-purple-500' :
+                                     'bg-blue-500/10 text-blue-500'
+                                   }`}>
+                                     {u.role === 'trainer' ? 'Personal' : u.role === 'nutritionist' ? 'Nutri' : 'Aluno'}
+                                   </span>
+                                </td>
+                                <td className="py-6 text-center">
+                                   <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-white/10 ${
+                                     u.planType === 'PREMIUM' || u.planType === 'PROFISSIONAL' ? 'bg-yellow-500/10 text-yellow-500' :
+                                     u.planType === 'PRO' ? 'bg-purple-500/10 text-purple-500' :
+                                     'bg-gray-500/10 text-gray-500'
+                                   }`}>
+                                     {u.planType || 'FREE'}
+                                   </span>
+                                </td>
+                                <td className="py-6 text-right">
+                                   <div className="flex items-center justify-end gap-2">
+                                     <button 
+                                      onClick={() => {
+                                        setSearchParams({ viewAs: u.id, tab: 'workout' });
+                                        handleTabChange('workout');
+                                      }}
+                                      className="p-2.5 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all shadow-sm"
+                                      title="Visão do Aluno"
+                                     >
+                                       <UserPlus className="w-4 h-4" />
+                                     </button>
+                                     <button 
+                                      onClick={() => {
+                                        setSelectedProfessional({ id: u.id, name: u.displayName || u.email, role: u.role });
+                                        handleTabChange('chat');
+                                      }}
+                                      className="p-2.5 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl transition-all"
+                                      title="Chat Direto"
+                                     >
+                                       <MessageCircle className="w-4 h-4" />
+                                     </button>
+                                   </div>
+                                </td>
+                             </tr>
+                          ))}
+                       </tbody>
+                    </table>
+                 </div>
+              </div>
+            </div>
+          )}
         </motion.div>
       </main>
 
@@ -2003,6 +2404,14 @@ export default function Dashboard() {
         <p className="font-bold tracking-tight">© 2026 FitAI. Desenvolvido por NVM Project Management</p>
         <p className="font-mono bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded border border-gray-200 dark:border-white/5 uppercase tracking-widest text-xs">Versão {APP_VERSION}</p>
       </footer>
+
+      {/* Professional Profile Modal */}
+      {showProfessionalProfile && (
+        <ProfessionalProfileView 
+          professional={showProfessionalProfile} 
+          onClose={() => setShowProfessionalProfile(null)} 
+        />
+      )}
 
       {/* Premium Nutri Modals */}
       <AnimatePresence>
@@ -2300,17 +2709,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">URL da Foto (Opcional)</label>
-                  <input 
-                    type="url"
-                    value={editProfileForm.photoURL}
-                    onChange={(e) => setEditProfileForm({...editProfileForm, photoURL: e.target.value})}
-                    placeholder="https://exemplo.com/suafoto.jpg"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white font-bold focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                  />
-                </div>
-
                 <div className="flex gap-4 mt-8">
                   <button 
                     type="button"
@@ -2389,6 +2787,33 @@ export default function Dashboard() {
               )}
 
               <div className="space-y-8">
+                {/* Estatísticas */}
+                <section>
+                  <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Visão Geral da Base</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-gray-50 dark:bg-black border border-gray-200 dark:border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center group hover:border-blue-500/30 transition-all">
+                       <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Alunos</p>
+                       <p className="text-2xl font-black text-black dark:text-white group-hover:scale-110 transition-transform">
+                         {adminStats.loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : adminStats.users}
+                       </p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-black border border-gray-200 dark:border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center group hover:border-green-500/30 transition-all">
+                       <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Personals</p>
+                       <p className="text-2xl font-black text-black dark:text-white group-hover:scale-110 transition-transform">
+                         {adminStats.loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : adminStats.trainers}
+                       </p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-black border border-gray-200 dark:border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center text-center group hover:border-purple-500/30 transition-all">
+                       <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Nutris</p>
+                       <p className="text-2xl font-black text-black dark:text-white group-hover:scale-110 transition-transform">
+                         {adminStats.loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : adminStats.nutritionists}
+                       </p>
+                    </div>
+                  </div>
+                </section>
+
+                <div className="h-px bg-gray-100 dark:bg-white/5" />
+
                 {/* Alterar Plano */}
                 <section>
                   <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Simular Plano do Usuário</label>

@@ -33,7 +33,13 @@ export default function TrainerDashboard() {
   const [profileForm, setProfileForm] = useState({
     displayName: profile?.displayName || '',
     bio: (profile as any)?.bio || '',
-    photoURL: profile?.photoURL || ''
+    photoURL: profile?.photoURL || '',
+    specialty: (profile as any)?.specialty || '',
+    license: (profile as any)?.license || '',
+    location_city: (profile as any)?.location_city || '',
+    location_state: (profile as any)?.location_state || '',
+    experience: (profile as any)?.experience || '',
+    consultationPrice: (profile as any)?.consultationPrice || ''
   });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -48,7 +54,13 @@ export default function TrainerDashboard() {
       setProfileForm({
         displayName: profile.displayName || '',
         bio: (profile as any).bio || '',
-        photoURL: profile.photoURL || ''
+        photoURL: profile.photoURL || '',
+        specialty: (profile as any).specialty || '',
+        license: (profile as any).license || '',
+        location_city: (profile as any).location_city || '',
+        location_state: (profile as any).location_state || '',
+        experience: (profile as any).experience || '',
+        consultationPrice: (profile as any).consultationPrice || ''
       });
     }
   }, [profile]);
@@ -113,9 +125,15 @@ export default function TrainerDashboard() {
       await updateDoc(doc(db, 'users', user.uid), {
         'displayName': profileForm.displayName,
         'bio': profileForm.bio,
-        'photoURL': profileForm.photoURL
+        'photoURL': profileForm.photoURL,
+        'specialty': profileForm.specialty,
+        'license': profileForm.license,
+        'location_city': profileForm.location_city,
+        'location_state': profileForm.location_state,
+        'experience': profileForm.experience,
+        'consultationPrice': profileForm.consultationPrice
       });
-      alert('Perfil atualizado!');
+      alert('Perfil profissional atualizado!');
     } catch (error) {
       console.error("Error updating profile:", error);
       alert('Erro ao atualizar perfil.');
@@ -437,6 +455,14 @@ export default function TrainerDashboard() {
                     >
                       <Activity className="w-3 h-3" /> Prontuário
                     </button>
+                    {(isAdmin || profile?.uid === user?.uid) && (
+                      <Link
+                        to={`/dashboard?viewAs=${client.uid}&tab=workout`}
+                        className="col-span-2 bg-green-600/10 hover:bg-green-600 text-green-400 hover:text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-tighter transition-all flex items-center justify-center gap-1"
+                      >
+                        <UserPlus className="w-3 h-3" /> Visão do Aluno
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}
@@ -537,29 +563,100 @@ export default function TrainerDashboard() {
                     <img src={profileForm.photoURL || profile?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.email}`} alt="avatar" />
                   </div>
                   <label className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all">
-                    {uploadingPhoto ? 'Enviando...' : 'Carregar Foto (Arquivo)'}
+                    {uploadingPhoto ? 'Enviando...' : 'Carregar Foto'}
                     <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} disabled={uploadingPhoto} />
                   </label>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome Profissional</label>
+                    <input 
+                      type="text"
+                      value={profileForm.displayName}
+                      onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}
+                      placeholder="Nome de exibição..."
+                      className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Especialidade / Foco</label>
+                    <input 
+                      type="text"
+                      value={profileForm.specialty}
+                      onChange={(e) => setProfileForm({ ...profileForm, specialty: e.target.value })}
+                      placeholder="Ex: Musculação, Emagrecimento..."
+                      className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Registro (CREF)</label>
+                    <input 
+                      type="text"
+                      value={profileForm.license}
+                      onChange={(e) => setProfileForm({ ...profileForm, license: e.target.value })}
+                      placeholder="Ex: CREF-123456"
+                      className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Experiência</label>
+                    <input 
+                      type="text"
+                      value={profileForm.experience}
+                      onChange={(e) => setProfileForm({ ...profileForm, experience: e.target.value })}
+                      placeholder="Ex: 8 anos de atuação..."
+                      className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cidade</label>
+                    <input 
+                      type="text"
+                      value={profileForm.location_city}
+                      onChange={(e) => setProfileForm({ ...profileForm, location_city: e.target.value })}
+                      placeholder="Sua cidade..."
+                      className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Estado</label>
+                    <input 
+                      type="text"
+                      value={profileForm.location_state}
+                      onChange={(e) => setProfileForm({ ...profileForm, location_state: e.target.value })}
+                      placeholder="UF"
+                      className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome de Exibição</label>
-                  <input 
-                    type="text"
-                    value={profileForm.displayName}
-                    onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}
-                    placeholder="Seu nome profissional..."
-                    className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500"
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio Profissional</label>
+                  <textarea 
+                    value={profileForm.bio}
+                    onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                    placeholder="Sua trajetória e metodologia..."
+                    className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500 min-h-[100px]"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Foto (Link)</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Valor Consultoria (Opcional)</label>
                   <input 
                     type="text"
-                    value={profileForm.photoURL}
-                    onChange={(e) => setProfileForm({ ...profileForm, photoURL: e.target.value })}
-                    placeholder="https://..."
+                    value={profileForm.consultationPrice}
+                    onChange={(e) => setProfileForm({ ...profileForm, consultationPrice: e.target.value })}
+                    placeholder="R$ 0,00"
                     className="w-full bg-black border border-white/10 rounded-xl p-3 outline-none focus:ring-1 focus:ring-green-500"
                   />
                 </div>

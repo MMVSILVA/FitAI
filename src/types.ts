@@ -32,6 +32,15 @@ export interface UserProfile {
   createdAt: string;
   adherenceLogs?: AdherenceLog[];
   photoURL?: string;
+  // Professional fields
+  bio?: string;
+  specialty?: string;
+  license?: string;
+  location_city?: string;
+  location_state?: string;
+  experience?: string;
+  consultationPrice?: string;
+  clients?: string[];
 }
 
 export interface Exercise {

@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useUser } from '../store/userStore';
 import { Link } from 'react-router-dom';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { ExerciseProgress } from '../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, Award, Zap, History, Loader2, Search } from 'lucide-react';
+import { TrendingUp, Award, Zap, History, Loader2, Search, Users } from 'lucide-react';
 
 export const ProgressComparison: React.FC = () => {
-  const { plan, getExerciseProgress, planType, theme } = useUser();
+  const { user, plan, getExerciseProgress, planType, theme } = useUser();
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
   const [metric, setMetric] = useState<'weight' | 'reps' | 'volume'>('weight');
   const [allProgressData, setAllProgressData] = useState<Record<string, ExerciseProgress[]>>({});
@@ -23,27 +25,45 @@ export const ProgressComparison: React.FC = () => {
   }, [uniqueExerciseNames]);
 
   useEffect(() => {
-    const fetchAllProgress = async () => {
-      setLoading(true);
+    if (selectedExercises.length === 0 || !user) return;
+
+    setLoading(true);
+    
+    // We'll use a combined listener for the user's progress
+    const q = query(
+      collection(db, 'exercise_progress'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const newProgressData: Record<string, ExerciseProgress[]> = {};
       
-      for (const name of selectedExercises) {
-        if (!allProgressData[name]) {
-          const data = await getExerciseProgress(name);
-          newProgressData[name] = data;
-        } else {
-          newProgressData[name] = allProgressData[name];
+      snapshot.docs.forEach(doc => {
+        const data = { id: doc.id, ...doc.data() } as ExerciseProgress;
+        if (selectedExercises.includes(data.exerciseName)) {
+          if (!newProgressData[data.exerciseName]) {
+            newProgressData[data.exerciseName] = [];
+          }
+          newProgressData[data.exerciseName].push(data);
         }
-      }
-      
+      });
+
+      // Sort each exercise's data by date
+      Object.keys(newProgressData).forEach(name => {
+        newProgressData[name].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      });
+
       setAllProgressData(newProgressData);
       setLoading(false);
-    };
+    }, (error) => {
+      console.error("Error listening to progress:", error);
+      setLoading(false);
+    });
 
-    if (selectedExercises.length > 0) {
-      fetchAllProgress();
-    }
-  }, [selectedExercises]);
+    return () => {
+      unsubscribe();
+    };
+  }, [selectedExercises, user]);
 
   if (planType === 'FREE') {
     return (

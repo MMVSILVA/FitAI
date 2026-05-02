@@ -1,11 +1,11 @@
 import express from 'express';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getAdminDb } from '../lib/firebase-admin.ts';
 import { AuthRequest } from '../middleware/auth.ts';
 
 // Initialize Gemini with server-side key
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-const MODEL_NAME = "gemini-flash-latest"; // Using stable alias from skill
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const MODEL_NAME = "gemini-1.5-flash"; // Standard name
 
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: any;
@@ -170,7 +170,7 @@ export const generatePlan = async (req: AuthRequest, res: express.Response) => {
       Responda apenas com o JSON puro, sem markdown.
     `;
     
-    const model = ai.getGenerativeModel({ model: MODEL_NAME });
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const result = await withRetry(() => model.generateContent(prompt));
 
     const response = await result.response;
@@ -199,7 +199,7 @@ export const translateExercise = async (req: AuthRequest, res: express.Response)
     const { instructions } = req.body;
     const textToTranslate = instructions.join('\n');
     
-    const model = ai.getGenerativeModel({ model: MODEL_NAME });
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const result = await withRetry(() => model.generateContent(`Traduza estas instruções técnicas de exercícios físicos de Inglês para Português do Brasil.
         Mantenha o tom profissional e instrutivo. 
         Retorne APENAS os passos traduzidos, um por linha.
