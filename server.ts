@@ -11,23 +11,14 @@ const app = express();
 
 app.use(cors());
 
-// Stripe Webhook MUST stay before general JSON middleware to receive raw body
+// IMPORTANT: Stripe Webhook MUST stay before express.json()
 app.post("/api/webhook", express.raw({ type: "application/json" }), paymentController.handleWebhook);
 
 // General Middleware
 app.use(express.json());
 
-// Direct Payment Routes (Avoid router fallthrough issues)
-app.post("/api/create-checkout-session", (req, res, next) => {
-  console.log("Direct Payment Request received:", req.method, req.url);
-  paymentController.createCheckoutSession(req, res);
-});
-
 // API Routes
-app.use("/api", (req, res, next) => {
-  console.log(`API Request: ${req.method} ${req.url}`);
-  next();
-}, apiRoutes);
+app.use("/api", apiRoutes);
 
 async function startServer() {
   const PORT = process.env.PORT || 3000;

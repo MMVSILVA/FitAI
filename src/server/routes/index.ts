@@ -40,6 +40,10 @@ const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 // Health check
 router.get('/health', (req, res) => res.json({ status: 'ok' }));
 
+// Payment Routes
+router.get('/create-checkout-session', (req, res) => res.json({ status: 'payment api route reachable' }));
+router.post('/create-checkout-session', paymentController.createCheckoutSession);
+
 // ExerciseDB Proxy (avoids CORS)
 router.get('/exercises/search', async (req, res) => {
   try {

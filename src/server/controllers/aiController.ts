@@ -170,12 +170,11 @@ export const generatePlan = async (req: AuthRequest, res: express.Response) => {
       Responda apenas com o JSON puro, sem markdown.
     `;
     
-    const response = await withRetry(() => ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt, // Strictly use internal prompt template to prevent injection
-    }));
+    const model = ai.getGenerativeModel({ model: MODEL_NAME });
+    const result = await withRetry(() => model.generateContent(prompt));
 
-    const text = response.text;
+    const response = await result.response;
+    const text = response.text();
     if (!text) throw new Error("No response from AI");
 
     const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -200,16 +199,15 @@ export const translateExercise = async (req: AuthRequest, res: express.Response)
     const { instructions } = req.body;
     const textToTranslate = instructions.join('\n');
     
-    const response = await withRetry(() => ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: `Traduza estas instruções técnicas de exercícios físicos de Inglês para Português do Brasil.
+    const model = ai.getGenerativeModel({ model: MODEL_NAME });
+    const result = await withRetry(() => model.generateContent(`Traduza estas instruções técnicas de exercícios físicos de Inglês para Português do Brasil.
         Mantenha o tom profissional e instrutivo. 
         Retorne APENAS os passos traduzidos, um por linha.
         Instruções:
-        ${textToTranslate}`,
-    }));
+        ${textToTranslate}`));
 
-    const translatedText = response.text;
+    const response = await result.response;
+    const translatedText = response.text();
     if (!translatedText) return res.json({ instructions });
 
     const translated = translatedText

@@ -46,8 +46,11 @@ export default function Checkout() {
       setError("O redirecionamento está demorando. Tente o link manual abaixo.");
     }, 8000);
 
+    const apiPath = '/api/create-checkout-session';
+    console.log(`Intentando conectar com: ${window.location.origin}${apiPath}`);
+    
     try {
-      const response = await fetch('/api/create-checkout-session', {
+      const response = await fetch(apiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
