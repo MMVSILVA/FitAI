@@ -119,35 +119,40 @@ router.get('/exercises/search', async (req, res) => {
                 'Accept': 'application/json',
                 'Referer': 'https://exercisedb.io/'
               },
-              signal: AbortSignal.timeout(8000)
+              signal: AbortSignal.timeout(10000)
             });
 
             const contentType = response.headers.get('content-type');
             if (response.ok && contentType && contentType.includes('application/json')) {
-              const data = await response.json();
-              const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : []);
-              
-              if (rawData.length > 0 || !name) { 
-                const normalizedData = rawData.map((item: any) => ({
-                  exerciseId: item.exerciseId || item.id || `ex-${Math.random().toString(36).substr(2, 9)}`,
-                  name: item.name,
-                  gifUrl: item.gifUrl,
-                  bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
-                  equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
-                  targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
-                  secondaryMuscles: item.secondaryMuscles || [],
-                  instructions: item.instructions || []
-                }));
+              const textData = await response.text();
+              try {
+                const data = JSON.parse(textData);
+                const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : []);
+                
+                if (rawData.length > 0 || !name) { 
+                  const normalizedData = rawData.map((item: any) => ({
+                    exerciseId: item.exerciseId || item.id || `ex-${Math.random().toString(36).substr(2, 9)}`,
+                    name: item.name,
+                    gifUrl: item.gifUrl,
+                    bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
+                    equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
+                    targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
+                    secondaryMuscles: item.secondaryMuscles || [],
+                    instructions: item.instructions || []
+                  }));
 
-                finalData = {
-                  success: true,
-                  data: normalizedData,
-                  meta: data.meta || { hasNextPage: normalizedData.length >= (parseInt(limit as string) || 20), nextCursor: null }
-                };
-                break;
+                  finalData = {
+                    success: true,
+                    data: normalizedData,
+                    meta: data.meta || { hasNextPage: normalizedData.length >= (parseInt(limit as string) || 20), nextCursor: null }
+                  };
+                  break;
+                }
+              } catch (parseError) {
+                console.warn(`Failed to parse JSON from ${ossUrl}:`, textData.substring(0, 100));
               }
-            } else if (!response.ok) {
-              console.warn(`Mirror strategy ${ossUrl} failed with status: ${response.status}`);
+            } else {
+              console.warn(`Mirror strategy ${ossUrl} failed or returned non-JSON. Status: ${response.status}, Content-Type: ${contentType}`);
             }
           } catch (strategyError) {
             console.warn(`Strategy failed: ${ossUrl}`, (strategyError as any).message);

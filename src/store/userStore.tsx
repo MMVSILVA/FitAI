@@ -36,6 +36,11 @@ interface UserState {
   resetAccount: () => Promise<void>;
   addExerciseProgress: (exerciseName: string, weight: number, reps: number) => Promise<void>;
   getExerciseProgress: (exerciseName: string) => Promise<import('../types').ExerciseProgress[]>;
+  toggleMealCheck: (mealIndex: number) => Promise<void>;
+  updateRealMealNotes: (mealIndex: number, notes: string) => Promise<void>;
+  toggleWorkoutDayCheck: (dayIndex: number) => Promise<void>;
+  updateRealWorkoutNotes: (dayIndex: number, notes: string) => Promise<void>;
+  setPlanTypeForUser: (targetUid: string, newPlanType: PlanType) => Promise<{ success: boolean; message: string }>;
 }
 
 const UserContext = createContext<UserState | undefined>(undefined);
@@ -464,6 +469,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const setPlanTypeForUser = async (targetUid: string, newPlanType: PlanType) => {
+    if (!isAdmin) return { success: false, message: "Apenas administradores podem fazer isso" };
+    try {
+      const targetRef = doc(db, 'users', targetUid);
+      await updateDoc(targetRef, { 
+        planType: newPlanType,
+        subscriptionEndsAt: newPlanType !== 'FREE' ? Date.now() + (30 * 24 * 60 * 60 * 1000) : null 
+      });
+      return { success: true, message: `Plano atualizado para ${newPlanType}` };
+    } catch (error) {
+      console.error("Set plan type error:", error);
+      return { success: false, message: "Erro ao atualizar plano" };
+    }
+  };
+
   const calculateIMC = () => {
     if (!profile) return null;
     const heightInMeters = profile.height > 3 ? profile.height / 100 : profile.height;
@@ -551,14 +571,48 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const toggleMealCheck = async (mealIndex: number) => {
+    if (!plan || !plan.diet) return;
+    const newPlan = { ...plan };
+    const meal = newPlan.diet.meals[mealIndex];
+    meal.isAdhered = !meal.isAdhered;
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
+  const updateRealMealNotes = async (mealIndex: number, notes: string) => {
+    if (!plan || !plan.diet) return;
+    const newPlan = { ...plan };
+    newPlan.diet.meals[mealIndex].realMealNotes = notes;
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
+  const toggleWorkoutDayCheck = async (dayIndex: number) => {
+    if (!plan) return;
+    const newPlan = { ...plan };
+    newPlan.days[dayIndex].isCompleted = !newPlan.days[dayIndex].isCompleted;
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
+  const updateRealWorkoutNotes = async (dayIndex: number, notes: string) => {
+    if (!plan) return;
+    const newPlan = { ...plan };
+    newPlan.days[dayIndex].realWorkoutNotes = notes;
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
   return (
     <UserContext.Provider value={{ 
       user, authLoading, profile, plan, planType, trialEndsAt, subscriptionEndsAt, role, clients, linkedTrainerId, linkedNutritionistId, isAdmin,
       favorites, theme,
       setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, updatePlanForUser, 
       toggleFavorite, toggleTheme,
-      linkClient, linkNutritionist, setRole, setRoleForUser, logout, calculateIMC, resetAccount,
-      addExerciseProgress, getExerciseProgress
+      linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount,
+      addExerciseProgress, getExerciseProgress,
+      toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes
     }}>
       {children}
     </UserContext.Provider>

@@ -84,6 +84,14 @@ async function startServer() {
   app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`FITAI Server running on port ${PORT}`);
   });
+
+  // Global error handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("[GLOBAL SERVER ERROR]", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Erro interno no servidor FitAI", details: err.message });
+    }
+  });
 }
 
 if (!process.env.VERCEL) {

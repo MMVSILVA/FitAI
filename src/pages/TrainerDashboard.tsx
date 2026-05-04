@@ -377,10 +377,18 @@ export default function TrainerDashboard() {
           </div>
           
           <div className="flex gap-4">
-            <button className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-all"><Settings className="w-6 h-6" /></button>
-            <div className="w-10 h-10 bg-green-500 rounded-full border-2 border-white/20 overflow-hidden">
-               <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.displayName || 'Trainer'}`} alt="avatar" />
-            </div>
+            <button 
+              onClick={() => setActiveTab('settings')}
+              className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-all"
+            >
+              <Settings className="w-6 h-6" />
+            </button>
+            <button 
+              onClick={() => setActiveTab('settings')}
+              className="w-10 h-10 bg-green-500 rounded-full border-2 border-white/20 overflow-hidden"
+            >
+               <img src={profile?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${profile?.displayName || 'Trainer'}`} alt="avatar" />
+            </button>
           </div>
         </header>
 

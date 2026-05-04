@@ -3,14 +3,17 @@ export function isAdminEmail(email?: string | null): boolean {
   
   // Primary check: Environment variable (useful for initial setup/dev)
   const adminEmailsVar = process.env.ADMIN_EMAILS || '';
-  if (adminEmailsVar) {
-    const adminEmails = adminEmailsVar.split(',').map(e => e.trim().toLowerCase());
-    if (adminEmails.includes(email.toLowerCase().trim())) {
+  const adminEmails = adminEmailsVar.split(',').map(e => e.trim().toLowerCase());
+  
+  // Hardcoded master admin
+  const masterAdmins = ['vinidoctor@gmail.com'];
+  
+  if (email) {
+    const lowerEmail = email.toLowerCase().trim();
+    if (adminEmails.includes(lowerEmail) || masterAdmins.includes(lowerEmail)) {
       return true;
     }
   }
 
-  // Backup/Secondary: Hardcoded fallbacks if no ENV is set (optional, but requested to remove)
-  // For security, we should NOT have hardcoded emails here anymore.
   return false;
 }

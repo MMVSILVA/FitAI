@@ -67,6 +67,8 @@ export interface WorkoutDay {
   day: string;
   focus: string;
   exercises: Exercise[];
+  realWorkoutNotes?: string;
+  isCompleted?: boolean;
 }
 
 export interface DietPlan {
@@ -81,6 +83,7 @@ export interface DietPlan {
     time: string;
     foods: string[];
     isAdhered?: boolean;
+    realMealNotes?: string;
   }[];
   recommendations: string[];
   orientations?: string[]; // Espaço para orientações nutricionais detalhadas

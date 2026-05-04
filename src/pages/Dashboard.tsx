@@ -6,7 +6,8 @@ import { UserRole, PlanType, UserProfile, WorkoutPlan } from '../types';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
-  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus
+  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus,
+  History, Weight
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -199,8 +200,8 @@ function ExerciseRow({
 export default function Dashboard() {
   const { 
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
-    logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser,
-    toggleTheme, theme 
+    logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
+    toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes 
   } = useUser();
   
   const [searchParams, setSearchParams] = useSearchParams();
@@ -573,25 +574,36 @@ export default function Dashboard() {
   const [adminStats, setAdminStats] = useState({ users: 0, trainers: 0, nutritionists: 0, loading: false });
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [viewingUserHistory, setViewingUserHistory] = useState<any>(null);
+  const [userHistoryLoading, setUserHistoryLoading] = useState(false);
+  const [userProgress, setUserProgress] = useState<any[]>([]);
 
   const fetchAdminStats = async () => {
     if (!isAdmin) return;
     setAdminStats(prev => ({ ...prev, loading: true }));
     setAdminUsersLoading(true);
     try {
-      const { collection, getDocs } = await import('firebase/firestore');
+      const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
       const { db } = await import('../firebase');
       
       const usersRef = collection(db, 'users');
       const snap = await getDocs(usersRef);
       
       const usersList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAllUsers(usersList);
+      
+      // Check admins for ALL users (simplified client-side check for common admins)
+      const masterAdmins = ['vinidoctor@gmail.com'];
+      const enrichedUsers = usersList.map((u: any) => ({
+        ...u,
+        isAdmin: masterAdmins.includes(u.email?.toLowerCase().trim())
+      }));
+
+      setAllUsers(enrichedUsers);
 
       setAdminStats({
-        users: usersList.filter((u: any) => u.role === 'user').length,
-        trainers: usersList.filter((u: any) => u.role === 'trainer').length,
-        nutritionists: usersList.filter((u: any) => u.role === 'nutritionist').length,
+        users: enrichedUsers.filter((u: any) => u.role === 'user' && !u.isAdmin).length,
+        trainers: enrichedUsers.filter((u: any) => u.role === 'trainer' && !u.isAdmin).length,
+        nutritionists: enrichedUsers.filter((u: any) => u.role === 'nutritionist' && !u.isAdmin).length,
         loading: false
       });
     } catch (error) {
@@ -599,6 +611,32 @@ export default function Dashboard() {
       setAdminStats(prev => ({ ...prev, loading: false }));
     } finally {
       setAdminUsersLoading(false);
+    }
+  };
+
+  const fetchUserHistory = async (targetUser: any) => {
+    setViewingUserHistory(targetUser);
+    setUserHistoryLoading(true);
+    setUserProgress([]);
+    
+    try {
+      const { collection, query, where, getDocs, orderBy } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      
+      const q = query(
+        collection(db, 'exercise_progress'), 
+        where('userId', '==', targetUser.id),
+        orderBy('date', 'desc')
+      );
+      
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setUserProgress(data);
+    } catch (error) {
+      console.error("Error fetching user history:", error);
+      showToast("Não foi possível carregar o histórico completo deste usuário.", "error");
+    } finally {
+      setUserHistoryLoading(false);
     }
   };
 
@@ -945,9 +983,9 @@ export default function Dashboard() {
                 {isAdmin && (
                   <button 
                     onClick={() => setShowAdminModal(true)}
-                    className="bg-red-600 hover:bg-red-500 text-white text-[8px] sm:text-[10px] px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-red-600/20 transition-all border border-red-500/50"
+                    className="bg-red-600 hover:bg-red-500 text-white text-[9px] sm:text-[11px] px-3 sm:px-4 py-1 sm:py-1.5 rounded-xl font-black uppercase tracking-tighter flex items-center gap-2 shadow-xl shadow-red-600/30 transition-all border border-red-500 animate-pulse"
                   >
-                    <Users className="w-2 sm:w-3 h-2 sm:h-3" /> <span className="hidden xs:inline">Admin</span>
+                    <Zap className="w-3 h-3" /> <span className="hidden xs:inline">Admin Config</span>
                   </button>
                 )}
               </div>
@@ -1159,30 +1197,37 @@ export default function Dashboard() {
             {(isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           
-          <button 
-            onClick={() => handleTabChange('personal')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'personal' 
-                ? (isPremiumUser ? 'bg-purple-900 border border-purple-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
+          {/* Personal Tab */}
+          {(isAdmin || role === 'trainer' || linkedTrainerId) && (
+            <button 
+              onClick={() => handleTabChange('personal')}
+              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+                activeTab === 'personal' 
+                  ? (isPremiumUser ? 'bg-purple-900 border border-purple-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
+                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
+              {isAdmin || role === 'trainer' ? 'Gestão Trainer' : 'Personal'}
+              {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
+            </button>
+          )}
+
+          {/* Nutritionist Tab */}
+          {(isAdmin || role === 'nutritionist' || linkedNutritionistId) && (
+            <button 
+              onClick={() => handleTabChange('nutrition')}
+              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+                activeTab === 'nutrition' 
+                ? (isPremiumUser ? 'bg-green-900 border border-green-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
-            {isAdmin || role === 'trainer' ? 'Gestão Trainer' : 'Personal'}
-            {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
-          </button>
-          <button 
-            onClick={() => handleTabChange('nutrition')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'nutrition' 
-              ? (isPremiumUser ? 'bg-green-900 border border-green-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
-              : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
-            {isAdmin || role === 'nutritionist' ? 'Gestão Nutri' : 'Nutri'}
-            {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
-          </button>
+              }`}
+            >
+              <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
+              {isAdmin || role === 'nutritionist' ? 'Gestão Nutri' : 'Nutri'}
+              {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
+            </button>
+          )}
           <button 
             onClick={() => handleTabChange('chat')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
@@ -1619,6 +1664,42 @@ export default function Dashboard() {
                            );
                         })}
                       </div>
+
+                      {/* Day Feedback */}
+                      <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-3 cursor-pointer group">
+                            <button
+                              disabled={isViewingAs}
+                              onClick={() => toggleWorkoutDayCheck(idx)}
+                              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                                day.isCompleted 
+                                  ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
+                                  : 'bg-gray-100 dark:bg-white/5 text-gray-400 group-hover:bg-white/10 border border-gray-200 dark:border-white/10'
+                              }`}
+                            >
+                              <CheckCircle2 className="w-6 h-6" />
+                            </button>
+                            <div>
+                              <p className="font-black text-xs uppercase tracking-widest text-black dark:text-white">Concluir Treino</p>
+                              <p className="text-[10px] text-gray-500 font-bold">Marcar este dia como finalizado</p>
+                            </div>
+                          </label>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                            <Sparkles className="w-3 h-3" /> Relato do Treino Real
+                          </p>
+                          <textarea 
+                            readOnly={isViewingAs}
+                            value={day.realWorkoutNotes || ''}
+                            onChange={(e) => updateRealWorkoutNotes(idx, e.target.value)}
+                            placeholder="Descreva se mudou algum exercício, como se sentiu, se a carga estava pesada..."
+                            className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-4 text-sm text-black dark:text-white focus:border-purple-500 outline-none h-24 transition-all"
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1730,12 +1811,25 @@ export default function Dashboard() {
                     {plan?.diet ? (
                       <>
                         {plan.diet.meals?.map((meal, idx) => (
-                          <div key={`meal-${idx}-${meal.name}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 shadow-sm">
+                          <div key={`meal-${idx}-${meal.name}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-6 shadow-sm group hover:border-green-500/30 transition-all">
                             <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-xl font-black text-green-600 dark:text-green-400">{meal.name}</h4>
+                              <div className="flex items-center gap-4">
+                                <button
+                                  disabled={isViewingAs}
+                                  onClick={() => toggleMealCheck(idx)}
+                                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                                    meal.isAdhered 
+                                      ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
+                                      : 'bg-gray-50 dark:bg-white/5 text-gray-400 border border-gray-200 dark:border-white/10'
+                                  }`}
+                                >
+                                  <CheckCircle2 className="w-5 h-5" />
+                                </button>
+                                <h4 className="text-xl font-black text-green-600 dark:text-green-400">{meal.name}</h4>
+                              </div>
                               <span className="text-sm font-bold bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full">{meal.time}</span>
                             </div>
-                            <ul className="space-y-3">
+                            <ul className="space-y-3 mb-6">
                               {meal.foods?.map((food, i) => (
                                 <li key={i} className="flex items-start gap-2 text-base text-gray-700 dark:text-white font-medium">
                                   <span className="text-green-600 dark:text-green-500 mt-1.5">•</span>
@@ -1743,6 +1837,20 @@ export default function Dashboard() {
                                 </li>
                               ))}
                             </ul>
+                            
+                            {/* meal real feedback */}
+                            <div className="space-y-2 mt-4 pt-4 border-t border-gray-100 dark:border-white/5">
+                              <p className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest flex items-center gap-2">
+                                <Sparkles className="w-3 h-3" /> Relato da Refeição Real
+                              </p>
+                              <textarea 
+                                readOnly={isViewingAs}
+                                value={meal.realMealNotes || ''}
+                                onChange={(e) => updateRealMealNotes(idx, e.target.value)}
+                                placeholder="Descreva se mudou algo ou se fez uma refeição diferente..."
+                                className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-3 text-xs text-black dark:text-white focus:border-green-500 outline-none h-20 transition-all"
+                              />
+                            </div>
                           </div>
                         ))}
                         
@@ -2253,7 +2361,38 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'admin' && isAdmin && (
-            <div className="space-y-8 pb-20">
+            <div className="space-y-10 pb-32">
+              {/* Atatalhos Rápidos de Simulação */}
+              <section className="bg-gradient-to-br from-red-600/20 to-purple-600/20 border border-red-500/20 p-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10">
+                  <Zap className="w-24 h-24 text-red-500" />
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-xl font-black text-black dark:text-white uppercase tracking-tighter mb-6 flex items-center gap-2">
+                     Simular Nível de Acesso (Instantâneo)
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {['FREE', 'PRO', 'PREMIUM', 'PROFISSIONAL'].map((p) => (
+                      <button
+                        key={`admin-tab-p-${p}`}
+                        onClick={() => handleAdminPlanChange(p as any)}
+                        disabled={adminActionLoading}
+                        className={`py-4 rounded-2xl font-black text-xs transition-all shadow-lg border-2 ${
+                          planType === p 
+                            ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white scale-105' 
+                            : 'bg-white/10 text-gray-500 border-white/10 hover:bg-white/20'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">
+                    * Isso altera apenas a sua visão atual para testes de funcionalidade.
+                  </p>
+                </div>
+              </section>
+
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
                 <h2 className="text-3xl font-black text-black dark:text-white tracking-tighter flex items-center gap-3">
                   <Zap className="w-8 h-8 text-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)]" /> Painel Master Admin
@@ -2336,8 +2475,11 @@ export default function Dashboard() {
                           ) : allUsers.map((u) => (
                              <tr key={u.id} className="group hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                                 <td className="py-6">
-                                   <div className="flex items-center gap-3">
-                                      <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden">
+                                   <div 
+                                     className="flex items-center gap-3 cursor-pointer"
+                                     onClick={() => fetchUserHistory(u)}
+                                   >
+                                      <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden transition-transform group-hover:scale-110 shadow-lg">
                                         {u.photoURL ? <img src={u.photoURL} alt="" className="w-full h-full object-cover" /> : <div className="text-lg font-black text-white/20 italic">AI</div>}
                                       </div>
                                       <div>
@@ -2347,12 +2489,26 @@ export default function Dashboard() {
                                    </div>
                                 </td>
                                 <td className="py-6 text-center">
-                                   <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-white/10 ${
-                                     u.role === 'trainer' ? 'bg-green-500/10 text-green-500' :
-                                     u.role === 'nutritionist' ? 'bg-purple-500/10 text-purple-500' :
-                                     'bg-blue-500/10 text-blue-500'
+                                   <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border transition-all ${
+                                     u.isAdmin ? 'bg-red-600 text-white border-red-500 shadow-xl shadow-red-600/30' :
+                                     u.role === 'trainer' ? 'bg-green-500/10 text-green-500 border-green-500/20' :
+                                     u.role === 'nutritionist' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20' :
+                                     'bg-blue-500/10 text-blue-500 border-blue-500/20'
                                    }`}>
-                                     {u.role === 'trainer' ? 'Personal' : u.role === 'nutritionist' ? 'Nutri' : 'Aluno'}
+                                     {u.isAdmin ? 'Administrador' : (
+                                       <select 
+                                         value={u.role || 'user'}
+                                         onChange={async (e) => {
+                                           const res = await setRoleForUser(u.id, e.target.value as any);
+                                           if (res.success) fetchAdminStats();
+                                         }}
+                                         className="bg-transparent text-gray-400 text-[10px] font-black uppercase outline-none cursor-pointer"
+                                       >
+                                         <option value="user" className="bg-zinc-900 border-none">Aluno</option>
+                                         <option value="trainer" className="bg-zinc-900 border-none">Personal</option>
+                                         <option value="nutritionist" className="bg-zinc-900 border-none">Nutri</option>
+                                       </select>
+                                     )}
                                    </span>
                                 </td>
                                 <td className="py-6 text-center">
@@ -2361,11 +2517,34 @@ export default function Dashboard() {
                                      u.planType === 'PRO' ? 'bg-purple-500/10 text-purple-500' :
                                      'bg-gray-500/10 text-gray-500'
                                    }`}>
-                                     {u.planType || 'FREE'}
+                                     {u.isAdmin ? (
+                                      <span className="text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-white/10 bg-yellow-500/10 text-yellow-500">MASTER ACCESS</span>
+                                    ) : (
+                                       <select 
+                                         value={u.planType || 'FREE'}
+                                         onChange={async (e) => {
+                                           const res = await setPlanTypeForUser(u.id, e.target.value as any);
+                                           if (res.success) fetchAdminStats();
+                                         }}
+                                         className="bg-transparent text-gray-400 text-[10px] font-black uppercase outline-none"
+                                       >
+                                         <option value="FREE" className="bg-zinc-900 text-white">FREE</option>
+                                         <option value="PRO" className="bg-zinc-900 text-white">PRO</option>
+                                         <option value="PREMIUM" className="bg-zinc-900 text-white">PREMIUM</option>
+                                         <option value="PROFISSIONAL" className="bg-zinc-900 text-white">PROFISSIONAL</option>
+                                       </select>
+                                    )}
                                    </span>
                                 </td>
                                 <td className="py-6 text-right">
                                    <div className="flex items-center justify-end gap-2">
+                                     <button 
+                                      onClick={() => fetchUserHistory(u)}
+                                      className="p-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl transition-all"
+                                      title="Ver Histórico"
+                                     >
+                                       <History className="w-4 h-4" />
+                                     </button>
                                      <button 
                                       onClick={() => {
                                         setSearchParams({ viewAs: u.id, tab: 'workout' });
@@ -2412,6 +2591,170 @@ export default function Dashboard() {
           onClose={() => setShowProfessionalProfile(null)} 
         />
       )}
+
+      {/* User History Modal */}
+      <AnimatePresence>
+        {viewingUserHistory && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setViewingUserHistory(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-zinc-950 border border-white/10 w-full max-w-2xl rounded-[3rem] p-8 relative overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
+            >
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-20 h-20 rounded-[1.5rem] bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden shadow-lg">
+                  {viewingUserHistory.photoURL ? <img src={viewingUserHistory.photoURL} alt="" className="w-full h-full object-cover" /> : <div className="text-2xl font-black text-white/10">AI</div>}
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black tracking-tighter text-white">{viewingUserHistory.displayName || viewingUserHistory.email}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 uppercase tracking-widest border border-blue-500/20">{viewingUserHistory.role || 'ALUNO'}</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-500 uppercase tracking-widest border border-yellow-500/20">{viewingUserHistory.planType || 'FREE'}</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setViewingUserHistory(null)}
+                  className="ml-auto p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all"
+                >
+                  <ArrowLeft className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 space-y-8 scrollbar-hide">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Peso', val: `${viewingUserHistory.profile?.weight || '--'}kg`, icon: Weight },
+                    { label: 'Altura', val: `${viewingUserHistory.profile?.height || '--'}cm`, icon: Activity },
+                    { label: 'Idade', val: `${viewingUserHistory.profile?.age || '--'}a`, icon: Users },
+                    { label: 'Objetivo', val: viewingUserHistory.profile?.objective || '--', icon: Zap }
+                  ].map((s, i) => (
+                    <div key={i} className="bg-white/5 border border-white/10 p-3 rounded-2xl text-center">
+                      <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">{s.label}</p>
+                      <p className="text-sm font-bold text-white truncate">{s.val}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* History List */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                    <History className="w-4 h-4 text-red-500" /> Histórico de Progressão
+                  </h4>
+                  
+                  {userHistoryLoading ? (
+                    <div className="py-12 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
+                      <Loader2 className="w-8 h-8 animate-spin text-red-500 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Carregando registros...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {userProgress.length === 0 ? (
+                        <div className="py-8 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest italic">Nenhum registro de carga encontrado.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {userProgress.map((p, i) => (
+                            <div key={p.id} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between group hover:bg-white/10 transition-all">
+                              <div>
+                                <p className="font-black text-sm text-white">{p.exerciseName}</p>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">{new Date(p.date).toLocaleDateString('pt-BR')}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-black text-red-500">{p.weight}kg</p>
+                                <p className="text-[10px] text-gray-500 font-bold">{p.reps} reps</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Diary/Notes from Plan */}
+                      <div className="space-y-4 pt-6 border-t border-white/10">
+                        <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                          <MessageCircle className="w-4 h-4 text-purple-500" /> Feedbacks do Aluno
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 gap-4">
+                          {/* Diet Notes */}
+                          <div className="bg-green-600/5 border border-green-500/10 p-5 rounded-2xl">
+                             <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-3">Adesão Alimentar</p>
+                             <div className="space-y-3">
+                                {viewingUserHistory.plan?.diet?.meals?.map((m: any, mi: number) => m.realMealNotes && (
+                                   <div key={mi} className="border-l-2 border-green-500/30 pl-3">
+                                      <p className="text-[9px] font-black text-gray-500 uppercase">{m.name}</p>
+                                      <p className="text-sm text-gray-400 italic">"{m.realMealNotes}"</p>
+                                   </div>
+                                ))}
+                                {(!viewingUserHistory.plan?.diet?.meals || !viewingUserHistory.plan.diet.meals.some((m: any) => m.realMealNotes)) && (
+                                   <p className="text-[10px] text-gray-600 italic">Nenhum relato de refeição.</p>
+                                )}
+                             </div>
+                          </div>
+
+                          {/* Training Notes */}
+                          <div className="bg-purple-600/5 border border-purple-500/10 p-5 rounded-2xl">
+                             <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest mb-3">Relatos de Treino</p>
+                             <div className="space-y-3">
+                                {viewingUserHistory.plan?.days?.map((d: any, di: number) => d.realWorkoutNotes && (
+                                   <div key={di} className="border-l-2 border-purple-500/30 pl-3">
+                                      <p className="text-[9px] font-black text-gray-500 uppercase">{d.day} - {d.focus}</p>
+                                      <p className="text-sm text-gray-400 italic">"{d.realWorkoutNotes}"</p>
+                                   </div>
+                                ))}
+                                {(!viewingUserHistory.plan?.days || !viewingUserHistory.plan.days.some((d: any) => d.realWorkoutNotes)) && (
+                                   <p className="text-[10px] text-gray-600 italic">Nenhum relato de treino.</p>
+                                )}
+                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Last Diet Adherence */}
+                <div className="bg-green-600/5 border border-green-500/10 p-6 rounded-[2rem]">
+                  <h4 className="text-xs font-black text-green-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Apple className="w-4 h-4" /> Notas do Aluno
+                  </h4>
+                  <p className="text-sm text-gray-400 leading-relaxed italic">
+                    "O histórico de notas e adesão diária ajuda na calibração fina do próximo protocolo de treinamento."
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-white/10 flex gap-3">
+                 <button 
+                  onClick={() => {
+                    setSearchParams({ viewAs: viewingUserHistory.id, tab: 'workout' });
+                    handleTabChange('workout');
+                    setViewingUserHistory(null);
+                  }}
+                  className="flex-1 bg-red-600 hover:bg-red-500 text-white font-black py-4 rounded-2xl uppercase tracking-tighter text-xs shadow-xl shadow-red-600/20 transition-all"
+                 >
+                   Assumir Visão do Usuário
+                 </button>
+                 <button 
+                  onClick={() => setViewingUserHistory(null)}
+                  className="px-8 bg-white/5 hover:bg-white/10 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs transition-all"
+                 >
+                   Fechar
+                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Premium Nutri Modals */}
       <AnimatePresence>

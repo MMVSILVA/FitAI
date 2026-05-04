@@ -68,21 +68,45 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
     }
 
     const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
-    const host = req.get("host");
-    const baseUrl = `${protocol}://${host}`;
+    const host = req.headers["x-forwarded-host"] || req.get("host");
+    const referer = req.headers["referer"];
+    
+    // Preferred base URL from environment or Referer or calculated
+    let baseUrl = process.env.CLIENT_URL;
+    
+    if (!baseUrl && referer) {
+        try {
+            const refUrl = new URL(referer);
+            baseUrl = `${refUrl.protocol}//${refUrl.host}`;
+        } catch (e) {
+            console.warn("Could not parse Referer for baseUrl:", referer);
+        }
+    }
+    
+    if (!baseUrl) {
+        baseUrl = `${protocol}://${host}`;
+    }
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card", "boleto"],
-      line_items: [{ price: priceId, quantity: 1 }],
-      mode: "subscription",
-      success_url: `${baseUrl}/dashboard?success=true`,
-      cancel_url: `${baseUrl}/checkout?plan=${normalizedPlan}&canceled=true`,
-      client_reference_id: userId,
-      customer_email: userEmail,
-      metadata: { plan: normalizedPlan }
-    });
+    console.log(`Creating checkout session for plan ${normalizedPlan}. Base URL: ${baseUrl}`);
 
-    res.json({ url: session.url });
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card", "boleto"],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: "subscription",
+        success_url: `${baseUrl}/dashboard?success=true`,
+        cancel_url: `${baseUrl}/checkout?plan=${normalizedPlan}&canceled=true`,
+        client_reference_id: userId,
+        customer_email: userEmail,
+        metadata: { plan: normalizedPlan }
+      });
+
+      console.log(`Checkout session created successfully: ${session.id}`);
+      res.json({ url: session.url });
+    } catch (stripeError: any) {
+      console.error(`Stripe specific error: ${stripeError.message}`, stripeError);
+      throw stripeError;
+    }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
