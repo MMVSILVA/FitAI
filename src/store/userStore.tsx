@@ -128,6 +128,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const docRef = doc(db, 'users', loggedUser!.uid);
         
+        // Update online status
+        updateDoc(docRef, { 
+          onlineStatus: 'online',
+          lastSeen: new Date().toISOString()
+        }).catch(err => console.error("Error updating online status:", err));
+
+        const statusInterval = setInterval(() => {
+          updateDoc(docRef, { 
+            lastSeen: new Date().toISOString()
+          }).catch(() => {});
+        }, 60000); // Pulse every 60s
+
         let snapshotReceived = false;
 
         // Setup snapshot listener immediately (non-blocking)
@@ -411,7 +423,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Update client's trainer link
       await updateDoc(clientDoc.ref, {
-        trainerId: user!.uid
+        linkedTrainerId: user!.uid
       });
 
       return { success: true, message: `Aluno ${trimmedEmail} vinculado com sucesso!` };
@@ -448,7 +460,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Update client's nutritionist link
       await updateDoc(clientDoc.ref, {
-        nutritionistId: user!.uid
+        linkedNutritionistId: user!.uid
       });
 
       return { success: true, message: `Paciente ${trimmedEmail} vinculado com sucesso!` };
@@ -595,11 +607,39 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleWorkoutDayCheck = async (dayIndex: number) => {
-    if (!plan) return;
+    if (!plan || !user || !profile) return;
     const newPlan = { ...plan };
-    newPlan.days[dayIndex].isCompleted = !newPlan.days[dayIndex].isCompleted;
+    const day = newPlan.days[dayIndex];
+    const wasCompleted = day.isCompleted;
+    day.isCompleted = !wasCompleted;
+    
     setPlanState(newPlan);
-    await saveToFirestore({ plan: newPlan });
+    
+    const updates: any = { plan: newPlan };
+    
+    // Gamification Logic
+    if (!wasCompleted) { // Just completed
+      const today = new Date().toISOString().split('T')[0];
+      const checkInDates = profile.checkInDates || [];
+      
+      if (!checkInDates.includes(today)) {
+        const newCheckInDates = [...checkInDates, today];
+        const newPoints = (profile.points || 0) + 15; // 15 points per daily workout
+        const newLevel = Math.floor(newPoints / 100) + 1;
+        
+        // Streak logic (basic: count consecutive days or weeks)
+        // For now, let's just count total check-ins as a proxy for engagement
+        // but we'll call it "streak" if they checked in within the last 7 days
+        
+        updates.points = newPoints;
+        updates.level = newLevel;
+        updates.checkInDates = newCheckInDates;
+        
+        setProfileState(prev => prev ? { ...prev, points: newPoints, level: newLevel, checkInDates: newCheckInDates } : null);
+      }
+    }
+    
+    await saveToFirestore(updates);
   };
 
   const updateRealWorkoutNotes = async (dayIndex: number, notes: string) => {

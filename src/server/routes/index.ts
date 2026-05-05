@@ -79,10 +79,13 @@ router.get('/exercises/search', async (req, res) => {
     // Quick translation for common terms
     const ptToEn: Record<string, string> = {
       'peito': 'chest',
+      'peitoral': 'chest',
       'costas': 'back',
+      'dorsal': 'back',
       'perna': 'leg',
+      'pernas': 'leg',
       'ombro': 'shoulder',
-      'ombras': 'shoulder',
+      'ombros': 'shoulder',
       'braço': 'arm',
       'braços': 'arm',
       'abdominal': 'abs',
@@ -91,7 +94,10 @@ router.get('/exercises/search', async (req, res) => {
       'tríceps': 'triceps',
       'glúteo': 'glute',
       'glúteos': 'glute',
-      'panturrilha': 'calf'
+      'panturrilha': 'calf',
+      'panturrilhas': 'calf',
+      'coxa': 'thigh',
+      'quadríceps': 'quads'
     };
     
     if (name && typeof name === 'string') {
@@ -112,16 +118,17 @@ router.get('/exercises/search', async (req, res) => {
     }
 
     const mirrors = [
-      'https://exercisedblist.vercel.app/api/v1/exercises',
-      'https://oss.exercisedb.dev/api/v1/exercises',
-      'https://v2.exercisedb.io/api/v1/exercises',
       'https://v1.exercisedb.io/api/v1/exercises',
-      'https://db.exercisedb.io/api/v1/exercises'
+      'https://db.exercisedb.io/api/v1/exercises',
+      'https://v2.exercisedb.io/api/v1/exercises',
+      'https://oss.exercisedb.dev/api/v1/exercises',
+      'https://exercisedblist.vercel.app/api/v1/exercises'
     ];
 
     let finalData = null;
     let lastError = null;
 
+    // Try mirrors first with a shorter timeout to failover faster
     for (const base of mirrors) {
       try {
         const searchStrategies = [];
@@ -143,7 +150,6 @@ router.get('/exercises/search', async (req, res) => {
         }
 
         for (const ossUrl of searchStrategies) {
-          console.log(`Trying strategy: ${ossUrl}`);
           try {
             const response = await fetch(ossUrl, {
               headers: {
@@ -151,7 +157,7 @@ router.get('/exercises/search', async (req, res) => {
                 'Accept': 'application/json',
                 'Referer': 'https://exercisedb.io/'
               },
-              signal: AbortSignal.timeout(8000)
+              signal: AbortSignal.timeout(4000) // Lowered to 4s for faster failover
             });
 
             const contentType = response.headers.get('content-type');
@@ -159,7 +165,7 @@ router.get('/exercises/search', async (req, res) => {
               const textData = await response.text();
               try {
                 const data = JSON.parse(textData);
-                const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : []);
+                const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : (data.exercises || []));
                 
                 if (rawData.length > 0 || (!name && Array.isArray(rawData))) { 
                   const normalizedData = rawData.map((item: any) => ({
@@ -181,20 +187,17 @@ router.get('/exercises/search', async (req, res) => {
                   break;
                 }
               } catch (parseError) {
-                console.warn(`Failed to parse JSON from ${ossUrl}:`, textData.substring(0, 100));
+                // Ignore silent parsing errors during strategies
               }
-            } else {
-              console.warn(`Mirror strategy ${ossUrl} failed or returned non-JSON. Status: ${response.status}, Content-Type: ${contentType}`);
             }
           } catch (strategyError) {
-            console.warn(`Strategy failed: ${ossUrl}`, (strategyError as any).message);
+            // Strategy failed, move to next
           }
         }
         
         if (finalData) break;
       } catch (e: any) {
         lastError = e;
-        console.warn(`Mirror ${base} failed entirely:`, e.message);
       }
     }
 

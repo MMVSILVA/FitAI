@@ -26,6 +26,7 @@ export default defineConfig(({mode}) => {
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
+          maximumFileSizeToCacheInBytes: 5242880, // 5MB
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/v2\.exercisedb\.io\/media\/.*/i,
@@ -92,6 +93,7 @@ export default defineConfig(({mode}) => {
     },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || ""),
+      'process.env.GOOGLE_MAPS_PLATFORM_KEY': JSON.stringify(env.GOOGLE_MAPS_PLATFORM_KEY || env.VITE_GOOGLE_MAPS_API_KEY || "")
     }
   };
 });

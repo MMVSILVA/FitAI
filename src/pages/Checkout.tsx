@@ -66,8 +66,11 @@ export default function Checkout() {
 
           <div className="bg-gray-100 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-6">
             <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-200 dark:border-white/10">
-              <span className="text-lg text-gray-600 dark:text-gray-300">Plano Mensal</span>
-              <span className="text-2xl font-bold">R$ {price}</span>
+              <span className="text-lg text-gray-600 dark:text-gray-300">Mensal</span>
+              <div className="text-right">
+                <span className="text-2xl font-bold">R$ {price}</span>
+                <span className="text-sm font-medium text-gray-500 ml-1">/mês</span>
+              </div>
             </div>
             
             <ul className="space-y-4">
@@ -119,6 +122,8 @@ export default function Checkout() {
           <div className="w-full space-y-4">
             <a 
               href={getManualLink() || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={(e) => {
                 if (!getManualLink()) {
                   e.preventDefault();
@@ -127,7 +132,7 @@ export default function Checkout() {
               }}
               className={`w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-xl transition-all shadow-xl ${
                 getManualLink() 
-                ? 'bg-[#00D1FF] hover:bg-[#00B8E6] text-black shadow-[#00D1FF]/20 active:scale-[0.98]' 
+                ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20 active:scale-[0.98]' 
                 : 'bg-gray-200 dark:bg-white/5 text-gray-400 cursor-not-allowed'
               }`}
             >

@@ -17,6 +17,11 @@
         "trainerId": { "type": "string" },
         "stripeCustomerId": { "type": "string" },
         "isPremium": { "type": "boolean" },
+        "points": { "type": "number" },
+        "level": { "type": "number" },
+        "streak": { "type": "number" },
+        "checkInDates": { "type": "array", "items": { "type": "string" } },
+        "badges": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "role"]

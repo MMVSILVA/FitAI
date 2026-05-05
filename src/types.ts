@@ -32,6 +32,11 @@ export interface UserProfile {
   createdAt: string;
   adherenceLogs?: AdherenceLog[];
   photoURL?: string;
+  points?: number;
+  level?: number;
+  streak?: number;
+  checkInDates?: string[];
+  badges?: string[];
   // Professional fields
   bio?: string;
   specialty?: string;
