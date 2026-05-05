@@ -37,6 +37,33 @@ router.post('/ai/translate', authMiddleware, aiController.translateExercise);
 const exerciseCache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
+// Global variable to store the full database if fetched from GitHub
+let fullExerciseDb: any[] | null = null;
+let lastDbFetch: number = 0;
+
+async function getFullDbFromGithub() {
+  if (fullExerciseDb && (Date.now() - lastDbFetch < CACHE_TTL * 24)) {
+    return fullExerciseDb;
+  }
+
+  try {
+    console.log("Fetching full exercise database from GitHub source...");
+    const response = await fetch('https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json', {
+      signal: AbortSignal.timeout(15000)
+    });
+    if (response.ok) {
+      const data = await response.json();
+      fullExerciseDb = Array.isArray(data) ? data : [];
+      lastDbFetch = Date.now();
+      console.log(`Successfully cached ${fullExerciseDb.length} exercises from GitHub.`);
+      return fullExerciseDb;
+    }
+  } catch (e) {
+    console.error("Failed to fetch full DB from GitHub:", e);
+  }
+  return fullExerciseDb || [];
+}
+
 // Health check
 router.get('/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -47,6 +74,7 @@ router.get('/health', (req, res) => res.json({ status: 'ok' }));
 router.get('/exercises/search', async (req, res) => {
   try {
     let { name, limit, cursor } = req.query;
+    const limitNum = parseInt(limit as string) || 20;
     
     // Quick translation for common terms
     const ptToEn: Record<string, string> = {
@@ -54,11 +82,15 @@ router.get('/exercises/search', async (req, res) => {
       'costas': 'back',
       'perna': 'leg',
       'ombro': 'shoulder',
+      'ombras': 'shoulder',
       'braço': 'arm',
+      'braços': 'arm',
       'abdominal': 'abs',
+      'abdominais': 'abs',
       'bíceps': 'biceps',
       'tríceps': 'triceps',
       'glúteo': 'glute',
+      'glúteos': 'glute',
       'panturrilha': 'calf'
     };
     
@@ -101,13 +133,13 @@ router.get('/exercises/search', async (req, res) => {
         
         // Strategy 2: Query param based ?name={name}
         const params = new URLSearchParams();
-        params.append('limit', (limit as string) || '20');
+        params.append('limit', limitNum.toString());
         if (cursor) params.append('cursor', cursor as string);
         if (name) params.append('name', name as string);
         searchStrategies.push(`${base}?${params.toString()}`);
         
         if (!name) {
-          searchStrategies.push(`${base}?limit=${limit || 20}${cursor ? `&cursor=${cursor}` : ''}`);
+          searchStrategies.push(`${base}?limit=${limitNum}${cursor ? `&cursor=${cursor}` : ''}`);
         }
 
         for (const ossUrl of searchStrategies) {
@@ -119,7 +151,7 @@ router.get('/exercises/search', async (req, res) => {
                 'Accept': 'application/json',
                 'Referer': 'https://exercisedb.io/'
               },
-              signal: AbortSignal.timeout(10000)
+              signal: AbortSignal.timeout(8000)
             });
 
             const contentType = response.headers.get('content-type');
@@ -129,7 +161,7 @@ router.get('/exercises/search', async (req, res) => {
                 const data = JSON.parse(textData);
                 const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : []);
                 
-                if (rawData.length > 0 || !name) { 
+                if (rawData.length > 0 || (!name && Array.isArray(rawData))) { 
                   const normalizedData = rawData.map((item: any) => ({
                     exerciseId: item.exerciseId || item.id || `ex-${Math.random().toString(36).substr(2, 9)}`,
                     name: item.name,
@@ -144,7 +176,7 @@ router.get('/exercises/search', async (req, res) => {
                   finalData = {
                     success: true,
                     data: normalizedData,
-                    meta: data.meta || { hasNextPage: normalizedData.length >= (parseInt(limit as string) || 20), nextCursor: null }
+                    meta: data.meta || { hasNextPage: normalizedData.length >= limitNum, nextCursor: null }
                   };
                   break;
                 }
@@ -163,6 +195,49 @@ router.get('/exercises/search', async (req, res) => {
       } catch (e: any) {
         lastError = e;
         console.warn(`Mirror ${base} failed entirely:`, e.message);
+      }
+    }
+
+    // MEGA FALLBACK: Local Filtering of GitHub Dump
+    if (!finalData) {
+      console.log("All mirrors failed. Using Mega Fallback (GitHub Dump)...");
+      const allExercises = await getFullDbFromGithub();
+      if (allExercises && allExercises.length > 0) {
+        let filtered = allExercises;
+        if (name) {
+          const searchLower = (name as string).toLowerCase();
+          filtered = allExercises.filter(ex => 
+            ex.name?.toLowerCase().includes(searchLower) || 
+            ex.bodyPart?.toLowerCase().includes(searchLower) ||
+            ex.target?.toLowerCase().includes(searchLower) ||
+            ex.equipment?.toLowerCase().includes(searchLower) ||
+            (Array.isArray(ex.bodyParts) && ex.bodyParts.some((p: string) => p.toLowerCase().includes(searchLower)))
+          );
+        }
+
+        // Handle pagination locally
+        const startIndex = cursor ? parseInt(cursor as string) : 0;
+        const pageData = filtered.slice(startIndex, startIndex + limitNum);
+        
+        const normalizedData = pageData.map((item: any) => ({
+          exerciseId: item.id || item.exerciseId || `ex-${Math.random().toString(36).substr(2, 9)}`,
+          name: item.name,
+          gifUrl: item.gifUrl,
+          bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
+          equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
+          targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
+          secondaryMuscles: item.secondaryMuscles || [],
+          instructions: item.instructions || []
+        }));
+
+        finalData = {
+          success: true,
+          data: normalizedData,
+          meta: { 
+            hasNextPage: startIndex + limitNum < filtered.length, 
+            nextCursor: (startIndex + limitNum < filtered.length) ? (startIndex + limitNum).toString() : null 
+          }
+        };
       }
     }
 

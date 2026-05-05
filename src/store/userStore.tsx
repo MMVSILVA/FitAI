@@ -71,7 +71,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         })
           .then(r => r.json())
-          .then(data => setIsAdmin(data.isAdmin))
+          .then(data => {
+            setIsAdmin(data.isAdmin);
+            if (data.isAdmin) {
+              setRoleState('admin' as UserRole);
+              setPlanType('PROFISSIONAL');
+            }
+          })
           .catch(() => setIsAdmin(false));
       });
     } else {

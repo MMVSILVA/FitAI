@@ -67,7 +67,7 @@ export const ExerciseImage: React.FC<ExerciseImageProps> = ({ src, alt, classNam
   return (
     <div className={`relative bg-zinc-900 overflow-hidden flex items-center justify-center ${className}`}>
       <AnimatePresence mode="wait">
-        {loading && !error && (
+        {loading && !error ? (
           <motion.div 
             key="loader"
             initial={{ opacity: 0 }}
@@ -77,13 +77,12 @@ export const ExerciseImage: React.FC<ExerciseImageProps> = ({ src, alt, classNam
           >
             <Loader2 className="w-6 h-6 text-purple-500 animate-spin opacity-50" />
           </motion.div>
-        )}
-
-        {error ? (
+        ) : error ? (
           <motion.div 
             key="error"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="flex flex-col items-center justify-center gap-2 text-gray-700 px-4 text-center"
           >
             <ImageOff className="w-8 h-8 opacity-20" />
@@ -92,30 +91,25 @@ export const ExerciseImage: React.FC<ExerciseImageProps> = ({ src, alt, classNam
             </span>
           </motion.div>
         ) : (
-          <motion.img
-            key={imageUrl}
-            src={imageUrl}
-            alt={alt}
-            className={`w-full h-full object-cover transition-all duration-700 ${loading ? 'scale-110 blur-sm opacity-0' : 'scale-100 blur-0 opacity-100'}`}
-            onLoad={() => setLoading(false)}
-            onError={() => {
-              if (fallbackMode) {
+          <motion.div key="image-container" className="relative w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <img
+              src={imageUrl}
+              alt={alt}
+              className="w-full h-full object-cover transition-all duration-700 scale-100 blur-0 opacity-100"
+              onLoad={() => setLoading(false)}
+              onError={() => {
                 setError(true);
                 setLoading(false);
-              } else {
-                // Secondary error will trigger Fallback Effect
-                setError(true);
-                setLoading(false);
-              }
-            }}
-            referrerPolicy="no-referrer"
-            loading="lazy"
-          />
-        )}
-        {fallbackMode && !loading && !error && (
-          <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-bold text-white/60 uppercase tracking-widest">
-            Unsplash Fallback
-          </div>
+              }}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+            />
+            {fallbackMode && (
+              <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-bold text-white/60 uppercase tracking-widest">
+                Unsplash Fallback
+              </div>
+            )}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

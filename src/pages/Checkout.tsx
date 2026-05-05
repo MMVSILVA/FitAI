@@ -6,7 +6,8 @@ import { CheckCircle2, CreditCard, ShieldCheck, ArrowLeft, ExternalLink, Refresh
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
-  const plan = searchParams.get('plan') as 'PRO' | 'PREMIUM' | 'PROFISSIONAL' || 'PRO';
+  const rawPlan = searchParams.get('plan') || 'PRO';
+  const plan = rawPlan.toUpperCase() as 'PRO' | 'PREMIUM' | 'PROFISSIONAL';
   const navigate = useNavigate();
   const { user, upgradePlan } = useUser();
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,7 @@ export default function Checkout() {
     'PREMIUM': '59,90',
     'PROFISSIONAL': '149,90'
   };
-  const price = priceMap[plan as 'PRO' | 'PREMIUM' | 'PROFISSIONAL'];
+  const price = priceMap[plan] || priceMap['PRO'];
 
   // Links reais de pagamento do Stripe - NUNCA use URLs de teste fixas em produção
   const stripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO;
@@ -37,62 +38,11 @@ export default function Checkout() {
   };
 
   const handleCheckout = async () => {
-    setLoading(true);
-    setError(null);
-    const origin = window.location.origin;
-    
-    const timer = setTimeout(() => {
-      setLoading(false);
-      setError("O redirecionamento está demorando. Tente o link manual abaixo.");
-    }, 8000);
-
-    const apiPath = '/api/create-checkout-session';
-    console.log(`Intentando conectar com: ${window.location.origin}${apiPath}`);
-    
-    try {
-      const response = await fetch(apiPath, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan,
-          userId: user?.uid,
-          userEmail: user?.email
-        }),
-      });
-
-      clearTimeout(timer);
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.url) {
-          try {
-            const win = window.open(data.url, '_blank');
-            if (!win) {
-               throw new Error("Popup blocked");
-            }
-          } catch (e) {
-            window.location.href = data.url;
-          }
-          return;
-        }
-      } else {
-        const text = await response.text();
-        let errorMsg = "Erro ao criar sessão";
-        try {
-          const errorData = JSON.parse(text);
-          errorMsg = errorData.error || errorMsg;
-        } catch (e) {
-          errorMsg = `Erro do servidor (${response.status}): ${text.substring(0, 100)}`;
-        }
-        throw new Error(errorMsg);
-      }
-      throw new Error("A resposta do servidor não continha uma URL");
-    } catch (err: any) {
-      clearTimeout(timer);
-      console.error("Erro no pagamento:", err);
-      setError(err.message || "Não conseguimos gerar o pagamento automático. Use o botão abaixo.");
-    } finally {
-      setLoading(false);
+    const link = getManualLink();
+    if (link) {
+      window.location.href = link;
+    } else {
+      setError("Link de pagamento não configurado.");
     }
   };
 
@@ -161,43 +111,34 @@ export default function Checkout() {
             <ShieldCheck className="w-10 h-10 text-green-500" />
           </div>
 
-          <h3 className="text-2xl font-bold mb-4">Pagamento Seguro</h3>
+          <h3 className="text-2xl font-bold mb-4 text-black dark:text-white">Pagamento Seguro</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">
             Você será redirecionado para o ambiente criptografado do Stripe para concluir sua assinatura de forma 100% segura.
           </p>
 
           <div className="w-full space-y-4">
-            <button 
-              onClick={handleCheckout}
-              disabled={loading}
-              className="w-full bg-green-600 dark:bg-green-500 text-white dark:text-black p-4 rounded-xl font-bold text-lg hover:after:bg-green-500 dark:hover:bg-green-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            <a 
+              href={getManualLink() || '#'}
+              onClick={(e) => {
+                if (!getManualLink()) {
+                  e.preventDefault();
+                  setError("Configuração pendente: Link de pagamento não encontrado.");
+                }
+              }}
+              className={`w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-xl transition-all shadow-xl ${
+                getManualLink() 
+                ? 'bg-[#00D1FF] hover:bg-[#00B8E6] text-black shadow-[#00D1FF]/20 active:scale-[0.98]' 
+                : 'bg-gray-200 dark:bg-white/5 text-gray-400 cursor-not-allowed'
+              }`}
             >
-              {loading ? (
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                  <RefreshCw className="w-6 h-6" />
-                </motion.div>
-              ) : (
-                <>
-                  Ir para o Pagamento <ExternalLink className="w-5 h-5" />
-                </>
-              )}
-            </button>
+              Ir para o Pagamento
+              <ExternalLink className="w-6 h-6" />
+            </a>
 
-            {error && getManualLink() && (
-              <div className="space-y-3">
-                <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>
-                <a 
-                  href={getManualLink()!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full bg-gray-200 dark:bg-white/10 text-black dark:text-white p-4 rounded-xl font-bold text-sm hover:bg-gray-300 dark:hover:bg-white/20 transition-colors"
-                >
-                  Ir para Pagamento Direto
-                </a>
-              </div>
-            )}
-            {error && !getManualLink() && (
-               <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>
+            {error && (
+              <p className="text-red-500 font-bold text-sm bg-red-500/10 p-3 rounded-xl border border-red-500/20">
+                {error}
+              </p>
             )}
           </div>
           

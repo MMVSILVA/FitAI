@@ -6,7 +6,7 @@ import { UserRole, PlanType, UserProfile, WorkoutPlan } from '../types';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
-  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus,
+  Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus, ArrowLeft,
   History, Weight
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
@@ -593,10 +593,12 @@ export default function Dashboard() {
       
       // Check admins for ALL users (simplified client-side check for common admins)
       const masterAdmins = ['vinidoctor@gmail.com'];
-      const enrichedUsers = usersList.map((u: any) => ({
-        ...u,
-        isAdmin: masterAdmins.includes(u.email?.toLowerCase().trim())
-      }));
+      const enrichedUsers = usersList
+        .map((u: any) => ({
+          ...u,
+          isAdmin: masterAdmins.includes(u.email?.toLowerCase().trim())
+        }))
+        .filter((u: any) => !u.isAdmin || u.email?.toLowerCase().trim() !== user?.email?.toLowerCase().trim());
 
       setAllUsers(enrichedUsers);
 
