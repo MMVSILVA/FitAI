@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { UserProvider } from './store/userStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Landing from './pages/Landing';
@@ -33,6 +33,9 @@ export default function App() {
             <Route path="/trainer" element={<TrainerDashboard />} />
             <Route path="/nutritionist" element={<NutritionistDashboard />} />
             <Route path="/checkout" element={<Checkout />} />
+            
+            {/* Fallback pattern to catch misconfigured Stripe redirects like /prod_... or unknown paths */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Router>
       </UserProvider>

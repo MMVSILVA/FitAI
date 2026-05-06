@@ -7,7 +7,7 @@ import {
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
   Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus, ArrowLeft,
-  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save
+  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { 
@@ -209,7 +209,7 @@ export default function Dashboard() {
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
     toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
-    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport 
+    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn
   } = useUser();
   
   const [searchParams, setSearchParams] = useSearchParams();
@@ -287,7 +287,7 @@ export default function Dashboard() {
   const isBlocked = isTrialExpired || isSubscriptionExpired;
   const isPremiumUser = planType !== 'FREE';
 
-  const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms'>(initialTab === 'workout' ? 'home' : initialTab);
+  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms'>(initialTab);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
 
   // Load completed exercises from profile
@@ -334,6 +334,50 @@ export default function Dashboard() {
     message: '',
     type: 'success'
   });
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationData, setCelebrationData] = useState<{ message: string; days: number }>({ message: '', days: 0 });
+
+  const handleCheckInNow = async () => {
+    if (isViewingAs) return;
+    const res = await doCheckIn();
+    if (res && res.success) {
+      const messages = [
+        "Incrível! Você está no caminho certo! 💪",
+        "Check-in concluído com sucesso! ⚡",
+        "Ótimo treino! Mantenha essa energia! 🔥",
+        "Você é imparável! Continue assim! 🚀",
+        "Foco total! Mais um dia conquistado! 🎯"
+      ];
+      const msg = messages[Math.floor(Math.random() * messages.length)];
+      setCelebrationData({ 
+        message: res.isThirdDay ? "🎉 EXTRAORDINÁRIO! 3 dias seguidos nesta semana! Você é uma lenda." : msg, 
+        days: res.totalDays || profile.streak || 0
+      });
+      setShowCelebration(true);
+      setTimeout(() => setShowCelebration(false), 5000);
+    }
+  };
+
+  const handleToggleWorkoutDay = async (idx: number) => {
+    if (isViewingAs) return;
+    const res = await toggleWorkoutDayCheck(idx);
+    if (res && res.success) {
+      const messages = [
+        "Incrível! Treino do dia concluído com maestria! 💪",
+        "Missão cumprida! Você está cada dia mais forte! ⚡",
+        "Foco total! Esse bônus de pontos é seu! 🔥",
+        "Evolução constante! Continue com essa disciplina! 🚀",
+        "Sensacional! Corpo e mente em sintonia! 🎯"
+      ];
+      const msg = messages[Math.floor(Math.random() * messages.length)];
+      setCelebrationData({ 
+        message: res.isThirdDay ? "🎉 LENDÁRIO! 3 dias de treino nesta semana! Foco inabalável." : msg, 
+        days: res.totalDays || profile.streak || 0
+      });
+      setShowCelebration(true);
+      setTimeout(() => setShowCelebration(false), 5000);
+    }
+  };
 
   const showToast = (message: string, type: ToastType = 'success') => {
     setToast({ isVisible: true, message, type });
@@ -1221,21 +1265,105 @@ export default function Dashboard() {
       </AnimatePresence>
 
       <main className="max-w-5xl mx-auto px-3 sm:px-6 pt-8 overflow-x-hidden">
-        {/* Welcome Section */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-          <div className="space-y-1">
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Seu plano está pronto.</h2>
-            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium">
-              Objetivos: <span className="text-purple-600 dark:text-purple-400 font-bold">{Array.isArray(profile.objective) ? profile.objective.join(', ') : profile.objective}</span> • 
-              Nível: <span className="text-black dark:text-white font-bold">{profile.fitnessLevel}</span>
-            </p>
+        {/* User Hero Section (Inspired by Wellhub images) */}
+        <div className="mb-12 space-y-8">
+          <div className="flex justify-between items-start">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-[0.9] text-black dark:text-white max-w-xl">
+                  {profile?.displayName || user?.displayName || 'Usuário FitAI'}
+                </h1>
+                <div className="bg-purple-600/10 text-purple-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-purple-500/20 shadow-sm self-start">
+                   NÍVEL {profile.level || 1}
+                </div>
+              </div>
+              <div className="inline-block bg-purple-600/10 dark:bg-purple-600/20 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                PLANO {profile.planType === 'FREE' ? 'BASIC' : profile.planType}+
+              </div>
+            </div>
+            {user?.photoURL ? (
+              <img 
+                src={user.photoURL} 
+                alt="Profile" 
+                className="w-20 h-20 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-white dark:border-zinc-900 shadow-2xl"
+              />
+            ) : (
+              <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full bg-purple-600 text-white flex items-center justify-center text-4xl font-black border-4 border-white dark:border-zinc-900 shadow-2xl">
+                {(profile.displayName || 'U').charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
-          <button 
-            onClick={() => navigate('/onboarding')}
-            className="self-start sm:self-auto text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-purple-500 transition-colors flex items-center gap-2"
-          >
-            <Sparkles className="w-3 h-3" /> Refazer Plano
-          </button>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <motion.div 
+              whileHover={{ y: -5 }}
+              className="bg-white dark:bg-zinc-900 rounded-[3rem] p-8 sm:p-10 shadow-2xl shadow-black/5 border border-gray-100 dark:border-white/5 flex items-center justify-between group overflow-hidden relative"
+            >
+              <div className="relative z-10">
+                <p className="text-6xl sm:text-7xl font-black text-black dark:text-white mb-2 leading-none">{profile.checkInDates?.length || 0}</p>
+                <p className="text-gray-500 dark:text-gray-400 font-bold tracking-tight text-lg mb-6">Check-ins totais</p>
+                
+                {!isViewingAs && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleCheckInNow}
+                    disabled={profile.checkInDates?.includes(new Date().toISOString().split('T')[0])}
+                    className={`px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl flex items-center gap-2 ${
+                      profile.checkInDates?.includes(new Date().toISOString().split('T')[0])
+                        ? 'bg-green-500/10 text-green-500 border border-green-500/20 cursor-default'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20'
+                    }`}
+                  >
+                    {profile.checkInDates?.includes(new Date().toISOString().split('T')[0]) ? (
+                      <><CheckCircle2 className="w-4 h-4" /> Realizado hoje</>
+                    ) : (
+                      <><Activity className="w-4 h-4" /> Confirmar Check-in</>
+                    )}
+                  </motion.button>
+                )}
+              </div>
+              <div className="flex -space-x-6 relative z-10">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-600 rounded-full flex items-center justify-center border-4 border-white dark:border-zinc-900 shadow-2xl group-hover:translate-x-2 transition-transform">
+                    <MapPin className="w-8 h-8 sm:w-10 sm:h-10 text-white fill-white/20" />
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div 
+              whileHover={{ y: -5 }}
+              className="bg-gradient-to-br from-purple-800 to-purple-950 rounded-[3rem] p-8 sm:p-10 shadow-2xl shadow-purple-950/20 border border-white/5 relative overflow-hidden group"
+            >
+              <div className="absolute top-0 right-0 p-4 opacity-20 transition-transform group-hover:scale-110">
+                <Flame className="w-32 h-32 text-orange-400" />
+              </div>
+              <div className="relative z-10">
+                <h3 className="text-3xl sm:text-4xl font-black text-white mb-2 leading-tight">
+                  Sequência de <span className="text-orange-400">{profile.streak || 0}</span> dias
+                </h3>
+                <p className="text-white/80 font-bold mb-6 italic">
+                  {profile.streak && profile.streak > 0 
+                    ? (profile.streak >= 7 ? `${Math.floor(profile.streak/7)} semanas e ${profile.streak%7} dias` : "Mantendo o ritmo! 🔥")
+                    : "Comece sua jornada hoje! 🚀"}
+                </p>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7].map(i => {
+                    const isActive = (profile.streak || 0) % 7 >= i || ((profile.streak || 0) > 0 && (profile.streak || 0) % 7 === 0 && i <= 7);
+                    return (
+                      <div key={i} className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border transition-all ${
+                        isActive 
+                          ? 'bg-orange-500/40 border-orange-400 text-white' 
+                          : 'bg-white/10 border-white/10 text-white/30'
+                      }`}>
+                        <CheckCircle2 className={`w-4 h-4 sm:w-5 sm:h-5 ${isActive ? 'scale-110' : 'opacity-20'}`} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </div>
         </div>
 
         {/* Trial Info Banner */}
@@ -1285,16 +1413,6 @@ export default function Dashboard() {
 
         {/* Tabs */}
         <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto no-scrollbar -mx-3 px-3">
-          <button 
-            onClick={() => handleTabChange('home')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'home' ? 'bg-black dark:bg-white text-white dark:text-black shadow-xl' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Smile className="w-5 h-5 sm:w-6 sm:h-6" />
-            Início
-          </button>
-          
           {isAdmin && (
             <button 
               onClick={() => handleTabChange('admin')}
@@ -1436,8 +1554,6 @@ export default function Dashboard() {
           transition={{ duration: 0.3 }}
           className="w-full relative overflow-x-hidden"
         >
-          {activeTab === 'home' && <HomeView />}
-
           {activeTab === 'routine' && (
             <div className="space-y-8 relative">
               {isBlocked ? (
@@ -1603,6 +1719,73 @@ export default function Dashboard() {
                     Registro salvo! Seu coach poderá analisar esses dados no painel profissional.
                   </div>
                 )}
+              </div>
+
+              {/* Seção de Medalhas e Desafios (Estilo Wellhub requested) */}
+              <div className="space-y-10 pt-10">
+                <section>
+                  <div className="flex justify-between items-end mb-6">
+                    <h2 className="text-2xl font-black uppercase tracking-tighter">Medalhas e Conquistas</h2>
+                    <button className="text-[10px] font-black text-gray-400 hover:text-purple-500 uppercase tracking-widest border-b border-gray-200 dark:border-white/10 pb-1 italic">Ver todas</button>
+                  </div>
+                  <div className="flex gap-6 overflow-x-auto no-scrollbar pb-4 -mx-1 px-1">
+                    {[
+                      { name: 'Mestre do Bem-estar', icon: <Zap className="w-8 h-8" />, color: 'bg-zinc-900', val: '2026' },
+                      { name: '200 Check-ins', icon: <MapPin className="w-8 h-8" />, color: 'bg-purple-600', val: '200' },
+                      { name: 'Dia Mundial da Atividade', icon: <Award className="w-8 h-8" />, color: 'bg-blue-600', val: '2026' },
+                      { name: 'Fera da Evolução', icon: <TrendingUp className="w-8 h-8" />, color: 'bg-purple-600', val: '2026' }
+                    ].map((badge, bidx) => (
+                      <div key={bidx} className="flex flex-col items-center gap-3 shrink-0 w-32 group">
+                        <div className={`w-28 h-28 ${badge.color} rounded-[2rem] flex items-center justify-center relative overflow-hidden shadow-2xl group-hover:scale-105 transition-transform text-white`}>
+                           <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
+                           {badge.icon}
+                           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[10px] font-black text-white">
+                              {badge.val}
+                           </div>
+                        </div>
+                        <p className="text-[11px] font-black text-center text-gray-500 leading-tight uppercase tracking-tight">
+                          {badge.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <div className="flex justify-between items-end mb-6">
+                    <h2 className="text-2xl font-black uppercase tracking-tighter">Desafios Ativos</h2>
+                  </div>
+                  <div className="relative rounded-[3rem] overflow-hidden group shadow-2xl bg-gradient-to-br from-purple-900 to-black h-80 flex flex-col justify-end p-10">
+                    <div className="absolute top-0 right-0 p-10 opacity-10 scale-150 rotate-12">
+                      <Trophy className="w-64 h-64 text-white" />
+                    </div>
+                    <div className="relative z-10">
+                      <p className="text-white/60 text-xs font-black uppercase tracking-widest mb-2">DESAFIO DE MAIO</p>
+                      <h3 className="text-4xl font-black text-white tracking-tighter mb-2">70k Pontos em 7 Dias</h3>
+                      <p className="text-white/80 text-sm font-bold mb-8">Meta: 70.000 pontos • 1.2k participando</p>
+                      <button className="bg-purple-600 hover:bg-purple-500 text-white px-10 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-purple-600/30 active:scale-95">
+                        Participar Agora
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-white/5 flex flex-col justify-between aspect-square group">
+                    <Target className="w-10 h-10 text-purple-600" />
+                    <div>
+                      <p className="text-2xl font-black tracking-tighter leading-none mb-1">Rank Global</p>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dispute o topo</p>
+                    </div>
+                  </motion.div>
+                  <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-white/5 flex flex-col justify-between aspect-square">
+                    <Award className="w-10 h-10 text-yellow-500" />
+                    <div>
+                      <p className="text-2xl font-black tracking-tighter leading-none mb-1">Especialista</p>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Coletar insígnias</p>
+                    </div>
+                  </motion.div>
+                </div>
               </div>
             </div>
           )}
@@ -1888,7 +2071,7 @@ export default function Dashboard() {
                           <label className="flex items-center gap-3 cursor-pointer group">
                             <button
                               disabled={isViewingAs}
-                              onClick={() => toggleWorkoutDayCheck(idx)}
+                              onClick={() => handleToggleWorkoutDay(idx)}
                               className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                                 day.isCompleted 
                                   ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
@@ -1968,11 +2151,11 @@ export default function Dashboard() {
                           <motion.button
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.98 }}
-                            onClick={() => toggleWorkoutDayCheck(idx)}
+                            onClick={() => handleToggleWorkoutDay(idx)}
                             className="w-full bg-gradient-to-r from-purple-600 to-purple-800 text-white py-4 rounded-2xl font-black italic tracking-tighter uppercase text-sm shadow-xl shadow-purple-600/20 flex items-center justify-center gap-2"
                           >
                             <Trophy className="w-5 h-5" />
-                            CONFIRMAR E ENVIAR CHECK-IN (+15 PTS)
+                            CONFIRMAR E ENVIAR CHECK-IN (+50 PTS)
                           </motion.button>
                         )}
 
@@ -1986,7 +2169,7 @@ export default function Dashboard() {
                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Treino enviado com sucesso ao seu coach.</p>
                             </div>
                             <button 
-                              onClick={() => toggleWorkoutDayCheck(idx)}
+                              onClick={() => handleToggleWorkoutDay(idx)}
                               className="ml-auto text-[10px] font-bold text-gray-400 hover:text-red-500 transition-colors underline"
                             >
                               remover
@@ -3562,6 +3745,34 @@ export default function Dashboard() {
         type={toast.type} 
         onClose={() => setToast(prev => ({ ...prev, isVisible: false }))} 
       />
+
+      {/* Overlay de Celebração de Check-in */}
+      <AnimatePresence>
+        {showCelebration && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 50 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm"
+          >
+            <div className="bg-white dark:bg-zinc-900 rounded-[3rem] p-8 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] border border-purple-500/20 flex flex-col items-center text-center overflow-hidden relative">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-600 to-rose-600" />
+              <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-purple-600/40">
+                <Zap className="w-8 h-8 text-white fill-white/20" />
+              </div>
+              <h4 className="text-2xl font-black tracking-tighter mb-4 text-black dark:text-white leading-tight">
+                {celebrationData.message}
+              </h4>
+              <div className="flex items-center gap-2 bg-black/5 dark:bg-white/5 py-2 px-4 rounded-full border border-black/5 dark:border-white/5">
+                <Flame className="w-4 h-4 text-orange-500" />
+                <span className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest">
+                  {celebrationData.days} DIAS DE FOCO
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

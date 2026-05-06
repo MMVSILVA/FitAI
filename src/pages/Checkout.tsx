@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../store/userStore';
-import { CheckCircle2, CreditCard, ShieldCheck, ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
+import { CheckCircle2, CreditCard, ShieldCheck, ArrowLeft, ExternalLink, RefreshCw, X } from 'lucide-react';
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
@@ -141,9 +141,17 @@ export default function Checkout() {
             </a>
 
             {error && (
-              <p className="text-red-500 font-bold text-sm bg-red-500/10 p-3 rounded-xl border border-red-500/20">
-                {error}
-              </p>
+              <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-left space-y-3">
+                <p className="text-red-500 font-black text-sm uppercase tracking-widest flex items-center gap-2">
+                  <X className="w-4 h-4" /> Erro de Configuração
+                </p>
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  O link de pagamento para o plano <span className="font-bold text-red-500">{plan}</span> não foi configurado nas Variáveis de Ambiente (Settings).
+                </p>
+                <div className="bg-black/5 dark:bg-white/5 p-3 rounded-lg text-[10px] font-mono text-gray-400 break-all">
+                  Necessário: VITE_STRIPE_LINK_{plan === 'PROFISSIONAL' ? 'PROFISSIONAL' : plan}
+                </div>
+              </div>
             )}
           </div>
           

@@ -150,11 +150,13 @@ export function Ranking() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="font-bold truncate text-lg">{leader.displayName || 'Usuário Anônimo'}</p>
+              <p className="font-black truncate text-lg tracking-tight">
+                {leader.displayName || (leader.email ? leader.email.split('@')[0] : 'Guerreiro FitAI')}
+              </p>
               <div className="flex items-center gap-3">
-                <span className="text-[10px] bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded font-black uppercase">Nível {leader.level || 1}</span>
-                {leader.streak > 1 && (
-                  <span className="text-[10px] bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded font-black uppercase">🔥 {leader.streak} semanas</span>
+                <span className="text-[10px] bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded font-black uppercase ring-1 ring-purple-500/20">Nível {leader.level || 1}</span>
+                {leader.streak > 0 && (
+                  <span className="text-[10px] bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded font-black uppercase">🔥 {leader.streak} dias</span>
                 )}
               </div>
             </div>

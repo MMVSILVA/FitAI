@@ -40,11 +40,12 @@ interface UserState {
   getExerciseProgress: (exerciseName: string) => Promise<import('../types').ExerciseProgress[]>;
   toggleMealCheck: (mealIndex: number) => Promise<void>;
   updateRealMealNotes: (mealIndex: number, notes: string) => Promise<void>;
-  toggleWorkoutDayCheck: (dayIndex: number) => Promise<void>;
+  toggleWorkoutDayCheck: (dayIndex: number) => Promise<{ success: boolean; isThirdDay?: boolean; totalDays?: number } | void>;
   updateRealWorkoutNotes: (dayIndex: number, notes: string) => Promise<void>;
   addWorkoutReport: (dayIndex: number, text: string) => Promise<void>;
   updateWorkoutReport: (dayIndex: number, reportId: string, text: string) => Promise<void>;
   deleteWorkoutReport: (dayIndex: number, reportId: string) => Promise<void>;
+  doCheckIn: () => Promise<{ success: boolean; isThirdDay?: boolean; totalDays?: number } | void>;
   setPlanTypeForUser: (targetUid: string, newPlanType: PlanType) => Promise<{ success: boolean; message: string }>;
 }
 
@@ -157,6 +158,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (docSnap.exists()) {
               const data = docSnap.data();
+              
+              // SYNC AUTH DATA: Ensure name and photo are in Firestore for ranking
+              const authUpdates: any = {};
+              if (!data.displayName && loggedUser.displayName) authUpdates.displayName = loggedUser.displayName;
+              if (!data.photoURL && loggedUser.photoURL) authUpdates.photoURL = loggedUser.photoURL;
+              if (!data.email && loggedUser.email) authUpdates.email = loggedUser.email;
+              
+              if (Object.keys(authUpdates).length > 0) {
+                updateDoc(docRef, authUpdates).catch(() => {});
+              }
+
               // Merge root data with profile sub-object for consistency
               const mergedProfile = { ...data, ...(data.profile || {}) };
               setProfileState(mergedProfile as UserProfile);
@@ -641,31 +653,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setPlanState(newPlan);
     
-    const updates: any = { plan: newPlan };
-    
-    // Gamification Logic
-    if (!wasCompleted) { // Just completed
-      const today = new Date().toISOString().split('T')[0];
-      const checkInDates = profile.checkInDates || [];
-      
-      if (!checkInDates.includes(today)) {
-        const newCheckInDates = [...checkInDates, today];
-        const newPoints = (profile.points || 0) + 15; // 15 points per daily workout
-        const newLevel = Math.floor(newPoints / 100) + 1;
-        
-        // Streak logic (basic: count consecutive days or weeks)
-        // For now, let's just count total check-ins as a proxy for engagement
-        // but we'll call it "streak" if they checked in within the last 7 days
-        
-        updates.points = newPoints;
-        updates.level = newLevel;
-        updates.checkInDates = newCheckInDates;
-        
-        setProfileState(prev => prev ? { ...prev, points: newPoints, level: newLevel, checkInDates: newCheckInDates } : null);
-      }
+    // Save plan state immediately
+    await saveToFirestore({ plan: newPlan });
+
+    // Gamification Sync
+    if (!wasCompleted) {
+      // Trigger the daily check-in logic if not already done
+      return await doCheckIn();
     }
-    
-    await saveToFirestore(updates);
   };
 
   const updateRealWorkoutNotes = async (dayIndex: number, notes: string) => {
@@ -720,6 +715,85 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await saveToFirestore({ plan: newPlan });
   };
 
+  const doCheckIn = async () => {
+    if (!profile || !user) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const checkInDates = profile.checkInDates || [];
+    const isAlreadyCheckedIn = checkInDates.includes(today);
+    
+    // If already checked in today AND streak is already set, just return current stats for UI
+    if (isAlreadyCheckedIn && (profile.streak || 0) > 0) {
+      const daysThisWeek = checkInDates.filter(d => {
+        const dDate = new Date(d);
+        const now = new Date();
+        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+        return dDate >= startOfWeek;
+      }).length;
+
+      return { 
+        success: true, 
+        isThirdDay: false, // Don't re-celebrate
+        totalDays: profile.streak || 0
+      };
+    }
+
+    const newCheckInDates = isAlreadyCheckedIn ? checkInDates : [...checkInDates, today];
+    const newPoints = isAlreadyCheckedIn ? (profile.points || 0) : (profile.points || 0) + 50; 
+    const newLevel = Math.floor(newPoints / 100) + 1;
+    
+    // Streak logic (daily consecutive)
+    let newStreak = profile.streak || 0;
+    
+    // Find the date before today in our list (excluding today if it's already there)
+    const previousDates = checkInDates.filter(d => d !== today);
+    
+    if (previousDates.length > 0) {
+      const lastCheckInStr = previousDates[previousDates.length - 1];
+      const lastDate = new Date(lastCheckInStr + 'T12:00:00');
+      const todayDate = new Date(today + 'T12:00:00');
+      
+      const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        // Continuous streak
+        newStreak = (newStreak || 1) + (isAlreadyCheckedIn ? 0 : 1);
+        if (newStreak === 0) newStreak = 1; // Fallback
+      } else {
+        // Streak broken or just starting
+        newStreak = 1;
+      }
+    } else {
+      newStreak = 1;
+    }
+
+    const updates = {
+      points: newPoints,
+      level: newLevel,
+      checkInDates: newCheckInDates,
+      streak: newStreak,
+      updatedAt: new Date().toISOString()
+    };
+
+    setProfileState(prev => prev ? { ...prev, ...updates } : null);
+    await saveToFirestore(updates);
+    
+    // Celebration triggers
+    const daysThisWeek = newCheckInDates.filter(d => {
+      const dDate = new Date(d);
+      const now = new Date();
+      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+      return dDate >= startOfWeek;
+    }).length;
+
+    return { 
+      success: true, 
+      isThirdDay: daysThisWeek % 3 === 0 && daysThisWeek > 0 && !isAlreadyCheckedIn,
+      totalDays: newStreak
+    };
+  };
+
   return (
     <UserContext.Provider value={{ 
       user, authLoading, profile, plan, planType, trialEndsAt, subscriptionEndsAt, role, 
@@ -731,7 +805,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount,
       addExerciseProgress, getExerciseProgress,
       toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
-      addWorkoutReport, updateWorkoutReport, deleteWorkoutReport
+      addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn
     }}>
       {children}
     </UserContext.Provider>

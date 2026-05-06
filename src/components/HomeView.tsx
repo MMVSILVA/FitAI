@@ -84,7 +84,7 @@ export function HomeView() {
               </button>
             </div>
             <div className="inline-block bg-gray-100 dark:bg-zinc-800 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/5">
-              Plano {profile.planType === 'FREE' ? 'Basic' : 'Premium'}+
+              Plano {profile.planType === 'FREE' ? 'Basic' : (profile.planType === 'PROFISSIONAL' ? 'Coach Pro' : 'Premium')}+
             </div>
           </div>
           <div className="flex flex-col items-end gap-3">
