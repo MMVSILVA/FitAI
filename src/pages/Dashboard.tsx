@@ -336,15 +336,18 @@ export default function Dashboard() {
   });
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState<{ message: string; days: number }>({ message: '', days: 0 });
-  const [suggestedExercise, setSuggestedExercise] = useState<{ name: string; dayIndex: number } | null>(null);
+  const [suggestedExercises, setSuggestedExercises] = useState<{ name: string; dayIndex: number }[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Sync check-ins and streaks if they are inconsistent
   useEffect(() => {
-    if (profile && profile.checkInDates?.length && (profile.streak === 0 || !profile.streak)) {
+    if (profile && profile.checkInDates?.length) {
       const today = new Date().toISOString().split('T')[0];
-      if (profile.checkInDates.includes(today)) {
-        // Automatically trigger a silent check-in to fix the streak
+      const hasCheckedInToday = profile.checkInDates.includes(today);
+      const currentStreak = profile.streak || 0;
+      
+      // If checked in today but streak is 0, something is wrong
+      if (hasCheckedInToday && currentStreak === 0) {
         doCheckIn();
       }
     }
@@ -404,22 +407,27 @@ export default function Dashboard() {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       
       const prompt = `Analyze this workout report: "${text}". 
-      If the user mentioned adding a NEW exercise to their routine that is not usually there, identify its name.
-      Return ONLY a JSON object with "exerciseName" field (or null if none found). 
-      Example: {"exerciseName": "Supino Reto"} or {"exerciseName": null}.
-      BE CONCISE.`;
+      Identify any exercises the user performed that are NOT part of a standard routine or are new additions.
+      Return a JSON array of strings containing the exercise names found. 
+      Example: ["Supino Reto", "Tríceps Roldana"]. If none found, return [].
+      BE CONCISE. ONLY THE JSON ARRAY.`;
 
       const result = await model.generateContent(prompt);
       const responseText = result.response.text();
-      const match = responseText.match(/\{.*\}/);
+      const match = responseText.match(/\[.*\]/);
       if (match) {
-        const data = JSON.parse(match[0]);
-        if (data.exerciseName) {
-          // Check if it already exists in plan
+        const detectedNames = JSON.parse(match[0]);
+        if (Array.isArray(detectedNames) && detectedNames.length > 0) {
           const currentExercises = plan?.days[idx].exercises || [];
-          const exists = currentExercises.some(e => e.name.toLowerCase().includes(data.exerciseName.toLowerCase()));
-          if (!exists) {
-            setSuggestedExercise({ name: data.exerciseName, dayIndex: idx });
+          const newSuggestions = detectedNames
+            .filter(name => {
+              const nameLower = name.toLowerCase();
+              return !currentExercises.some(e => e.name.toLowerCase().includes(nameLower) || nameLower.includes(e.name.toLowerCase()));
+            })
+            .map(name => ({ name, dayIndex: idx }));
+
+          if (newSuggestions.length > 0) {
+            setSuggestedExercises(prev => [...prev, ...newSuggestions]);
           }
         }
       }
@@ -3803,7 +3811,7 @@ export default function Dashboard() {
 
       {/* Modal de Sugestão de Exercício */}
       <AnimatePresence>
-        {suggestedExercise && (
+        {suggestedExercises.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -3818,21 +3826,22 @@ export default function Dashboard() {
               <div className="w-16 h-16 bg-purple-600/10 rounded-full flex items-center justify-center mb-6">
                 <Plus className="w-8 h-8 text-purple-600" />
               </div>
-              <h3 className="text-2xl font-black tracking-tighter mb-2 text-black dark:text-white">Detectamos um novo exercício!</h3>
+              <h3 className="text-2xl font-black tracking-tighter mb-2 text-black dark:text-white">Novos exercícios detectados!</h3>
               <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 font-medium">
-                Você mencionou <span className="text-purple-600 font-bold">"{suggestedExercise.name}"</span> no seu relato. 
-                Deseja incluir este exercício permanentemente no seu plano de treino para este dia?
+                Você mencionou <span className="text-purple-600 font-bold">"{suggestedExercises[0].name}"</span> no seu relato. 
+                Deseja incluir este treino permanentemente no seu plano para este dia?
               </p>
               <div className="flex flex-col gap-3">
                 <button
                   onClick={async () => {
-                    await addExerciseToDay(suggestedExercise.dayIndex, {
-                      name: suggestedExercise.name,
+                    const current = suggestedExercises[0];
+                    await addExerciseToDay(current.dayIndex, {
+                      name: current.name,
                       series: '3',
                       reps: '12',
                       weight: '0'
                     });
-                    setSuggestedExercise(null);
+                    setSuggestedExercises(prev => prev.slice(1));
                     showToast('Exercício adicionado ao plano!', 'success');
                   }}
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all"
@@ -3840,7 +3849,7 @@ export default function Dashboard() {
                   SIM, INCLUIR NO PLANO
                 </button>
                 <button
-                  onClick={() => setSuggestedExercise(null)}
+                  onClick={() => setSuggestedExercises(prev => prev.slice(1))}
                   className="w-full bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all"
                 >
                   NÃO, APENAS HOJE

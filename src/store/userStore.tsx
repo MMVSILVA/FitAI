@@ -718,12 +718,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addExerciseToDay = async (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string }) => {
     if (!plan) return;
-    const newPlan = { ...plan };
+    const newPlan = JSON.parse(JSON.stringify(plan)); // Deep clone
     if (!newPlan.days[dayIndex].exercises) newPlan.days[dayIndex].exercises = [];
     
     // Check if exercise already exists to avoid duplicates
-    const exists = newPlan.days[dayIndex].exercises.some(e => e.name.toLowerCase() === exercise.name.toLowerCase());
-    if (exists) return;
+    const exerciseExists = newPlan.days[dayIndex].exercises.some((e: any) => 
+      e.name.toLowerCase().trim() === exercise.name.toLowerCase().trim()
+    );
+    
+    if (exerciseExists) return;
 
     newPlan.days[dayIndex].exercises.push(exercise);
     setPlanState(newPlan);
@@ -764,16 +767,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const previousDates = checkInDates.filter(d => d !== today).sort((a,b) => b.localeCompare(a));
     
     if (previousDates.length > 0) {
-      const lastCheckInStr = previousDates[0]; // Most recent before today
+      const lastCheckInStr = previousDates[0]; 
       const lastDate = new Date(lastCheckInStr + 'T12:00:00');
       const todayDate = new Date(today + 'T12:00:00');
       
-      const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const diffTime = todayDate.getTime() - lastDate.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
       
       if (diffDays === 1) {
+        // Continuous streak
         newStreak = isAlreadyCheckedIn ? (profile.streak || 1) : (profile.streak || 0) + 1;
+      } else if (diffDays === 0) {
+        // Already checked in today logic or double-tap protection
+        newStreak = profile.streak || 1;
       } else {
+        // Streak broken
         newStreak = 1;
       }
     } else {
