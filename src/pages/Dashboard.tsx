@@ -209,7 +209,7 @@ export default function Dashboard() {
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
     toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
-    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn
+    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay
   } = useUser();
   
   const [searchParams, setSearchParams] = useSearchParams();
@@ -336,6 +336,19 @@ export default function Dashboard() {
   });
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState<{ message: string; days: number }>({ message: '', days: 0 });
+  const [suggestedExercise, setSuggestedExercise] = useState<{ name: string; dayIndex: number } | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Sync check-ins and streaks if they are inconsistent
+  useEffect(() => {
+    if (profile && profile.checkInDates?.length && (profile.streak === 0 || !profile.streak)) {
+      const today = new Date().toISOString().split('T')[0];
+      if (profile.checkInDates.includes(today)) {
+        // Automatically trigger a silent check-in to fix the streak
+        doCheckIn();
+      }
+    }
+  }, [profile?.checkInDates, profile?.streak]);
 
   const handleCheckInNow = async () => {
     if (isViewingAs) return;
@@ -376,6 +389,44 @@ export default function Dashboard() {
       });
       setShowCelebration(true);
       setTimeout(() => setShowCelebration(false), 5000);
+    }
+  };
+
+  const handleSaveReport = async (idx: number, text: string) => {
+    if (isViewingAs) return;
+    await addWorkoutReport(idx, text);
+
+    // AI Analysis to detect new exercises
+    setIsAnalyzing(true);
+    try {
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      
+      const prompt = `Analyze this workout report: "${text}". 
+      If the user mentioned adding a NEW exercise to their routine that is not usually there, identify its name.
+      Return ONLY a JSON object with "exerciseName" field (or null if none found). 
+      Example: {"exerciseName": "Supino Reto"} or {"exerciseName": null}.
+      BE CONCISE.`;
+
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      const match = responseText.match(/\{.*\}/);
+      if (match) {
+        const data = JSON.parse(match[0]);
+        if (data.exerciseName) {
+          // Check if it already exists in plan
+          const currentExercises = plan?.days[idx].exercises || [];
+          const exists = currentExercises.some(e => e.name.toLowerCase().includes(data.exerciseName.toLowerCase()));
+          if (!exists) {
+            setSuggestedExercise({ name: data.exerciseName, dayIndex: idx });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("AI Analysis error:", err);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -2100,11 +2151,15 @@ export default function Dashboard() {
                           />
                           {!isViewingAs && (
                             <button
-                              onClick={() => addWorkoutReport(idx, day.realWorkoutNotes || '')}
-                              disabled={!(day.realWorkoutNotes || '').trim()}
+                              onClick={() => handleSaveReport(idx, day.realWorkoutNotes || '')}
+                              disabled={!(day.realWorkoutNotes || '').trim() || isAnalyzing}
                               className="w-full bg-purple-600/10 hover:bg-purple-600 text-purple-600 hover:text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-purple-500/20 disabled:opacity-30"
                             >
-                              <Save className="w-4 h-4" /> SALVAR RELATO NO HISTÓRICO
+                              {isAnalyzing ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> ANALISANDO...</>
+                              ) : (
+                                <><Save className="w-4 h-4" /> SALVAR RELATO NO HISTÓRICO</>
+                              )}
                             </button>
                           )}
                         </div>
@@ -3745,6 +3800,56 @@ export default function Dashboard() {
         type={toast.type} 
         onClose={() => setToast(prev => ({ ...prev, isVisible: false }))} 
       />
+
+      {/* Modal de Sugestão de Exercício */}
+      <AnimatePresence>
+        {suggestedExercise && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-purple-500/20"
+            >
+              <div className="w-16 h-16 bg-purple-600/10 rounded-full flex items-center justify-center mb-6">
+                <Plus className="w-8 h-8 text-purple-600" />
+              </div>
+              <h3 className="text-2xl font-black tracking-tighter mb-2 text-black dark:text-white">Detectamos um novo exercício!</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 font-medium">
+                Você mencionou <span className="text-purple-600 font-bold">"{suggestedExercise.name}"</span> no seu relato. 
+                Deseja incluir este exercício permanentemente no seu plano de treino para este dia?
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={async () => {
+                    await addExerciseToDay(suggestedExercise.dayIndex, {
+                      name: suggestedExercise.name,
+                      series: '3',
+                      reps: '12',
+                      weight: '0'
+                    });
+                    setSuggestedExercise(null);
+                    showToast('Exercício adicionado ao plano!', 'success');
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all"
+                >
+                  SIM, INCLUIR NO PLANO
+                </button>
+                <button
+                  onClick={() => setSuggestedExercise(null)}
+                  className="w-full bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all"
+                >
+                  NÃO, APENAS HOJE
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Overlay de Celebração de Check-in */}
       <AnimatePresence>

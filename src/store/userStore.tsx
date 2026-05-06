@@ -47,6 +47,7 @@ interface UserState {
   deleteWorkoutReport: (dayIndex: number, reportId: string) => Promise<void>;
   doCheckIn: () => Promise<{ success: boolean; isThirdDay?: boolean; totalDays?: number } | void>;
   setPlanTypeForUser: (targetUid: string, newPlanType: PlanType) => Promise<{ success: boolean; message: string }>;
+  addExerciseToDay: (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string }) => Promise<void>;
 }
 
 const UserContext = createContext<UserState | undefined>(undefined);
@@ -715,6 +716,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await saveToFirestore({ plan: newPlan });
   };
 
+  const addExerciseToDay = async (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string }) => {
+    if (!plan) return;
+    const newPlan = { ...plan };
+    if (!newPlan.days[dayIndex].exercises) newPlan.days[dayIndex].exercises = [];
+    
+    // Check if exercise already exists to avoid duplicates
+    const exists = newPlan.days[dayIndex].exercises.some(e => e.name.toLowerCase() === exercise.name.toLowerCase());
+    if (exists) return;
+
+    newPlan.days[dayIndex].exercises.push(exercise);
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
   const doCheckIn = async () => {
     if (!profile || !user) return;
     
@@ -733,7 +748,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { 
         success: true, 
-        isThirdDay: false, // Don't re-celebrate
+        isThirdDay: false, 
         totalDays: profile.streak || 0
       };
     }
@@ -746,25 +761,27 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let newStreak = profile.streak || 0;
     
     // Find the date before today in our list (excluding today if it's already there)
-    const previousDates = checkInDates.filter(d => d !== today);
+    const previousDates = checkInDates.filter(d => d !== today).sort((a,b) => b.localeCompare(a));
     
     if (previousDates.length > 0) {
-      const lastCheckInStr = previousDates[previousDates.length - 1];
+      const lastCheckInStr = previousDates[0]; // Most recent before today
       const lastDate = new Date(lastCheckInStr + 'T12:00:00');
       const todayDate = new Date(today + 'T12:00:00');
       
       const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
       if (diffDays === 1) {
-        // Continuous streak
-        newStreak = (newStreak || 1) + (isAlreadyCheckedIn ? 0 : 1);
-        if (newStreak === 0) newStreak = 1; // Fallback
+        newStreak = isAlreadyCheckedIn ? (profile.streak || 1) : (profile.streak || 0) + 1;
       } else {
-        // Streak broken or just starting
         newStreak = 1;
       }
     } else {
+      newStreak = 1;
+    }
+
+    // Ensure streak is at least 1 if we have a check-in today
+    if (newStreak === 0 && newCheckInDates.includes(today)) {
       newStreak = 1;
     }
 
