@@ -39,6 +39,7 @@ export interface UserProfile {
   streak?: number;
   checkInDates?: string[];
   badges?: string[];
+  joinedChallenges?: string[];
   // Professional fields
   bio?: string;
   specialty?: string;
@@ -77,6 +78,7 @@ export interface WorkoutDay {
   focus: string;
   exercises: Exercise[];
   realWorkoutNotes?: string;
+  workoutReports?: { id: string; text: string; date: string }[];
   isCompleted?: boolean;
 }
 

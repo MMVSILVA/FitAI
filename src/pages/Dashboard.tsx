@@ -7,7 +7,7 @@ import {
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
   Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus, ArrowLeft,
-  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare
+  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { 
@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { APP_VERSION } from '../constants';
 import { Logo } from '../components/Logo';
+import { HomeView } from '../components/HomeView';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
 import { ProgressComparison } from '../components/ProgressComparison';
 import { Toast, ToastType } from '../components/Toast';
@@ -207,7 +208,8 @@ export default function Dashboard() {
   const { 
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
-    toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes 
+    toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
+    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport 
   } = useUser();
   
   const [searchParams, setSearchParams] = useSearchParams();
@@ -285,7 +287,7 @@ export default function Dashboard() {
   const isBlocked = isTrialExpired || isSubscriptionExpired;
   const isPremiumUser = planType !== 'FREE';
 
-  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'home' | 'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms'>(initialTab === 'workout' ? 'home' : initialTab);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
 
   // Load completed exercises from profile
@@ -1283,6 +1285,16 @@ export default function Dashboard() {
 
         {/* Tabs */}
         <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto no-scrollbar -mx-3 px-3">
+          <button 
+            onClick={() => handleTabChange('home')}
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+              activeTab === 'home' ? 'bg-black dark:bg-white text-white dark:text-black shadow-xl' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <Smile className="w-5 h-5 sm:w-6 sm:h-6" />
+            Início
+          </button>
+          
           {isAdmin && (
             <button 
               onClick={() => handleTabChange('admin')}
@@ -1424,6 +1436,8 @@ export default function Dashboard() {
           transition={{ duration: 0.3 }}
           className="w-full relative overflow-x-hidden"
         >
+          {activeTab === 'home' && <HomeView />}
+
           {activeTab === 'routine' && (
             <div className="space-y-8 relative">
               {isBlocked ? (
@@ -1892,7 +1906,7 @@ export default function Dashboard() {
                         
                         <div className="space-y-4">
                           <p className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                            <Sparkles className="w-3 h-3" /> Relato do Treino Real
+                            <Sparkles className="w-3 h-3" /> Novo Relato de Treino
                           </p>
                           <textarea 
                             readOnly={isViewingAs}
@@ -1901,7 +1915,54 @@ export default function Dashboard() {
                             placeholder="Descreva se mudou algum exercício, como se sentiu, se a carga estava pesada..."
                             className="w-full bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-2xl p-4 text-sm text-black dark:text-white focus:border-purple-500 outline-none h-28 transition-all shadow-inner"
                           />
+                          {!isViewingAs && (
+                            <button
+                              onClick={() => addWorkoutReport(idx, day.realWorkoutNotes || '')}
+                              disabled={!(day.realWorkoutNotes || '').trim()}
+                              className="w-full bg-purple-600/10 hover:bg-purple-600 text-purple-600 hover:text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-purple-500/20 disabled:opacity-30"
+                            >
+                              <Save className="w-4 h-4" /> SALVAR RELATO NO HISTÓRICO
+                            </button>
+                          )}
                         </div>
+
+                        {/* Relatos Incorporados */}
+                        {day.workoutReports && day.workoutReports.length > 0 && (
+                          <div className="space-y-3 mt-6">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Relatos Salvos</p>
+                            {day.workoutReports.map((report) => (
+                              <div key={report.id} className="bg-gray-50 dark:bg-zinc-900/40 border border-gray-200 dark:border-white/5 p-4 rounded-2xl group/report">
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="text-[9px] font-black text-purple-500 uppercase tracking-tighter">
+                                    {new Date(report.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                  {!isViewingAs && (
+                                    <div className="flex gap-2 opacity-0 group-hover/report:opacity-100 transition-opacity">
+                                      <button 
+                                        onClick={() => {
+                                          const newText = prompt('Editar relato:', report.text);
+                                          if (newText !== null) updateWorkoutReport(idx, report.id, newText);
+                                        }}
+                                        className="text-[9px] font-bold text-gray-500 hover:text-purple-500 uppercase"
+                                      >
+                                        editar
+                                      </button>
+                                      <button 
+                                        onClick={() => {
+                                          if (confirm('Deletar este relato?')) deleteWorkoutReport(idx, report.id);
+                                        }}
+                                        className="text-[9px] font-bold text-gray-500 hover:text-red-500 uppercase"
+                                      >
+                                        deletar
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 italic">"{report.text}"</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
                         {!day.isCompleted && (
                           <motion.button

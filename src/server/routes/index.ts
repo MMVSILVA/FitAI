@@ -43,18 +43,29 @@ async function getFullDbFromGithub() {
 
   try {
     console.log("Fetching full exercise database from GitHub source...");
-    const response = await fetch('https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json', {
-      signal: AbortSignal.timeout(15000)
-    });
-    if (response.ok) {
-      const data = await response.json();
-      fullExerciseDb = Array.isArray(data) ? data : [];
-      lastDbFetch = Date.now();
-      console.log(`Successfully cached ${fullExerciseDb.length} exercises from GitHub.`);
-      return fullExerciseDb;
+    const urls = [
+      'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json',
+      'https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/dist/exercises.json'
+    ];
+
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(15000)
+        });
+        if (response.ok) {
+          const data = await response.json();
+          fullExerciseDb = Array.isArray(data) ? data : [];
+          lastDbFetch = Date.now();
+          console.log(`Successfully cached ${fullExerciseDb.length} exercises from ${url}.`);
+          return fullExerciseDb;
+        }
+      } catch (innerErr) {
+        console.warn(`Failed to fetch from ${url}:`, innerErr);
+      }
     }
   } catch (e) {
-    console.error("Failed to fetch full DB from GitHub:", e);
+    console.error("Failed to fetch full DB from GitHub mirrors:", e);
   }
   return fullExerciseDb || [];
 }
@@ -113,11 +124,11 @@ router.get('/exercises/search', async (req, res) => {
     }
 
     const mirrors = [
-      'https://v1.exercisedb.io/api/v1/exercises',
-      'https://db.exercisedb.io/api/v1/exercises',
-      'https://v2.exercisedb.io/api/v1/exercises',
       'https://oss.exercisedb.dev/api/v1/exercises',
-      'https://exercisedblist.vercel.app/api/v1/exercises'
+      'https://exercisedblist.vercel.app/api/v1/exercises',
+      'https://db.exercisedb.io/api/v1/exercises',
+      'https://v1.exercisedb.io/api/v1/exercises',
+      'https://v2.exercisedb.io/api/v1/exercises'
     ];
 
     let finalData = null;

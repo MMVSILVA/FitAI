@@ -48,7 +48,22 @@ export function GymLocator() {
 
     setLoading(true);
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressQuery)}&limit=1`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressQuery)}&limit=1`, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'FitAI-App/1.0'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Nominatim error: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Nominatim returned non-json response');
+      }
+
       const data = await response.json();
 
       if (data && data.length > 0) {
@@ -82,6 +97,16 @@ export function GymLocator() {
         out center;
       `;
       const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+      
+      if (!response.ok) {
+        throw new Error(`Overpass API error: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Overpass API returned non-json response');
+      }
+
       const data = await response.json();
       setGyms(data.elements || []);
     } catch (err) {

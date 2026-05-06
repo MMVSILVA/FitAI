@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../store/userStore';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, getDoc, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs, doc, updateDoc, arrayUnion, getDoc, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
 import { 
   Users, LayoutDashboard, MessageCircle, Settings, Plus, Search, 
   ChevronRight, ChevronLeft, UserPlus, Save, Loader2, X, Dumbbell, Activity, Send 
@@ -224,7 +224,17 @@ export default function TrainerDashboard() {
           where('linkedTrainerId', '==', user.uid)
         );
         const snap = await getDocs(q);
-        const clientsData = snap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile));
+        let clientsData = snap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile));
+        
+        // Auto-include vinidoctor@gmail.com if not present
+        if (!clientsData.some(c => c.email === 'vinidoctor@gmail.com')) {
+          const adminQ = query(collection(db, 'users'), where('email', '==', 'vinidoctor@gmail.com'), limit(1));
+          const adminSnap = await getDocs(adminQ);
+          if (!adminSnap.empty) {
+            clientsData.push({ ...adminSnap.docs[0].data(), uid: adminSnap.docs[0].id } as UserProfile);
+          }
+        }
+
         setClients(clientsData);
       } catch (error) {
         console.error("Error fetching clients:", error);

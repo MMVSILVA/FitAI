@@ -7,11 +7,12 @@ import { Trophy, Medal, Star, User, Loader2, ShieldCheck } from 'lucide-react';
 export function Ranking() {
   const [leaders, setLeaders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [indexError, setIndexError] = useState(false);
+  const [indexError, setIndexError] = useState<{ message: string; url?: string } | null>(null);
 
   useEffect(() => {
     async function fetchLeaders() {
       try {
+        // Try the optimized query first
         const q = query(
           collection(db, 'users'),
           where('showInRanking', '==', true),
@@ -23,8 +24,34 @@ export function Ranking() {
         setLeaders(data);
       } catch (err: any) {
         console.error("Error fetching ranking:", err);
+        
+        // Handle Index Errors
         if (err.message && err.message.includes('requires an index')) {
-          setIndexError(true);
+          const isBuilding = err.message.includes('currently building');
+          const urlMatch = err.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/);
+          
+          setIndexError({ 
+            message: isBuilding ? 'O Firebase está otimizando o ranking agora mesmo. Isso leva apenas alguns minutos.' : err.message, 
+            url: urlMatch ? urlMatch[0] : undefined,
+            isBuilding
+          });
+
+          // Fallback: Try a simpler query if index is building or missing
+          try {
+            const fallbackQ = query(collection(db, 'users'), limit(50));
+            const fallbackSnap = await getDocs(fallbackQ);
+            const fallbackData = fallbackSnap.docs
+              .map(doc => ({ id: doc.id, ...doc.data() as any }))
+              .filter(u => u.showInRanking)
+              .sort((a, b) => (b.points || 0) - (a.points || 0))
+              .slice(0, 20);
+            
+            if (fallbackData.length > 0) {
+              setLeaders(fallbackData);
+            }
+          } catch (fallbackErr) {
+            console.error("Fallback ranking failed:", fallbackErr);
+          }
         }
       } finally {
         setLoading(false);
@@ -33,7 +60,7 @@ export function Ranking() {
     fetchLeaders();
   }, []);
 
-  if (loading) {
+  if (loading && leaders.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
@@ -41,15 +68,40 @@ export function Ranking() {
     );
   }
 
-  if (indexError) {
+  if (indexError && leaders.length === 0) {
     return (
       <div className="bg-yellow-500/10 border border-yellow-500/20 p-8 rounded-[2.5rem] text-center space-y-4">
         <Trophy className="w-12 h-12 text-yellow-500 mx-auto opacity-20" />
-        <h3 className="text-xl font-bold">O Ranking está sendo preparado!</h3>
-        <p className="text-gray-400 text-sm max-w-xs mx-auto">
-          Nosso sistema está otimizando a base de dados. Se você é o Administrador, acesse o Console do Firebase e ative o índice solicitado.
+        <h3 className="text-xl font-bold italic tracking-tighter uppercase">
+          {indexError.isBuilding ? 'Otimizando Ranking' : 'Ranking em Preparação'}
+        </h3>
+        <p className="text-gray-400 text-sm max-w-xs mx-auto font-medium">
+          {indexError.isBuilding 
+            ? 'Nosso sistema está processando as pontuações globais. O ranking aparecerá automaticamente em instantes.'
+            : 'O sistema está otimizando a base de dados global. Este processo requer a ativação de um índice de performance.'}
         </p>
-        <p className="text-[10px] text-gray-600 font-mono">Erro: Index Required for query.</p>
+        
+        {indexError.url && !indexError.isBuilding && (
+          <div className="pt-4 space-y-4">
+            <p className="text-xs text-yellow-500 font-black uppercase tracking-widest">Atenção Administrador:</p>
+            <a 
+              href={indexError.url} 
+              target="_blank" 
+              rel="noreferrer"
+              className="inline-block bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black text-sm shadow-xl shadow-yellow-500/20 hover:scale-105 transition-all"
+            >
+              CRIAR ÍNDICE NO CONSOLE
+            </a>
+            <p className="text-[10px] text-gray-500 max-w-[200px] mx-auto">Após clicar, aguarde alguns minutos para o ranking ativar sozinho.</p>
+          </div>
+        )}
+
+        {indexError.isBuilding && (
+          <div className="flex items-center justify-center gap-2 text-yellow-500/50 mt-4">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Sincronizando...</span>
+          </div>
+        )}
       </div>
     );
   }

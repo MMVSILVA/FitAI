@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Loader2, Dumbbell, Info, X, ChevronRight, Activity, Heart, Filter, Star } from 'lucide-react';
+import { Search, Loader2, Dumbbell, Info, X, ChevronRight, Activity, Heart, Filter, Star, Play, ExternalLink } from 'lucide-react';
 import { useUser } from '../store/userStore';
 import { ExerciseImage } from './ExerciseImage';
+import { Toast } from './Toast';
 
 interface ExerciseDBItem {
   exerciseId: string;
@@ -31,6 +32,8 @@ export const ExerciseLibrary = () => {
   const [translatedInstructions, setTranslatedInstructions] = useState<string[] | null>(null);
   const [translationError, setTranslationError] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
+  const [playingVideo, setPlayingVideo] = useState<ExerciseDBItem | null>(null);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'info' | 'success' | 'error' });
 
   const translateSteps = async (instructions: string[]) => {
     setTranslating(true);
@@ -244,7 +247,7 @@ export const ExerciseLibrary = () => {
                     className="w-full h-full"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
-                  <div className="absolute top-3 right-3 z-10">
+                  <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -257,6 +260,16 @@ export const ExerciseLibrary = () => {
                       }`}
                     >
                       <Heart className={`w-4 h-4 ${favorites.includes(ex.exerciseId) ? 'fill-white' : ''}`} />
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPlayingVideo(ex);
+                      }}
+                      className="p-2 bg-purple-600 text-white rounded-full transition-all shadow-lg shadow-purple-600/30 hover:scale-110"
+                      title="Ver Vídeo"
+                    >
+                      <Play className="w-4 h-4 fill-white" />
                     </button>
                   </div>
                   <div className="absolute bottom-3 left-3">
@@ -464,6 +477,100 @@ export const ExerciseLibrary = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Modern Video Player Modal */}
+      <AnimatePresence>
+        {playingVideo && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/95 backdrop-blur-xl">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-7xl aspect-video bg-black rounded-[2rem] sm:rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(147,51,234,0.3)] border border-white/10"
+            >
+              {/* Close Button */}
+              <button 
+                onClick={() => setPlayingVideo(null)}
+                className="absolute top-4 sm:top-8 right-4 sm:right-8 z-[110] p-3 sm:p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all border border-white/10 shadow-2xl"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+
+              {/* Video Content */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <ExerciseImage 
+                  src={playingVideo.gifUrl} 
+                  alt={playingVideo.name}
+                  className="w-full h-full object-contain"
+                  proxy={true}
+                />
+              </div>
+
+              {/* Cinematic Overlays */}
+              <div className="absolute inset-x-0 bottom-0 p-6 sm:p-12 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 bg-purple-600 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-purple-600/20">
+                      LIVE DEMO
+                    </span>
+                    <span className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+                      ULTRA HD
+                    </span>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl sm:text-4xl font-black text-white italic uppercase tracking-tighter leading-none mb-2 text-left">
+                      {translateExerciseName(playingVideo.name)}
+                    </h2>
+                    <div className="flex items-center gap-4 text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-purple-500" />
+                        <span className="text-xs font-bold uppercase tracking-widest">{translate(playingVideo.bodyParts[0])}</span>
+                      </div>
+                      <div className="w-1 h-1 bg-white/20 rounded-full" />
+                      <div className="flex items-center gap-2">
+                        <Dumbbell className="w-4 h-4 text-purple-500" />
+                        <span className="text-xs font-bold uppercase tracking-widest">{translate(playingVideo.equipments[0])}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <a 
+                    href={`https://www.youtube.com/results?search_query=${encodeURIComponent(playingVideo.name + ' exercise tutorial')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 px-6 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black transition-all shadow-xl shadow-red-600/20 text-sm"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                    PESQUISAR NO YOUTUBE
+                  </a>
+                  <button 
+                    onClick={() => {
+                      setSelectedExercise(playingVideo);
+                      setPlayingVideo(null);
+                    }}
+                    className="flex items-center gap-3 px-6 py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-black transition-all text-sm"
+                  >
+                    <Info className="w-5 h-5" />
+                    DETALHES
+                  </button>
+                </div>
+              </div>
+
+              {/* Decorative Scanline */}
+              <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,118,0.06))] bg-[length:100%_4px,3px_100%] z-10 opacity-20" />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <Toast 
+        show={toast.show} 
+        message={toast.message} 
+        type={toast.type} 
+        onClose={() => setToast({ ...toast, show: false })} 
+      />
     </div>
   );
 };

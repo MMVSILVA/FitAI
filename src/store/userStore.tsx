@@ -42,6 +42,9 @@ interface UserState {
   updateRealMealNotes: (mealIndex: number, notes: string) => Promise<void>;
   toggleWorkoutDayCheck: (dayIndex: number) => Promise<void>;
   updateRealWorkoutNotes: (dayIndex: number, notes: string) => Promise<void>;
+  addWorkoutReport: (dayIndex: number, text: string) => Promise<void>;
+  updateWorkoutReport: (dayIndex: number, reportId: string, text: string) => Promise<void>;
+  deleteWorkoutReport: (dayIndex: number, reportId: string) => Promise<void>;
   setPlanTypeForUser: (targetUid: string, newPlanType: PlanType) => Promise<{ success: boolean; message: string }>;
 }
 
@@ -167,6 +170,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 localStorage.removeItem(`fitai_plan_${loggedUser.uid}`);
               }
               if (data.role) setRoleState(data.role as UserRole);
+
+              // Admin Auto-Fix: Ensure admin appears in ranking if not explicitly false
+              if ((data.role === 'admin' || data.email === 'vinidoctor@gmail.com') && data.showInRanking === undefined) {
+                updateDoc(docRef, { showInRanking: true });
+              }
+
               if (data.clients) setClients(data.clients);
               if (data.trainerClients) setTrainerClients(data.trainerClients);
               if (data.nutritionistClients) setNutritionistClients(data.nutritionistClients);
@@ -667,6 +676,50 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await saveToFirestore({ plan: newPlan });
   };
 
+  const addWorkoutReport = async (dayIndex: number, text: string) => {
+    if (!plan || !text.trim()) return;
+    const newPlan = { ...plan };
+    const day = newPlan.days[dayIndex];
+    if (!day.workoutReports) day.workoutReports = [];
+    
+    day.workoutReports.push({
+      id: Math.random().toString(36).substr(2, 9),
+      text,
+      date: new Date().toISOString()
+    });
+    
+    // Also clear the current temporary note
+    day.realWorkoutNotes = '';
+    
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
+  const updateWorkoutReport = async (dayIndex: number, reportId: string, text: string) => {
+    if (!plan) return;
+    const newPlan = { ...plan };
+    const day = newPlan.days[dayIndex];
+    if (!day.workoutReports) return;
+
+    const reportIdx = day.workoutReports.findIndex(r => r.id === reportId);
+    if (reportIdx > -1) {
+      day.workoutReports[reportIdx].text = text;
+      setPlanState(newPlan);
+      await saveToFirestore({ plan: newPlan });
+    }
+  };
+
+  const deleteWorkoutReport = async (dayIndex: number, reportId: string) => {
+    if (!plan) return;
+    const newPlan = { ...plan };
+    const day = newPlan.days[dayIndex];
+    if (!day.workoutReports) return;
+
+    day.workoutReports = day.workoutReports.filter(r => r.id !== reportId);
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
   return (
     <UserContext.Provider value={{ 
       user, authLoading, profile, plan, planType, trialEndsAt, subscriptionEndsAt, role, 
@@ -677,7 +730,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toggleFavorite, toggleTheme,
       linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount,
       addExerciseProgress, getExerciseProgress,
-      toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes
+      toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
+      addWorkoutReport, updateWorkoutReport, deleteWorkoutReport
     }}>
       {children}
     </UserContext.Provider>
