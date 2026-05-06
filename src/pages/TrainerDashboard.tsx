@@ -179,11 +179,14 @@ export default function TrainerDashboard() {
       const q = query(
         collection(db, 'clinical_records'),
         where('clientId', '==', selectedClientForRecords.uid),
-        where('professionalId', '==', user?.uid),
-        orderBy('timestamp', 'desc')
+        where('professionalId', '==', user?.uid)
       );
       const snap = await getDocs(q);
-      setClientRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // In-memory sort by timestamp desc
+      setClientRecords(data.sort((a: any, b: any) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      ));
     };
     fetchRecords();
   }, [selectedClientForRecords, user]);
@@ -230,7 +233,7 @@ export default function TrainerDashboard() {
       }
     }
     fetchClients();
-  }, [user]);
+  }, [user, clientIds]);
 
   const handleOpenPlanEditor = async (client: UserProfile) => {
     setSelectedClient(client);

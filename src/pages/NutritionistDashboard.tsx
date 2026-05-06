@@ -164,11 +164,14 @@ export default function NutritionistDashboard() {
       const q = query(
         collection(db, 'clinical_records'),
         where('clientId', '==', selectedPatientForRecords.uid),
-        where('professionalId', '==', user?.uid),
-        orderBy('timestamp', 'desc')
+        where('professionalId', '==', user?.uid)
       );
       const snap = await getDocs(q);
-      setPatientRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // In-memory sort by timestamp desc
+      setPatientRecords(data.sort((a: any, b: any) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      ));
     };
     fetchRecords();
   }, [selectedPatientForRecords, user]);
@@ -215,7 +218,7 @@ export default function NutritionistDashboard() {
       }
     }
     fetchPatients();
-  }, [user]);
+  }, [user, clientIds]);
 
   const handleLinkPatient = async (e: React.FormEvent) => {
     e.preventDefault();

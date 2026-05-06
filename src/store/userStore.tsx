@@ -14,6 +14,8 @@ interface UserState {
   trialEndsAt: string | null;
   subscriptionEndsAt: string | null;
   clients?: string[];
+  trainerClients?: string[];
+  nutritionistClients?: string[];
   linkedTrainerId?: string;
   linkedNutritionistId?: string;
   isAdmin: boolean;
@@ -56,6 +58,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null);
   const [role, setRoleState] = useState<UserRole>('user');
   const [clients, setClients] = useState<string[]>([]);
+  const [trainerClients, setTrainerClients] = useState<string[]>([]);
+  const [nutritionistClients, setNutritionistClients] = useState<string[]>([]);
   const [linkedTrainerId, setLinkedTrainerId] = useState<string | undefined>();
   const [linkedNutritionistId, setLinkedNutritionistId] = useState<string | undefined>();
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -665,7 +669,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <UserContext.Provider value={{ 
-      user, authLoading, profile, plan, planType, trialEndsAt, subscriptionEndsAt, role, clients, linkedTrainerId, linkedNutritionistId, isAdmin,
+      user, authLoading, profile, plan, planType, trialEndsAt, subscriptionEndsAt, role, 
+      clients, trainerClients, nutritionistClients,
+      linkedTrainerId, linkedNutritionistId, isAdmin,
       favorites, theme,
       setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, updatePlanForUser, 
       toggleFavorite, toggleTheme,

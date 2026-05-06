@@ -7,6 +7,7 @@ import { Trophy, Medal, Star, User, Loader2, ShieldCheck } from 'lucide-react';
 export function Ranking() {
   const [leaders, setLeaders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [indexError, setIndexError] = useState(false);
 
   useEffect(() => {
     async function fetchLeaders() {
@@ -20,8 +21,11 @@ export function Ranking() {
         const snap = await getDocs(q);
         const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setLeaders(data);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching ranking:", err);
+        if (err.message && err.message.includes('requires an index')) {
+          setIndexError(true);
+        }
       } finally {
         setLoading(false);
       }
@@ -33,6 +37,19 @@ export function Ranking() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (indexError) {
+    return (
+      <div className="bg-yellow-500/10 border border-yellow-500/20 p-8 rounded-[2.5rem] text-center space-y-4">
+        <Trophy className="w-12 h-12 text-yellow-500 mx-auto opacity-20" />
+        <h3 className="text-xl font-bold">O Ranking está sendo preparado!</h3>
+        <p className="text-gray-400 text-sm max-w-xs mx-auto">
+          Nosso sistema está otimizando a base de dados. Se você é o Administrador, acesse o Console do Firebase e ative o índice solicitado.
+        </p>
+        <p className="text-[10px] text-gray-600 font-mono">Erro: Index Required for query.</p>
       </div>
     );
   }

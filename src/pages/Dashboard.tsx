@@ -213,6 +213,16 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const viewingAsUserId = searchParams.get('viewAs');
   const initialTab = (searchParams.get('tab') as any) || 'workout';
+  const paymentSuccess = searchParams.get('success') === 'true';
+
+  useEffect(() => {
+    if (paymentSuccess) {
+      setToast({ show: true, message: '🎉 PAGAMENTO CONFIRMADO! Bem-vindo à elite do FitAI.', type: 'success' });
+      // Remove the success param from URL without refreshing
+      searchParams.delete('success');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [paymentSuccess, searchParams, setSearchParams]);
 
   const handleTabChange = (tab: any) => {
     setActiveTab(tab);
@@ -369,34 +379,6 @@ export default function Dashboard() {
   }, [user, role, isAdmin, clients]);
 
   const navigate = useNavigate();
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-6 text-center">
-        <div className="space-y-6 max-w-sm">
-          <div className="relative w-24 h-24 mx-auto">
-            <div className="absolute inset-0 bg-purple-500/20 rounded-full animate-ping" />
-            <div className="relative bg-white dark:bg-zinc-900 w-24 h-24 rounded-full flex items-center justify-center border-2 border-purple-500 shadow-xl">
-              <Logo />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-black italic tracking-tighter">PREPARANDO SEU AMBIENTE</h2>
-            <p className="text-gray-500 font-medium text-sm">Carregando seus planos, métricas e evolução em tempo real...</p>
-          </div>
-          <Loader2 className="w-8 h-8 text-purple-600 animate-spin mx-auto opacity-50" />
-        </div>
-      </div>
-    );
-  }
-
-  if (user && (!profile || !plan) && !authLoading && !isViewingAs) {
-    return <Navigate to="/onboarding" replace />;
-  }
-
-  if (!user && !authLoading) {
-    return <Navigate to="/login" replace />;
-  }
 
   // Online Status Check Helper
   const isOnline = (lastSeen: string) => {
@@ -934,14 +916,30 @@ export default function Dashboard() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+      <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-6 text-center">
+        <div className="space-y-6 max-w-sm">
+          <div className="relative w-24 h-24 mx-auto">
+            <div className="absolute inset-0 bg-purple-500/20 rounded-full animate-ping" />
+            <div className="relative bg-white dark:bg-zinc-900 w-24 h-24 rounded-full flex items-center justify-center border-2 border-purple-500 shadow-xl">
+              <Logo />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black italic tracking-tighter">PREPARANDO SEU AMBIENTE</h2>
+            <p className="text-gray-500 font-medium text-sm">Carregando seus planos, métricas e evolução em tempo real...</p>
+          </div>
+          <Loader2 className="w-8 h-8 text-purple-600 animate-spin mx-auto opacity-50" />
+        </div>
       </div>
     );
   }
 
-  if (!profile || !plan) {
-    return <Navigate to="/onboarding" />;
+  if (user && (!profile || !plan) && !isViewingAs) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
   const imcData = calculateIMC?.() || null;
@@ -1284,7 +1282,20 @@ export default function Dashboard() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto scrollbar-hide -mx-3 px-3">
+        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto no-scrollbar -mx-3 px-3">
+          {isAdmin && (
+            <button 
+              onClick={() => handleTabChange('admin')}
+              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+                activeTab === 'admin' 
+                ? 'bg-red-600 text-white shadow-xl shadow-red-600/20' 
+                : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+              }`}
+            >
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
+              Painel ADM
+            </button>
+          )}
           <button 
             onClick={() => handleTabChange('workout')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
@@ -1403,20 +1414,6 @@ export default function Dashboard() {
             <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
             Academias
           </button>
-          
-          {isAdmin && (
-            <button 
-              onClick={() => handleTabChange('admin')}
-              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-                activeTab === 'admin' 
-                ? 'bg-red-600 text-white shadow-xl shadow-red-600/20' 
-                : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
-              }`}
-            >
-              <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
-              Admin
-            </button>
-          )}
         </div>
 
         {/* Content */}
