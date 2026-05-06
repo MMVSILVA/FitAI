@@ -8,7 +8,16 @@ import { Users, LayoutDashboard, MessageCircle, Settings, Plus, Search, ChevronR
 import { UserProfile, WorkoutPlan, DietPlan } from '../types';
 
 export default function NutritionistDashboard() {
-  const { user, profile, clients: clientIds, updatePlanForUser, isAdmin, planType, subscriptionEndsAt } = useUser();
+  const { 
+    user, 
+    profile, 
+    nutritionistClients: clientIds, 
+    updatePlanForUser, 
+    linkNutritionist,
+    isAdmin, 
+    planType, 
+    subscriptionEndsAt 
+  } = useUser();
   const isBlocked = (planType !== 'PROFISSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,15 +195,18 @@ export default function NutritionistDashboard() {
 
   useEffect(() => {
     async function fetchPatients() {
-      if (!user || !clientIds?.length) {
+      if (!user) {
         setLoading(false);
         return;
       }
       
       try {
-        const q = query(collection(db, 'users'), where('uid', 'in', clientIds));
+        const q = query(
+          collection(db, 'users'), 
+          where('linkedNutritionistId', '==', user.uid)
+        );
         const snap = await getDocs(q);
-        const clientsData = snap.docs.map(d => d.data() as UserProfile);
+        const clientsData = snap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile));
         setClients(clientsData);
       } catch (error) {
         console.error("Error fetching patients:", error);
@@ -203,42 +215,17 @@ export default function NutritionistDashboard() {
       }
     }
     fetchPatients();
-  }, [user, clientIds]);
+  }, [user]);
 
   const handleLinkPatient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchEmail || !user) return;
     
     setSearchStatus({ message: 'Buscando...' });
-    try {
-      const q = query(collection(db, 'users'), where('email', '==', searchEmail.toLowerCase().trim()));
-      const snap = await getDocs(q);
-      
-      if (snap.empty) {
-        setSearchStatus({ success: false, message: 'Usuário não encontrado' });
-        return;
-      }
-
-      const clientDoc = snap.docs[0];
-      const clientUid = clientDoc.id;
-
-      if (clientIds?.includes(clientUid)) {
-        setSearchStatus({ success: false, message: 'Usuário já é seu paciente' });
-        return;
-      }
-
-      await updateDoc(doc(db, 'users', user.uid), {
-        clients: arrayUnion(clientUid)
-      });
-
-      await updateDoc(clientDoc.ref, {
-        nutritionistId: user.uid
-      });
-
-      setSearchStatus({ success: true, message: 'Paciente vinculado com sucesso!' });
+    const result = await linkNutritionist(searchEmail);
+    setSearchStatus(result);
+    if (result.success) {
       setSearchEmail('');
-    } catch (error) {
-      setSearchStatus({ success: false, message: 'Erro ao vincular' });
     }
   };
 

@@ -8,12 +8,14 @@ import { ExerciseProgress } from '../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { TrendingUp, Award, Zap, History, Loader2, Search, Users } from 'lucide-react';
 
-export const ProgressComparison: React.FC = () => {
-  const { user, plan, getExerciseProgress, planType, theme } = useUser();
+export const ProgressComparison: React.FC<{ targetUserId?: string }> = ({ targetUserId }) => {
+  const { user, plan, planType, theme } = useUser();
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
   const [metric, setMetric] = useState<'weight' | 'reps' | 'volume'>('weight');
   const [allProgressData, setAllProgressData] = useState<Record<string, ExerciseProgress[]>>({});
   const [loading, setLoading] = useState(false);
+
+  const effectiveUserId = targetUserId || user?.uid;
 
   const exercises = plan?.days.flatMap(d => d.exercises) || [];
   const uniqueExerciseNames = Array.from(new Set(exercises.map(e => e.name))).sort();
@@ -25,14 +27,14 @@ export const ProgressComparison: React.FC = () => {
   }, [uniqueExerciseNames]);
 
   useEffect(() => {
-    if (selectedExercises.length === 0 || !user) return;
+    if (selectedExercises.length === 0 || !effectiveUserId) return;
 
     setLoading(true);
     
     // We'll use a combined listener for the user's progress
     const q = query(
       collection(db, 'exercise_progress'),
-      where('userId', '==', user.uid)
+      where('userId', '==', effectiveUserId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -63,7 +65,7 @@ export const ProgressComparison: React.FC = () => {
     return () => {
       unsubscribe();
     };
-  }, [selectedExercises, user]);
+  }, [selectedExercises, effectiveUserId]);
 
   if (planType === 'FREE') {
     return (

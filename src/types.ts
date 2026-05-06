@@ -23,6 +23,8 @@ export interface UserProfile {
   fitnessHistory: string;
   trainerId?: string;
   nutritionistId?: string;
+  linkedTrainerId?: string;
+  linkedNutritionistId?: string;
   isPremium: boolean;
   favorites?: string[];
   theme?: 'light' | 'dark' | 'system';
@@ -46,6 +48,8 @@ export interface UserProfile {
   experience?: string;
   consultationPrice?: string;
   clients?: string[];
+  trainerClients?: string[];
+  nutritionistClients?: string[];
 }
 
 export interface Exercise {

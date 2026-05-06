@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Trophy, Medal, Star, User, Loader2 } from 'lucide-react';
+import { Trophy, Medal, Star, User, Loader2, ShieldCheck } from 'lucide-react';
 
 export function Ranking() {
   const [leaders, setLeaders] = useState<any[]>([]);
@@ -13,6 +13,7 @@ export function Ranking() {
       try {
         const q = query(
           collection(db, 'users'),
+          where('showInRanking', '==', true),
           orderBy('points', 'desc'),
           limit(20)
         );
@@ -95,6 +96,11 @@ export function Ranking() {
             </div>
           </motion.div>
         ))}
+      </div>
+      <div className="mt-8 p-6 bg-zinc-900/50 border border-white/5 rounded-3xl text-center">
+        <ShieldCheck className="w-5 h-5 text-gray-500 mx-auto mb-2" />
+        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Respeitamos sua privacidade (LGPD)</p>
+        <p className="text-xs text-gray-600 mt-1">Apenas usuários que optaram por "Aparecer no Ranking" em suas configurações de perfil são exibidos aqui.</p>
       </div>
     </div>
   );

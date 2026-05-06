@@ -243,8 +243,8 @@ export default function Dashboard() {
                                myProfile.uid === viewingAsUserId;
 
             if (isAuthorized) {
-              const profileData = data.profile || data;
-              setViewedProfile({ ...profileData, uid: studentDoc.id, email: data.email }); 
+              const profileData = { ...data, ...(data.profile || {}) };
+              setViewedProfile({ ...profileData, uid: studentDoc.id, email: data.email } as any); 
               setViewedPlan(data.plan || profileData.plan || null);
               setIsViewingAs(true);
             } else {
@@ -370,7 +370,7 @@ export default function Dashboard() {
 
   const navigate = useNavigate();
 
-  if (authLoading || (!profile && !authLoading && user)) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-6 text-center">
         <div className="space-y-6 max-w-sm">
@@ -388,6 +388,10 @@ export default function Dashboard() {
         </div>
       </div>
     );
+  }
+
+  if (user && (!profile || !plan) && !authLoading && !isViewingAs) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   if (!user && !authLoading) {
@@ -535,7 +539,8 @@ export default function Dashboard() {
   const [editProfileForm, setEditProfileForm] = useState({
     displayName: user?.displayName || '',
     phone: profile?.phone || '',
-    photoURL: user?.photoURL || ''
+    photoURL: user?.photoURL || '',
+    showInRanking: profile?.showInRanking ?? false
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
@@ -560,6 +565,7 @@ export default function Dashboard() {
         displayName: editProfileForm.displayName,
         phone: editProfileForm.phone,
         photoURL: editProfileForm.photoURL,
+        showInRanking: editProfileForm.showInRanking,
         updatedAt: new Date().toISOString()
       });
 
@@ -1740,7 +1746,7 @@ export default function Dashboard() {
                   </div>
 
                   <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
-                    <ProgressComparison />
+                    <ProgressComparison targetUserId={profile?.uid} />
                   </div>
                 </div>
               )}
@@ -3301,6 +3307,23 @@ export default function Dashboard() {
                       </div>
                     </label>
                   </div>
+                </div>
+
+                <div className="bg-purple-600/10 border border-purple-500/20 p-5 rounded-2xl flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <p className="text-sm font-black text-black dark:text-white uppercase tracking-tight">Privacidade do Ranking</p>
+                    </div>
+                    <p className="text-[10px] text-gray-500 leading-tight">Ao ativar, seu nome e foto aparecerão para outros guerreiros no Hall da Fama.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditProfileForm(prev => ({ ...prev, showInRanking: !prev.showInRanking }))}
+                    className={`shrink-0 w-12 h-6 rounded-full transition-all relative ${editProfileForm.showInRanking ? 'bg-purple-600' : 'bg-gray-400 dark:bg-zinc-800'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editProfileForm.showInRanking ? 'left-7' : 'left-1'}`} />
+                  </button>
                 </div>
 
                 <div className="flex gap-4 mt-8">

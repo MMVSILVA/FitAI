@@ -150,13 +150,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (docSnap.exists()) {
               const data = docSnap.data();
-              if (data.profile) {
-                setProfileState(data.profile);
-                localStorage.setItem(`fitai_profile_${loggedUser.uid}`, JSON.stringify(data.profile));
-              } else {
-                setProfileState(null);
-                localStorage.removeItem(`fitai_profile_${loggedUser.uid}`);
-              }
+              // Merge root data with profile sub-object for consistency
+              const mergedProfile = { ...data, ...(data.profile || {}) };
+              setProfileState(mergedProfile as UserProfile);
+              localStorage.setItem(`fitai_profile_${loggedUser.uid}`, JSON.stringify(mergedProfile));
 
               if (data.plan) {
                 setPlanState(data.plan);
@@ -167,6 +164,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
               if (data.role) setRoleState(data.role as UserRole);
               if (data.clients) setClients(data.clients);
+              if (data.trainerClients) setTrainerClients(data.trainerClients);
+              if (data.nutritionistClients) setNutritionistClients(data.nutritionistClients);
+
+              // Migration logic for existing clients
+              if (data.clients && data.clients.length > 0) {
+                if (data.role === 'trainer' && (!data.trainerClients || data.trainerClients.length === 0)) {
+                  updateDoc(doc(db, 'users', user.uid), { trainerClients: data.clients });
+                }
+                if (data.role === 'nutritionist' && (!data.nutritionistClients || data.nutritionistClients.length === 0)) {
+                  updateDoc(doc(db, 'users', user.uid), { nutritionistClients: data.clients });
+                }
+              }
               if (data.linkedTrainerId) setLinkedTrainerId(data.linkedTrainerId);
               if (data.linkedNutritionistId) setLinkedNutritionistId(data.linkedNutritionistId);
               if (data.favorites) setFavorites(data.favorites);
@@ -418,12 +427,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Update trainer's client list
       const trainerRef = doc(db, 'users', user!.uid);
       await updateDoc(trainerRef, {
-        clients: arrayUnion(clientUid)
+        clients: arrayUnion(clientUid),
+        trainerClients: arrayUnion(clientUid)
       });
 
       // Update client's trainer link
       await updateDoc(clientDoc.ref, {
-        linkedTrainerId: user!.uid
+        linkedTrainerId: user!.uid,
+        trainerId: user!.uid
       });
 
       return { success: true, message: `Aluno ${trimmedEmail} vinculado com sucesso!` };
@@ -455,12 +466,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Update current user's (nutritionist) client list
       const nutritionistRef = doc(db, 'users', user!.uid);
       await updateDoc(nutritionistRef, {
-        clients: arrayUnion(clientUid)
+        clients: arrayUnion(clientUid),
+        nutritionistClients: arrayUnion(clientUid)
       });
 
       // Update client's nutritionist link
       await updateDoc(clientDoc.ref, {
-        linkedNutritionistId: user!.uid
+        linkedNutritionistId: user!.uid,
+        nutritionistId: user!.uid
       });
 
       return { success: true, message: `Paciente ${trimmedEmail} vinculado com sucesso!` };

@@ -56,11 +56,11 @@ service cloud.firestore {
       return data.uid == request.auth.uid &&
              data.email is string && data.email.size() <= 256 &&
              data.displayName is string && data.displayName.size() <= 100 &&
-             data.role in ['user', 'trainer', 'admin'] &&
+             data.role in ['user', 'trainer', 'nutritionist', 'admin'] &&
              data.planType in ['FREE', 'PRO', 'PREMIUM', 'PROFISSIONAL'] &&
              (data.weight == null || data.weight is number) &&
              (data.height == null || data.height is number) &&
-             (data.createdAt is string || data.createdAt == request.time);
+             (data.showInRanking == null || data.showInRanking is bool);
     }
 
     function isValidWorkout(data) {
@@ -98,24 +98,25 @@ service cloud.firestore {
     // 4. COLLECTION RULES
     // ==========================================
 
-    // Exercise Progress (PREMIUM ONLY COMPARISON)
+    // Exercise Progress
     match /exercise_progress/{progressId} {
-      allow read: if (isOwner(resource.data.userId) && isPremium()) || isAdmin();
-      allow list: if (isOwner(resource.data.userId) && isPremium()) || isAdmin();
+      allow read, list: if isSignedIn() && (
+        isOwner(resource.data.userId) || 
+        isAdmin() || 
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedTrainerId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedNutritionistId == request.auth.uid
+      );
       allow create: if isOwner(incoming().userId) && isValidExerciseProgress(incoming()) && isPremium();
-      allow delete: if (isOwner(resource.data.userId) && isPremium()) || isAdmin();
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
     // User Profiles
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin() || 
-                    (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'trainer');
+      allow read: if isSignedIn(); // Basic read for search and linking
       
-      allow create: if isOwner(userId) && 
-                      incoming().role == 'user' && 
-                      incoming().planType == 'FREE' &&
-                      incoming().email == request.auth.token.email;
+      allow list: if isSignedIn() && (isOwner(userId) || isAdmin() || resource.data.showInRanking == true);
+      
+      allow create: if isOwner(userId);
       
       allow update: if (isAdmin()) || (
         isOwner(userId) && 
@@ -124,16 +125,55 @@ service cloud.firestore {
         incoming().planType == existing().planType &&
         incoming().email == existing().email &&
         incoming().uid == existing().uid &&
-        // Protect identities
+        // Allow updating preferred professional IDs and other fields
         incoming().diff(existing()).affectedKeys().hasOnly([
           'displayName', 'weight', 'height', 'objective', 'fitnessLevel', 
-          'phone', 'photoURL', 'updatedAt', 
+          'phone', 'photoURL', 'updatedAt', 'showInRanking', 'lastSeen', 'planGenerationsLeft',
           'workoutPreferences', 'dietPreferences', 'gender', 'age', 'intensity',
-          'linkedTrainerId', 'trainerId', 'workout', 'plan', 'profile', 'progress'
+          'linkedTrainerId', 'linkedNutritionistId', 'trainerId', 'nutritionistId',
+          'workout', 'plan', 'profile', 'progress', 'completedExercises',
+          'clients', 'trainerClients', 'nutritionistClients',
+          'adherenceLogs', 'points', 'level', 'streak', 'checkInDates', 'badges', 'theme'
         ])
+      ) || (
+        // Allow professionals to link themselves to a user
+        isSignedIn() && (
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['trainer', 'nutritionist']) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['linkedTrainerId', 'trainerId', 'linkedNutritionistId', 'nutritionistId', 'clients', 'trainerClients', 'nutritionistClients'])
+        )
       );
       
-      allow delete: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Clinical Records
+    match /clinical_records/{recordId} {
+      allow read: if isSignedIn() && (
+        resource.data.clientId == request.auth.uid || 
+        resource.data.professionalId == request.auth.uid || 
+        isAdmin()
+      );
+      allow create: if isSignedIn() && (
+        incoming().professionalId == request.auth.uid || isAdmin()
+      );
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.professionalId == request.auth.uid);
+    }
+
+    // Community Messages (Moderated)
+    match /community_messages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().text.size() <= 1000 && incoming().fromId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        // Only allow adding reactions
+        incoming().diff(existing()).affectedKeys().hasOnly(['reactions'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Reports (System Security)
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read, write: if isAdmin();
     }
 
     // Trainers
@@ -166,7 +206,12 @@ service cloud.firestore {
 
     // Progress
     match /progress/{progressId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.userId) || 
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedTrainerId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedNutritionistId == request.auth.uid
+      );
       allow create: if isOwner(incoming().userId) && isValidProgress(incoming());
       allow update: if isOwner(resource.data.userId) && isValidProgress(incoming()) &&
                       incoming().diff(existing()).affectedKeys().hasOnly(['weight', 'bodyFat', 'photos', 'date', 'measurements']);

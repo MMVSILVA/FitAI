@@ -11,7 +11,16 @@ import {
 import { UserProfile, WorkoutPlan } from '../types';
 
 export default function TrainerDashboard() {
-  const { user, profile, clients: clientIds, isAdmin, planType, subscriptionEndsAt } = useUser();
+  const { 
+    user, 
+    profile, 
+    trainerClients: clientIds, 
+    isAdmin, 
+    planType, 
+    subscriptionEndsAt,
+    linkClient,
+    updatePlanForUser 
+  } = useUser();
   const isBlocked = (planType !== 'PROFISSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -201,15 +210,18 @@ export default function TrainerDashboard() {
 
   useEffect(() => {
     async function fetchClients() {
-      if (!user || !clientIds?.length) {
+      if (!user) {
         setLoading(false);
         return;
       }
       
       try {
-        const q = query(collection(db, 'users'), where('uid', 'in', clientIds));
+        const q = query(
+          collection(db, 'users'), 
+          where('linkedTrainerId', '==', user.uid)
+        );
         const snap = await getDocs(q);
-        const clientsData = snap.docs.map(d => d.data() as UserProfile);
+        const clientsData = snap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile));
         setClients(clientsData);
       } catch (error) {
         console.error("Error fetching clients:", error);
@@ -218,7 +230,7 @@ export default function TrainerDashboard() {
       }
     }
     fetchClients();
-  }, [user, clientIds]);
+  }, [user]);
 
   const handleOpenPlanEditor = async (client: UserProfile) => {
     setSelectedClient(client);
@@ -243,9 +255,7 @@ export default function TrainerDashboard() {
     if (!selectedClient || !editingPlan) return;
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, 'users', selectedClient.uid), {
-        plan: editingPlan
-      });
+      await updatePlanForUser(selectedClient.uid, editingPlan);
       alert('Treino atualizado com sucesso!');
       setSelectedClient(null);
     } catch (error) {
@@ -261,38 +271,10 @@ export default function TrainerDashboard() {
     if (!searchEmail || !user) return;
     
     setSearchStatus({ message: 'Buscando...' });
-    try {
-      const q = query(collection(db, 'users'), where('email', '==', searchEmail.toLowerCase().trim()));
-      const snap = await getDocs(q);
-      
-      if (snap.empty) {
-        setSearchStatus({ success: false, message: 'Usuário não encontrado' });
-        return;
-      }
-
-      const clientDoc = snap.docs[0];
-      const clientUid = clientDoc.id;
-
-      // Check if already linked
-      if (clientIds?.includes(clientUid)) {
-        setSearchStatus({ success: false, message: 'Usuário já é seu aluno' });
-        return;
-      }
-
-      // Update Trainer
-      await updateDoc(doc(db, 'users', user.uid), {
-        clients: arrayUnion(clientUid)
-      });
-
-      // Update Client
-      await updateDoc(clientDoc.ref, {
-        trainerId: user.uid
-      });
-
-      setSearchStatus({ success: true, message: 'Aluno vinculado com sucesso!' });
+    const result = await linkClient(searchEmail);
+    setSearchStatus(result);
+    if (result.success) {
       setSearchEmail('');
-    } catch (error) {
-      setSearchStatus({ success: false, message: 'Erro ao vincular' });
     }
   };
 

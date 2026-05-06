@@ -1,6 +1,5 @@
 import express from 'express';
 import * as paymentController from '../controllers/paymentController.ts';
-import * as aiController from '../controllers/aiController.ts';
 import { isAdminEmail } from '../config/admins.ts';
 import { authMiddleware, AuthRequest } from '../middleware/auth.ts';
 
@@ -28,10 +27,6 @@ router.get('/auth/admin-check', authMiddleware, (req: AuthRequest, res) => {
   const emailToCheck = verifiedEmail || queryEmail;
   res.json({ isAdmin: isAdminEmail(emailToCheck) });
 });
-
-// AI Routes
-router.post('/ai/generate-plan', authMiddleware, aiController.generatePlan);
-router.post('/ai/translate', authMiddleware, aiController.translateExercise);
 
 // Simple in-memory cache for exercise searches
 const exerciseCache = new Map<string, { data: any, timestamp: number }>();

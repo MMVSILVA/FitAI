@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Send, Smile, ImageIcon, Paperclip, MoreVertical, 
   Heart as HeartIcon, CheckCheck, Loader2, X,
-  Mic, Camera, Phone, Video, Users, Search
+  Mic, Camera, Phone, Video, Users, Search, AlertTriangle, Shield, Trash2, Info
 } from 'lucide-react';
 import { collection, addDoc, onSnapshot, query, where, orderBy, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -90,6 +90,34 @@ export function ChatView({ selectedProfessional: _unused }: { selectedProfession
     await updateDoc(msgRef, { reactions });
   };
 
+  const handleReportMessage = async (messageId: string) => {
+    if (!user) return;
+    try {
+      const { addDoc, collection } = await import('firebase/firestore');
+      await addDoc(collection(db, 'reports'), {
+        messageId,
+        reporterId: user.uid,
+        reason: 'Community Report',
+        timestamp: serverTimestamp()
+      });
+      alert('Mensagem denunciada. Nossa equipe de moderação irá analisar.');
+    } catch (err) {
+      console.error("Error reporting message:", err);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (role !== 'admin') return;
+    if (!confirm('Deseja realmente remover esta mensagem da comunidade?')) return;
+    
+    try {
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, 'community_messages', messageId));
+    } catch (err) {
+      console.error("Error deleting message:", err);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#f0f2f5] dark:bg-zinc-950 relative">
       {/* WhatsApp-style Header for Community */}
@@ -121,6 +149,20 @@ export function ChatView({ selectedProfessional: _unused }: { selectedProfession
           backgroundBlendMode: 'overlay',
         }}
       >
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-500/10 backdrop-blur-md border border-red-500/20 p-3 rounded-2xl mb-6 flex items-start gap-3"
+        >
+          <Info className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-none">Diretrizes da Comunidade</p>
+            <p className="text-[11px] text-red-800/80 dark:text-red-200/80 font-medium leading-relaxed">
+              Mantenha o respeito. Conteúdo ofensivo, ilegal ou impróprio resultará em banimento imediato. Denuncie mensagens irregulares.
+            </p>
+          </div>
+        </motion.div>
+
         <div className="flex justify-center mb-6">
           <span className="bg-[#e1f3fb] dark:bg-zinc-800/80 backdrop-blur px-3 py-1 rounded-lg text-[9px] font-black text-[#54656f] dark:text-gray-400 uppercase tracking-widest shadow-sm border border-[#cce5f0] dark:border-white/5">
             Comunidade aberta: Compartilhe resultados e dicas!
@@ -167,18 +209,37 @@ export function ChatView({ selectedProfessional: _unused }: { selectedProfession
                   {isMine && <CheckCheck className="w-3 h-3 text-blue-500" />}
                 </div>
 
-                {/* Actions (Reaction Button) */}
-                <div className={`absolute top-0 ${isMine ? '-left-10' : '-right-10'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1`}>
+                {/* Actions (Reaction & Moderation) */}
+                <div className={`absolute top-0 ${isMine ? '-left-14' : '-right-14'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1`}>
                   <button 
                     onClick={() => {
                       const picker = document.getElementById(`reaction-picker-${msg.id}`);
                       if (picker) picker.classList.toggle('hidden');
                     }}
                     className="p-1.5 bg-white dark:bg-zinc-800 rounded-full shadow-sm border border-black/5 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
-                    title="Reagir"
                   >
                     <Smile className="w-3.5 h-3.5 text-gray-500" />
                   </button>
+
+                  {!isMine && (
+                    <button 
+                      onClick={() => handleReportMessage(msg.id)}
+                      className="p-1.5 bg-white dark:bg-zinc-800 rounded-full shadow-sm border border-black/5 dark:border-white/5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
+                      title="Denunciar"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  {role === 'admin' && (
+                    <button 
+                      onClick={() => handleDeleteMessage(msg.id)}
+                      className="p-1.5 bg-red-600 text-white rounded-full shadow-sm hover:bg-red-500 transition-colors"
+                      title="Remover (Moderação)"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   
                   {/* Reaction Picker Popover */}
                   <div 
