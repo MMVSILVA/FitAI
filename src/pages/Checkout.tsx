@@ -9,9 +9,17 @@ export default function Checkout() {
   const rawPlan = searchParams.get('plan') || 'PRO';
   const plan = rawPlan.toUpperCase() as 'PRO' | 'PREMIUM' | 'PROFISSIONAL';
   const navigate = useNavigate();
-  const { user, upgradePlan } = useUser();
+  const { user, upgradePlan, authLoading } = useUser();
   const [loading, setLoading] = useState(false);
+  const [checkoutStarted, setCheckoutStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect to login if not authenticated
+  React.useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login?redirect=checkout&plan=' + plan);
+    }
+  }, [user, authLoading, plan, navigate]);
 
   const priceMap = {
     'PRO': '39,90',
@@ -34,7 +42,8 @@ export default function Checkout() {
     if (!base) return null;
     
     const separator = base.includes('?') ? '&' : '?';
-    return `${base}${user?.uid ? separator + 'client_reference_id=' + user.uid : ''}`;
+    // Adiciona o UID do usuário para vincular o pagamento à conta
+    return `${base}${user?.uid ? separator + 'client_reference_id=' + user.uid : ''}${user?.email ? (user?.uid ? '&' : '?') + 'prefilled_email=' + encodeURIComponent(user.email) : ''}`;
   };
 
   const handleCheckout = async () => {
@@ -53,7 +62,8 @@ export default function Checkout() {
 
       const data = await response.json();
       if (data.url) {
-        window.location.href = data.url;
+        window.open(data.url, '_blank');
+        setCheckoutStarted(true);
       } else {
         throw new Error(data.error || "Erro ao criar sessão de pagamento.");
       }
@@ -62,7 +72,8 @@ export default function Checkout() {
       // Fallback for manual link if API fails
       const link = getManualLink();
       if (link) {
-        window.location.href = link;
+        window.open(link, '_blank');
+        setCheckoutStarted(true);
       } else {
         setError(err.message || "Não foi possível iniciar o checkout. Verifique as configurações do Stripe.");
       }
@@ -135,52 +146,81 @@ export default function Checkout() {
 
         {/* Redirecionamento de Pagamento Real */}
         <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-8 shadow-2xl flex flex-col justify-center items-center text-center">
-          <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
-            <ShieldCheck className="w-10 h-10 text-green-500" />
-          </div>
-
-          <h3 className="text-2xl font-bold mb-4 text-black dark:text-white">Pagamento Seguro</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">
-            Você será redirecionado para o ambiente criptografado do Stripe para concluir sua assinatura de forma 100% segura.
-          </p>
-
-          <div className="w-full space-y-4">
-            <button 
-              onClick={handleCheckout}
-              disabled={loading}
-              className={`w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-xl transition-all shadow-xl ${
-                loading 
-                ? 'bg-gray-400 cursor-wait' 
-                : 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20 active:scale-[0.98]' 
-              }`}
+          {checkoutStarted ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-6"
             >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-6 h-6 animate-spin" />
-                  Carregando...
-                </>
-              ) : (
-                <>
-                  Ir para o Pagamento
-                  <ExternalLink className="w-6 h-6" />
-                </>
-              )}
-            </button>
-
-            {error && (
-              <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-left space-y-3">
-                <p className="text-red-500 font-black text-sm uppercase tracking-widest flex items-center gap-2">
-                  <X className="w-4 h-4" /> Erro de Configuração
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                  O link de pagamento para o plano <span className="font-bold text-red-500">{plan}</span> não foi configurado nas Variáveis de Ambiente (Settings).
-                </p>
-                <div className="bg-black/5 dark:bg-white/5 p-3 rounded-lg text-[10px] font-mono text-gray-400 break-all">
-                  Necessário: VITE_STRIPE_LINK_{plan === 'PROFISSIONAL' ? 'PROFISSIONAL' : plan}
-                </div>
+              <div className="w-20 h-20 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-6">
+                <CreditCard className="w-10 h-10 text-purple-500 animate-pulse" />
               </div>
-            )}
-          </div>
+              <h3 className="text-2xl font-bold">Pagamento Aberto</h3>
+              <p className="text-gray-500 dark:text-gray-400">
+                Uma nova aba foi aberta para você concluir o pagamento no Stripe.
+              </p>
+              <div className="bg-purple-500/10 p-4 rounded-2xl border border-purple-500/20">
+                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                  Após concluir o pagamento, você pode voltar para esta aba. Seu dashboard será liberado automaticamente.
+                </p>
+              </div>
+              <button 
+                onClick={() => setCheckoutStarted(false)}
+                className="text-sm text-gray-500 hover:text-black dark:hover:text-white underline"
+              >
+                Tentar novamente se a aba não abriu
+              </button>
+            </motion.div>
+          ) : (
+            <>
+              <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
+                <ShieldCheck className="w-10 h-10 text-green-500" />
+              </div>
+
+              <h3 className="text-2xl font-bold mb-4 text-black dark:text-white">Pagamento Seguro</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">
+                Você será redirecionado para o ambiente criptografado do Stripe para concluir sua assinatura de forma 100% segura.
+              </p>
+
+              <div className="w-full space-y-4">
+                <button 
+                  onClick={handleCheckout}
+                  disabled={loading}
+                  className={`w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-xl transition-all shadow-xl ${
+                    loading 
+                    ? 'bg-gray-400 cursor-wait' 
+                    : 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20 active:scale-[0.98]' 
+                  }`}
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-6 h-6 animate-spin" />
+                      Carregando...
+                    </>
+                  ) : (
+                    <>
+                      Ir para o Pagamento
+                      <ExternalLink className="w-6 h-6" />
+                    </>
+                  )}
+                </button>
+
+                {error && (
+                  <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-left space-y-3">
+                    <p className="text-red-500 font-black text-sm uppercase tracking-widest flex items-center gap-2">
+                      <X className="w-4 h-4" /> Erro de Configuração
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                      O link de pagamento para o plano <span className="font-bold text-red-500">{plan}</span> não foi configurado nas Variáveis de Ambiente (Settings).
+                    </p>
+                    <div className="bg-black/5 dark:bg-white/5 p-3 rounded-lg text-[10px] font-mono text-gray-400 break-all">
+                      Necessário: VITE_STRIPE_LINK_{plan === 'PROFISSIONAL' ? 'PROFISSIONAL' : plan}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           
           <div className="mt-8 flex items-center justify-center gap-4 opacity-50">
             {/* Logos de cartões genéricos */}

@@ -431,10 +431,23 @@ router.get('/exercises/gif-by-name', async (req, res) => {
     // Fallback to GitHub dump if mirrors fail
     if (!foundGif) {
       const allExercises = await getFullDbFromGithub();
-      const match = allExercises.find(ex => 
+      
+      // 1. Precise match (includes)
+      let match = allExercises.find(ex => 
         ex.name?.toLowerCase().includes(searchName.toLowerCase()) ||
         (ex.id && ex.id.toLowerCase() === searchName.toLowerCase())
       );
+      
+      // 2. Keyword match (split by spaces and find if any word matches significantly)
+      if (!match) {
+        const words = searchName.toLowerCase().split(' ').filter(w => w.length > 3);
+        if (words.length > 0) {
+          match = allExercises.find(ex => 
+            words.every(word => ex.name?.toLowerCase().includes(word))
+          );
+        }
+      }
+      
       if (match && match.gifUrl) {
         foundGif = match.gifUrl;
       }
@@ -445,11 +458,12 @@ router.get('/exercises/gif-by-name', async (req, res) => {
       return res.redirect(`/api/exercises/proxy-gif?url=${encodeURIComponent(foundGif)}`);
     }
 
-    // Final fallback: placeholder
-    res.redirect('https://placehold.co/400x400/000000/666666?text=GIF+Nao+Encontrado');
+    // Final fallback: Better styled placeholder
+    console.warn(`GIF not found for: ${searchName}. Redirecting to placeholder.`);
+    res.redirect(`https://placehold.co/600x600/111111/666666?text=Demonstracao+Indisponivel\n${encodeURIComponent(searchName.toUpperCase())}`);
   } catch (error: any) {
     console.error("GIF by Name Error:", error);
-    res.redirect('https://placehold.co/400x400/000000/666666?text=Erro+no+Proxy');
+    res.redirect('https://placehold.co/600x600/111111/666666?text=Erro+no+Servidor');
   }
 });
 

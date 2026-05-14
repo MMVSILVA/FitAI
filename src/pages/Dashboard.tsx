@@ -64,19 +64,32 @@ function ExerciseRow({
     'agachamento com peso do corpo': 'bodyweight squat',
     'flexão de braços': 'push up',
     'abdominal': 'crunch',
+    'abdominal reto': 'crunch',
     'esteira': 'treadmill running',
     'agachamento': 'squat',
     'supino': 'bench press',
+    'supino reto': 'bench press',
+    'supino inclinado': 'incline bench press',
+    'supino declinado': 'decline bench press',
     'levantamento terra': 'deadlift',
     'rosca direta': 'bicep curl',
     'puxada frente': 'lat pulldown',
+    'puxada aberta': 'lat pulldown',
     'remada': 'rowing machine',
+    'remada cavalinho': 't-bar row',
     'extensora': 'leg extension',
+    'cadeira extensora': 'leg extension',
     'flexora': 'leg curl',
+    'mesa flexora': 'leg curl',
     'leg press': 'leg press',
     'panturrilha': 'calf raise',
     'desenvolvimento': 'shoulder press',
-    'elevação lateral': 'lateral raise'
+    'desenvolvimento com halteres': 'dumbbell shoulder press',
+    'elevação lateral': 'lateral raise',
+    'elevação frontal': 'front raise',
+    'crucifixo': 'dumbbell fly',
+    'voador': 'pec deck',
+    'peck deck': 'pec deck'
   };
 
   // If we only have Portuguese, try to translate it for better search results
@@ -135,13 +148,23 @@ function ExerciseRow({
 
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-6 items-start w-full">
         {/* Imagem Demonstrativa */}
-        <div className="w-full aspect-square sm:aspect-auto sm:h-full min-h-[200px] rounded-2xl overflow-hidden border border-gray-200 dark:border-white/5 shadow-inner bg-black">
-          <ExerciseImage 
-            src={gifUrl} 
-            alt={exercise.name} 
-            className="w-full h-full"
-            proxy={true}
-          />
+        <div className="w-full h-full relative group">
+          <div className="w-full aspect-square sm:aspect-auto sm:h-full min-h-[200px] rounded-2xl overflow-hidden border border-gray-200 dark:border-white/5 shadow-inner bg-black">
+            <ExerciseImage 
+              src={gifUrl} 
+              alt={exercise.name} 
+              className="w-full h-full"
+              proxy={true}
+            />
+          </div>
+          <a 
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.englishName || termForApi) + '+exercise+tutorial'}`}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-3 right-3 p-2 bg-black/60 hover:bg-red-600 backdrop-blur-md rounded-xl text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all shadow-xl border border-white/10"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" /> Tutorial
+          </a>
         </div>
 
         {/* Info e Instruções */}

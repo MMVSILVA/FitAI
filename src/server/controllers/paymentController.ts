@@ -20,6 +20,10 @@ function getStripe(): Stripe {
     key = 'rk_' + key.substring(3);
   }
   
+  if (key.startsWith('rk_')) {
+    console.warn("Using Stripe RESTRICTED KEY (rk_). Ensure it has 'Checkout Sessions' and 'Subscriptions' write permissions.");
+  }
+  
   // Se a chave mudou ou o cliente ainda não existe, cria um novo
   if (!stripeClient) {
     const censored = `${key.substring(0, 7)}...${key.substring(key.length - 4)}`;
@@ -48,13 +52,13 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
     const normalizedPlan = (plan === "PROFESSIONAL" || plan === "PROFISSIONAL") ? "PROFISSIONAL" : plan;
 
     if (normalizedPlan === "PROFISSIONAL") {
-      rawPriceId = process.env.STRIPE_PRICE_ID_PROFISSIONAL || "price_1TRe4MCVEgijuso4xhL6gSpn";
+      rawPriceId = process.env.STRIPE_PRICE_ID_PROFISSIONAL || "";
       envVarName = "STRIPE_PRICE_ID_PROFISSIONAL";
     } else if (normalizedPlan === "PREMIUM") {
-      rawPriceId = process.env.STRIPE_PRICE_ID_PREMIUM || "price_1TOm3CCVEgijuso4h63UP1b3";
+      rawPriceId = process.env.STRIPE_PRICE_ID_PREMIUM || "";
       envVarName = "STRIPE_PRICE_ID_PREMIUM";
     } else {
-      rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1TOm2UCVEgijuso4yuRkIuoC";
+      rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "";
       envVarName = "STRIPE_PRICE_ID_PRO";
     }
 
@@ -105,6 +109,13 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
       res.json({ url: session.url });
     } catch (stripeError: any) {
       console.error(`Stripe specific error: ${stripeError.message}`, stripeError);
+      
+      if (stripeError.type === 'StripeAuthenticationError') {
+        return res.status(401).json({ 
+          error: "Erro de Autenticação no Stripe. A CHAVE SECRETA (STRIPE_SECRET_KEY) configurada nas Variáveis de Ambiente (Settings) é inválida ou não tem as permissões necessárias. Use uma chave que comece com 'sk_' ou 'rk_' com permissões de Checkout e Subscriptions." 
+        });
+      }
+      
       throw stripeError;
     }
   } catch (error: any) {
@@ -136,6 +147,10 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
         const { getAdminDb } = await import('../lib/firebase-admin.ts');
         const db = getAdminDb();
         
+        const dbPlan = (plan === 'PROFESSIONAL' || plan === 'PROFISSIONAL') ? 'PROFISSIONAL' : plan;
+        // Se o plano for PROFISSIONAL, o usuário vira um "trainer" para acessar o Dashboard de Profissional
+        const targetRole = (dbPlan === 'PROFISSIONAL') ? 'trainer' : (dbPlan === 'PREMIUM' ? 'premium_user' : 'user');
+        
         if (!userId && userEmail) {
           const usersSnap = await db.collection('users').where('email', '==', userEmail).get();
           if (!usersSnap.empty) {
@@ -144,11 +159,9 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
         }
 
         const subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
-        const dbPlan = (plan === 'PROFESSIONAL' || plan === 'PROFISSIONAL') ? 'PROFISSIONAL' : plan;
-        
         const dataToUpdate = {
           planType: dbPlan,
-          role: (dbPlan === 'PROFISSIONAL') ? 'trainer' : (dbPlan === 'PREMIUM' ? 'premium_user' : 'user'),
+          role: targetRole,
           isPremium: true,
           stripeSubscriptionId,
           subscriptionEndsAt: subscriptionEndsAt.toISOString(),
