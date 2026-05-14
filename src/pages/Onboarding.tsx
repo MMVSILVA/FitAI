@@ -10,7 +10,27 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { user, authLoading, profile, plan, setProfile, setPlan, startTrial } = useUser();
   const [loading, setLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState(0);
   const [error, setError] = useState('');
+
+  const loadingMessages = [
+    "Analisando seu perfil...",
+    "Calculando necessidades calóricas...",
+    "Estruturando sua divisão de treino...",
+    "Selecionando melhores exercícios...",
+    "Otimizando progressão de carga...",
+    "Finalizando seu protocolo FITAI..."
+  ];
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (loading) {
+      interval = setInterval(() => {
+        setLoadingStatus(prev => (prev + 1) % loadingMessages.length);
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -156,9 +176,9 @@ export default function Onboarding() {
         >
           <Loader2 className="w-16 h-16 text-purple-500" />
         </motion.div>
-        <h2 className="text-2xl font-bold mb-2 text-center">A IA está criando seu plano...</h2>
-        <p className="text-gray-400 text-center max-w-md">
-          Analisando seu perfil, calculando macros e estruturando sua progressão de carga. Isso pode levar alguns segundos.
+        <h2 className="text-2xl font-bold mb-2 text-center">{loadingMessages[loadingStatus]}</h2>
+        <p className="text-gray-400 text-center max-w-md animate-pulse">
+          Estamos montando a melhor estratégia biomecânica para você.
         </p>
       </div>
     );

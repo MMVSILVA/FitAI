@@ -20,15 +20,17 @@ const getDatabaseId = () => {
   const idFromConfig = firebaseConfig.firestoreDatabaseId;
   const rawId = idFromEnv || idFromConfig;
   
-  if (rawId === 'default' || !rawId) return '(default)';
+  if (!rawId || rawId === 'default' || rawId === '(default)') return undefined;
   return rawId;
 };
 
 const app = initializeApp(config);
 export const auth = getAuth(app);
+
+// Use initializeFirestore with long polling to ensure stability in sandboxed environments
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true, // Common fix for 429/connection issues in sandboxed environments
-}, getDatabaseId());
+  experimentalForceLongPolling: true,
+}, getDatabaseId() || '(default)');
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({

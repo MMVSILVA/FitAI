@@ -209,19 +209,28 @@ router.get('/exercises/search', async (req, res) => {
 
     // MEGA FALLBACK: Local Filtering of GitHub Dump
     if (!finalData) {
-      console.log("All mirrors failed. Using Mega Fallback (GitHub Dump)...");
+      console.log("Using backup exercise database...");
       const allExercises = await getFullDbFromGithub();
       if (allExercises && allExercises.length > 0) {
         let filtered = allExercises;
         if (name) {
-          const searchLower = (name as string).toLowerCase();
-          filtered = allExercises.filter(ex => 
-            ex.name?.toLowerCase().includes(searchLower) || 
-            ex.bodyPart?.toLowerCase().includes(searchLower) ||
-            ex.target?.toLowerCase().includes(searchLower) ||
-            ex.equipment?.toLowerCase().includes(searchLower) ||
-            (Array.isArray(ex.bodyParts) && ex.bodyParts.some((p: string) => p.toLowerCase().includes(searchLower)))
+          const searchLower = (name as string).toLowerCase().trim();
+          
+          // Improved Matching Strategy:
+          // 1. Prioritize exact name matches
+          // 2. Then name includes
+          // 3. Then bodyPart/target as fallback
+          
+          const exactMatches = allExercises.filter(ex => ex.name?.toLowerCase() === searchLower);
+          const nameIncludes = allExercises.filter(ex => ex.name?.toLowerCase().includes(searchLower) && !exactMatches.includes(ex));
+          const keywordsMatches = allExercises.filter(ex => 
+            (ex.bodyPart?.toLowerCase().includes(searchLower) ||
+             ex.target?.toLowerCase().includes(searchLower) ||
+             ex.equipment?.toLowerCase().includes(searchLower)) &&
+            !exactMatches.includes(ex) && !nameIncludes.includes(ex)
           );
+          
+          filtered = [...exactMatches, ...nameIncludes, ...keywordsMatches];
         }
 
         // Handle pagination locally
@@ -376,6 +385,71 @@ router.get('/exercises/proxy-gif', async (req, res) => {
   } catch (error: any) {
     console.error("GIF Proxy Error:", error);
     res.status(500).send(error.message);
+  }
+});
+
+// GIF Proxy by Name
+router.get('/exercises/gif-by-name', async (req, res) => {
+  try {
+    const { name } = req.query;
+    if (!name) return res.status(400).send('No name provided');
+    
+    const searchName = name as string;
+    const cacheKey = `gif-name-${searchName}`;
+    const cached = exerciseCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL * 24) {
+      return res.redirect(`/api/exercises/proxy-gif?url=${encodeURIComponent(cached.data)}`);
+    }
+
+    // Search for the exercise
+    const mirrors = [
+      'https://oss.exercisedb.dev/api/v1/exercises/name/',
+      'https://exercisedblist.vercel.app/api/v1/exercises/name/',
+      'https://db.exercisedb.io/api/v1/exercises/name/'
+    ];
+
+    let foundGif = null;
+    for (const base of mirrors) {
+      try {
+        const response = await fetch(`${base}${encodeURIComponent(searchName)}`, {
+          signal: AbortSignal.timeout(3000)
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const items = Array.isArray(data) ? data : (data.data || []);
+          if (items.length > 0 && items[0].gifUrl) {
+            foundGif = items[0].gifUrl;
+            break;
+          }
+        }
+      } catch (e) {
+        // Continue
+      }
+    }
+
+    // Fallback to GitHub dump if mirrors fail
+    if (!foundGif) {
+      const allExercises = await getFullDbFromGithub();
+      const match = allExercises.find(ex => 
+        ex.name?.toLowerCase().includes(searchName.toLowerCase()) ||
+        (ex.id && ex.id.toLowerCase() === searchName.toLowerCase())
+      );
+      if (match && match.gifUrl) {
+        foundGif = match.gifUrl;
+      }
+    }
+
+    if (foundGif) {
+      exerciseCache.set(cacheKey, { data: foundGif, timestamp: Date.now() });
+      return res.redirect(`/api/exercises/proxy-gif?url=${encodeURIComponent(foundGif)}`);
+    }
+
+    // Final fallback: placeholder
+    res.redirect('https://placehold.co/400x400/000000/666666?text=GIF+Nao+Encontrado');
+  } catch (error: any) {
+    console.error("GIF by Name Error:", error);
+    res.redirect('https://placehold.co/400x400/000000/666666?text=Erro+no+Proxy');
   }
 });
 

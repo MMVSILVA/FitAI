@@ -47,7 +47,6 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
 }
 
 export async function generatePlan(userData: Partial<UserProfile>, userId: string): Promise<AIResponse> {
-  // 1. Check limits and plan type
   const userRef = doc(db, 'users', userId);
   const userSnap = await getDoc(userRef);
   
@@ -63,140 +62,115 @@ export async function generatePlan(userData: Partial<UserProfile>, userId: strin
     throw new Error('LIMIT_EXCEEDED');
   }
 
-  // 2. Generate Plan with Gemini
-  const prompt = `
-      Você é um Personal Trainer e Nutricionista de elite. Sua missão é criar um plano de treino e estratégias de consistência rigorosamente baseadas no protocolo FITAI.
+  const systemInstruction = `Você é um Personal Trainer e Nutricionista de elite. Sua missão é criar um plano de treino e estratégias de consistência rigorosamente baseadas no protocolo FITAI.
+  
+  REGRAS DE OURO:
+  1. Base de dados: Use apenas exercícios conhecidos (Peito: Supino, Costas: Puxada, Pernas: Agachamento, etc).
+  2. Idioma: Retorne tudo em Português do Brasil, EXCETO 'englishName' e 'imageKeyword'.
+  3. Formato: Siga rigorosamente o schema JSON fornecido.
+  4. Suplementação: Sempre inclua dicas técnicas de Whey, Creatina e Multivitamínicos sem citar marcas.`;
 
-      DADOS DO USUÁRIO:
-      Idade: ${userData.age || 'Não informada'}
-      Sexo: ${userData.gender || 'Não informado'}
-      Peso: ${userData.weight || '0'}kg
-      Altura: ${userData.height || '0'}cm
-      Objetivos: ${Array.isArray(userData.objective) ? userData.objective.join(', ') : (userData.objective || 'Fitness geral')}
-      Nível: ${userData.fitnessLevel || 'iniciante'}
-      Dias por semana: ${userData.daysPerWeek || '3'}
-      Tempo por treino: ${userData.workoutTime || '60'} min
-      Local: ${userData.location || 'academia'}
-      Equipamentos: ${userData.equipment || 'completo'}
-      Restrições: ${userData.restrictions || 'nenhuma'}
-      Dieta: ${userData.dietHistory || 'equilibrada'}
-      Sono: ${userData.sleepQuality || 'normal'}
-      Histórico: ${userData.fitnessHistory || 'nenhum'}
-
-      PROTOCOLO DE FREQUÊNCIA:
-      - Se dias <= 2: FULL BODY
-      - Se dias == 3: ABC
-      - Se dias entre 4 e 5: DIVISÃO POR GRUPOS MUSCULARES
-      - Se dias >= 6: PERIODIZAÇÃO AVANÇADA
-
-      PROTOCOLO DE LOCAL:
-      - Se academia: Exercícios completos com máquinas e pesos livres.
-      - Se casa: Adaptar para peso corporal e equipamentos simples.
-      - Se pouco_equipamento: Priorizar exercícios funcionais + peso corporal.
-
-      ESTILO POR OBJETIVO:
-      - Hipertrofia: Volume + sobrecarga progressiva.
-      - Emagrecimento: Intensidade + gasto calórico + cardio.
-      - Performance: Força + resistência + explosão.
-
-      PROTOCOLO DE SEGURANÇA:
-      - Respeitar lesões SEMPRE.
-      - Evitar exercícios de risco.
-      - Ajustar intensidade ao nível.
-
-      FORMATO DE RESPOSTA (JSON OBRIGATÓRIO):
-      {
-        "workout": {
-          "title": "Protocolo FITAI Personalizado",
-          "objective": "Resumo do Objetivo",
-          "structure": "FULL BODY | ABC | GRUPOS MUSCULARES | AVANÇADA",
-          "frequency": "${userData.daysPerWeek || '3'} dias/semana",
-          "duration": "${userData.workoutTime || '60'} min/sessão",
-          "days": [
-            {
-              "day": "Dia 1",
-              "focus": "Músculos Alvo",
-              "exercises": [
-                { 
-                  "name": "Nome em Português", 
-                  "englishName": "Name in English",
-                  "group": "Grupo Muscular",
-                  "equipment": "Equipamento Necessário",
-                  "sets": 3, 
-                  "reps": "12", 
-                  "weight": "Moderado - 10 Kg de cada lado", 
-                  "tips": "Dica curta", 
-                  "breathing": "Dica respiração", 
-                  "cadence": "2:0:2", 
-                  "technicalDescription": "Descrição técnica completa em português.",
-                  "imageKeyword": "Exact English name for image search", 
-                  "rest": "60s" 
-                }
-              ]
-            }
-          ],
-          "progression": "Estratégia de progressão",
-          "consistencyScore": 100,
-          "strategies": ["Estratégia 1"]
-        },
-        "diet": {
-          "calories": "Valor total diário (Ex: 2400)",
-          "macros": {
-            "protein": "Valor numérico (Ex: 180)",
-            "carbs": "Valor numérico (Ex: 300)",
-            "fat": "Valor numérico (Ex: 70)"
-          },
-          "meals": [
-            {
-              "name": "Nome da Refeição (Ex: Café da Manhã)",
-              "time": "Horário Sugerido (Ex: 08:00)",
-              "foods": ["Alimento 1 + Gramagem", "Alimento 2 + Gramagem"]
-            }
-          ],
-          "recommendations": [
-              "Dica de Whey Protein: [Dosagem, composição ideal e melhor aplicação/horário]",
-              "Dica de Creatina: [Dosagem, saturação e aplicação constante]",
-              "Dica de Suplementação: [Outras dicas relevantes como Omega 3, Multivitamínico ou Pré-treinos sem marcas]"
-          ]
-        }
-      }
-
-      BASE DE DADOS DE EXERCÍCIOS (USE ESTA REFERÊNCIA RIGOROSAMENTE):
-      - Peito: Supino Reto (imageKeyword: bench press), Supino Inclinado (incline bench press), Supino Declinado (decline bench press), Crucifixo (dumbbell fly), Voador / Peck Deck (pec deck machine), Flexão de Braço (push-up), Crossover (cable crossover)
-      - Costas: Puxada Aberta (lat pulldown), Remada Baixa (seated row), Remada Cavalinho (t-bar row), Remada Curvada (bent-over row), Levantamento Terra (deadlift), Remada Unilateral (dumbbell row), Barra Fixa (pull-up), Extensão Lombar (back extension)
-      - Ombros: Desenvolvimento de Ombros (shoulder press), Elevação Lateral (lateral raise), Elevação Frontal (front raise), Crucifixo Invertido (rear delt fly), Remada Alta (upright row), Encolhimento (shrugs)
-      - Braços: Rosca Direta (barbell curl), Rosca Alternada (dumbbell curl), Rosca Concentrada (concentration curl), Rosca Scott (preacher curl), Tríceps Pulley / Corda (triceps pushdown), Tríceps Testa (skullcrusher), Tríceps Francês (french press), Mergulho (dips)
-      - Pernas: Agachamento (squat), Leg Press (leg press machine), Cadeira Extensora (leg extension), Mesa Flexora (leg curl machine), Stiff (romanian deadlift), Avanço / Passada (lunges), Elevação de Panturrilha (calf raises), Agachamento Búlgaro (bulgarian split squat)
-      - Core: Crunch (crunch), Prancha (plank), Abdominal Infra (leg raise), Abdominal Supra (upper crunch), Rotação Russa (russian twist)
-      - Cárdio: Esteira (treadmill), Bicicleta Ergométrica (stationary bike), Elíptico (elliptical), Simulador de Escada (stairclimber)
-
-      DIRETRIZES DE SAÍDA:
-      1. 'name': Deve ser o nome em Português EXATO da lista acima.
-      2. 'englishName': O nome em Inglês correspondente.
-      3. 'imageKeyword': O termo em Inglês entre parênteses acima (EXATO).
-      4. 'group': O grupo muscular (Peito, Costas, etc).
-      5. 'equipment': Barra, Haltere, Máquina, Cabo ou Peso Corporal.
-      6. 'weight': Seguir RIGOROSAMENTE o formato "Intensidade - Valor sugerido" (Ex: 'Moderado - 10 Kg de cada lado', 'Leve - Peso do Corpo', 'Intenso - 40 kg totais').
-      7. 'diet.macros': Retornar APENAS o número. Não adicionar "g" ou "gramas" no valor, pois o sistema adicionará automaticamente.
-      8. 'diet.recommendations': Incluir OBRIGATORIAMENTE dicas de Whey Protein, Creatina e outros suplementos vitais. Focar em dosagens, melhor composição/pureza e aplicação técnica. PROIBIDO CITAR MARCAS COMERCIAIS.
-      9. 'technicalDescription': Descrição profissional e detalhada em Português.
-
-      Responda apenas com o JSON puro, sem markdown.
-    `;
+  const prompt = `Gere um protocolo completo para:
+  Idade: ${userData.age} anos, Sexo: ${userData.gender}, Peso: ${userData.weight}kg, Altura: ${userData.height}cm.
+  Objetivos: ${userData.objective?.join(', ')}.
+  Nível: ${userData.fitnessLevel}.
+  Frequência: ${userData.daysPerWeek} dias/semana, ${userData.workoutTime} min/treino.
+  Local: ${userData.location}. Equipamentos: ${userData.equipment || 'padrão'}.
+  Restrições: ${userData.restrictions || 'nenhuma'}.`;
 
   try {
+    const { Type } = await import("@google/genai");
+    
     const response = await withRetry(() => ai.models.generateContent({
       model: MODEL_NAME,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            workout: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                objective: { type: Type.STRING },
+                structure: { type: Type.STRING },
+                frequency: { type: Type.STRING },
+                duration: { type: Type.STRING },
+                days: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      day: { type: Type.STRING },
+                      focus: { type: Type.STRING },
+                      exercises: {
+                        type: Type.ARRAY,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            name: { type: Type.STRING },
+                            englishName: { type: Type.STRING },
+                            group: { type: Type.STRING },
+                            equipment: { type: Type.STRING },
+                            sets: { type: Type.NUMBER },
+                            reps: { type: Type.STRING },
+                            weight: { type: Type.STRING },
+                            tips: { type: Type.STRING },
+                            breathing: { type: Type.STRING },
+                            cadence: { type: Type.STRING },
+                            technicalDescription: { type: Type.STRING },
+                            imageKeyword: { type: Type.STRING },
+                            rest: { type: Type.STRING }
+                          },
+                          required: ["name", "englishName", "group", "sets", "reps", "weight", "technicalDescription", "imageKeyword", "rest"]
+                        }
+                      }
+                    }
+                  }
+                },
+                progression: { type: Type.STRING },
+                consistencyScore: { type: Type.NUMBER },
+                strategies: { type: Type.ARRAY, items: { type: Type.STRING } }
+              }
+            },
+            diet: {
+              type: Type.OBJECT,
+              properties: {
+                calories: { type: Type.STRING },
+                macros: {
+                  type: Type.OBJECT,
+                  properties: {
+                    protein: { type: Type.STRING },
+                    carbs: { type: Type.STRING },
+                    fat: { type: Type.STRING }
+                  }
+                },
+                meals: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      time: { type: Type.STRING },
+                      foods: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    }
+                  }
+                },
+                recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+              }
+            }
+          }
+        }
+      },
       contents: [{ role: 'user', parts: [{ text: prompt }] }]
     }));
 
     const text = response.text;
     if (!text) throw new Error("No response from AI");
 
-    const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const plan = JSON.parse(jsonString);
+    const plan = JSON.parse(text);
 
-    // 3. Update generations for FREE tier
     if (planType === 'FREE') {
       await updateDoc(userRef, {
         planGenerationsLeft: Math.max(0, generationsLeft - 1)

@@ -38,11 +38,36 @@ export default function Checkout() {
   };
 
   const handleCheckout = async () => {
-    const link = getManualLink();
-    if (link) {
-      window.location.href = link;
-    } else {
-      setError("Link de pagamento não configurado.");
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan,
+          userId: user?.uid,
+          userEmail: user?.email
+        })
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Erro ao criar sessão de pagamento.");
+      }
+    } catch (err: any) {
+      console.error("Checkout error:", err);
+      // Fallback for manual link if API fails
+      const link = getManualLink();
+      if (link) {
+        window.location.href = link;
+      } else {
+        setError(err.message || "Não foi possível iniciar o checkout. Verifique as configurações do Stripe.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -120,25 +145,27 @@ export default function Checkout() {
           </p>
 
           <div className="w-full space-y-4">
-            <a 
-              href={getManualLink() || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => {
-                if (!getManualLink()) {
-                  e.preventDefault();
-                  setError("Configuração pendente: Link de pagamento não encontrado.");
-                }
-              }}
+            <button 
+              onClick={handleCheckout}
+              disabled={loading}
               className={`w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-xl transition-all shadow-xl ${
-                getManualLink() 
-                ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20 active:scale-[0.98]' 
-                : 'bg-gray-200 dark:bg-white/5 text-gray-400 cursor-not-allowed'
+                loading 
+                ? 'bg-gray-400 cursor-wait' 
+                : 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20 active:scale-[0.98]' 
               }`}
             >
-              Ir para o Pagamento
-              <ExternalLink className="w-6 h-6" />
-            </a>
+              {loading ? (
+                <>
+                  <RefreshCw className="w-6 h-6 animate-spin" />
+                  Carregando...
+                </>
+              ) : (
+                <>
+                  Ir para o Pagamento
+                  <ExternalLink className="w-6 h-6" />
+                </>
+              )}
+            </button>
 
             {error && (
               <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-left space-y-3">

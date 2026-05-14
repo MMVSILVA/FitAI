@@ -48,6 +48,7 @@ interface UserState {
   doCheckIn: () => Promise<{ success: boolean; isThirdDay?: boolean; totalDays?: number } | void>;
   setPlanTypeForUser: (targetUid: string, newPlanType: PlanType) => Promise<{ success: boolean; message: string }>;
   addExerciseToDay: (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string }) => Promise<void>;
+  joinChallenge: (challengeId: string) => Promise<void>;
 }
 
 const UserContext = createContext<UserState | undefined>(undefined);
@@ -73,6 +74,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user?.email) {
+      const isMasterAdmin = user.email === 'vinidoctor@gmail.com';
+      if (isMasterAdmin) {
+        setIsAdmin(true);
+        // The user wants to be seen as a student (usuário/aluno)
+        // setRoleState('admin' as UserRole); // Removed forced role
+        setPlanType('PROFISSIONAL');
+      }
+
       user.getIdToken().then(token => {
         fetch(`/api/auth/admin-check?email=${encodeURIComponent(user.email!)}`, {
           headers: {
@@ -81,13 +90,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
           .then(r => r.json())
           .then(data => {
-            setIsAdmin(data.isAdmin);
             if (data.isAdmin) {
-              setRoleState('admin' as UserRole);
+              setIsAdmin(true);
+              // setRoleState('admin' as UserRole); // Removed forced role
               setPlanType('PROFISSIONAL');
+            } else if (!isMasterAdmin) {
+              setIsAdmin(false);
             }
           })
-          .catch(() => setIsAdmin(false));
+          .catch(() => {
+            if (!isMasterAdmin) setIsAdmin(false);
+          });
       });
     } else {
       setIsAdmin(false);
@@ -95,6 +108,27 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   useEffect(() => {
+    // Validate Connection to Firestore (Recommended for AI Studio env)
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        console.log("Firestore connection: OK");
+      } catch (error: any) {
+        // If it's a permission error, we are actually online
+        if (error?.code === 'permission-denied') {
+          console.log("Firestore connection: OK (Permission denied on check doc, but connected)");
+          return;
+        }
+        
+        if (error?.message?.includes('the client is offline') || error?.code === 'unavailable') {
+          console.error("Firestore is unavailable. Check configuration or network.");
+        } else {
+          console.error("Firestore connection test error:", error);
+        }
+      }
+    };
+    testConnection();
+
     let unsubscribeSnapshot: (() => void) | null = null;
 
     const checkRedirect = async () => {
@@ -137,71 +171,113 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const docRef = doc(db, 'users', loggedUser!.uid);
         
-        // Update online status
-        updateDoc(docRef, { 
-          onlineStatus: 'online',
-          lastSeen: new Date().toISOString()
-        }).catch(err => console.error("Error updating online status:", err));
-
-        const statusInterval = setInterval(() => {
-          updateDoc(docRef, { 
-            lastSeen: new Date().toISOString()
-          }).catch(() => {});
-        }, 60000); // Pulse every 60s
-
         let snapshotReceived = false;
+        let isFirstUpdate = true;
 
-        // Setup snapshot listener immediately (non-blocking)
+        // Restore fast loading if we have cache
+        if (hasCache) {
+          setAuthLoading(false);
+        }
+
+        // Setup snapshot listener
         import('firebase/firestore').then(({ onSnapshot }) => {
           unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
-            const isFirstLoad = !snapshotReceived;
             snapshotReceived = true;
+
+            const isMasterAdmin = loggedUser.email === 'vinidoctor@gmail.com';
+            if (isMasterAdmin) {
+              setIsAdmin(true);
+              // setRoleState('admin' as UserRole); // Removed
+              setPlanType('PROFISSIONAL');
+            }
 
             if (docSnap.exists()) {
               const data = docSnap.data();
               
-              // SYNC AUTH DATA: Ensure name and photo are in Firestore for ranking
+              // Sync auth metadata to Firestore
               const authUpdates: any = {};
               if (!data.displayName && loggedUser.displayName) authUpdates.displayName = loggedUser.displayName;
               if (!data.photoURL && loggedUser.photoURL) authUpdates.photoURL = loggedUser.photoURL;
               if (!data.email && loggedUser.email) authUpdates.email = loggedUser.email;
               
+              const isMasterAdmin = loggedUser.email === 'vinidoctor@gmail.com';
+              // Apply requested check-ins and role for master user
+              if (isMasterAdmin) {
+                const currentCheckins = data.checkInDates || [];
+                const requested = ['2026-05-04', '2026-05-05', '2026-05-07'];
+                const missing = requested.filter(d => !currentCheckins.includes(d));
+                if (missing.length > 0) {
+                  authUpdates.checkInDates = [...currentCheckins, ...missing];
+                }
+                // Force role to user as requested
+                if (data.role !== 'user') authUpdates.role = 'user';
+
+                // Force nangelica into client lists
+                const nEmail = 'nangelicaalcantara@gmail.com';
+                const currentTrainerClients = data.trainerClients || [];
+                const currentNutriClients = data.nutritionistClients || [];
+                if (!currentTrainerClients.includes(nEmail)) {
+                  authUpdates.trainerClients = [...currentTrainerClients, nEmail];
+                }
+                if (!currentNutriClients.includes(nEmail)) {
+                  authUpdates.nutritionistClients = [...currentNutriClients, nEmail];
+                }
+              }
+
               if (Object.keys(authUpdates).length > 0) {
                 updateDoc(docRef, authUpdates).catch(() => {});
               }
 
-              // Merge root data with profile sub-object for consistency
-              const mergedProfile = { ...data, ...(data.profile || {}) };
+              // Merge data carefully (Root properties should take precedence in SaaS model)
+              // But we also check for legacy 'profile' sub-object
+              const profileData = data.profile || {};
+              const mergedProfile = { 
+                ...profileData, 
+                ...data,
+                // Ensure check-ins are normalized from multiple possible legacy fields
+                checkInDates: data.checkInDates || profileData.checkInDates || data.checkins || []
+              };
+              
               setProfileState(mergedProfile as UserProfile);
               localStorage.setItem(`fitai_profile_${loggedUser.uid}`, JSON.stringify(mergedProfile));
 
-              if (data.plan) {
-                setPlanState(data.plan);
-                localStorage.setItem(`fitai_plan_${loggedUser.uid}`, JSON.stringify(data.plan));
+              if (data.plan || profileData.plan) {
+                const finalPlan = data.plan || profileData.plan;
+                setPlanState(finalPlan);
+                localStorage.setItem(`fitai_plan_${loggedUser.uid}`, JSON.stringify(finalPlan));
               } else {
                 setPlanState(null);
                 localStorage.removeItem(`fitai_plan_${loggedUser.uid}`);
               }
-              if (data.role) setRoleState(data.role as UserRole);
+
+              if (data.role) {
+                setRoleState(data.role as UserRole);
+                if (data.role === 'admin' || isMasterAdmin) setIsAdmin(true);
+              } else if (isMasterAdmin) {
+                setRoleState('user' as UserRole); // Master is student now
+                setIsAdmin(true);
+              }
 
               // Admin Auto-Fix: Ensure admin appears in ranking if not explicitly false
               if ((data.role === 'admin' || data.email === 'vinidoctor@gmail.com') && data.showInRanking === undefined) {
-                updateDoc(docRef, { showInRanking: true });
+                updateDoc(docRef, { showInRanking: true }).catch(() => {});
+                if (data.email === 'vinidoctor@gmail.com') setIsAdmin(true);
               }
 
               if (data.clients) setClients(data.clients);
               if (data.trainerClients) setTrainerClients(data.trainerClients);
               if (data.nutritionistClients) setNutritionistClients(data.nutritionistClients);
 
-              // Migration logic for existing clients
+              // Migration logic for existing clients (for legacy support)
               if (data.clients && data.clients.length > 0) {
                 if (data.role === 'trainer' && (!data.trainerClients || data.trainerClients.length === 0)) {
-                  updateDoc(doc(db, 'users', user.uid), { trainerClients: data.clients });
+                  updateDoc(docRef, { trainerClients: data.clients }).catch(() => {});
                 }
                 if (data.role === 'nutritionist' && (!data.nutritionistClients || data.nutritionistClients.length === 0)) {
-                  updateDoc(doc(db, 'users', user.uid), { nutritionistClients: data.clients });
+                  updateDoc(docRef, { nutritionistClients: data.clients }).catch(() => {});
                 }
               }
+
               if (data.linkedTrainerId) setLinkedTrainerId(data.linkedTrainerId);
               if (data.linkedNutritionistId) setLinkedNutritionistId(data.linkedNutritionistId);
               if (data.favorites) setFavorites(data.favorites);
@@ -209,45 +285,108 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setThemeState(data.theme);
                 document.documentElement.classList.toggle('dark', data.theme === 'dark');
               }
-              
-              if (data.planType) {
-                setPlanType(data.planType as PlanType);
-              } else if (isAdmin) {
-                setPlanType('PROFISSIONAL');
-              } else {
-                setPlanType('FREE');
-              }
+              if (data.planType) setPlanType(data.planType as PlanType);
               if (data.trialEndsAt) setTrialEndsAt(data.trialEndsAt);
               if (data.subscriptionEndsAt) setSubscriptionEndsAt(data.subscriptionEndsAt);
-            }
+              
+              if (isFirstUpdate) {
+                setAuthLoading(false);
+                isFirstUpdate = false;
+              }
+            } else {
+              // Document doesn't exist for this UID. Let's try to search by email
+              // as requested by user to ensure "puxar treino a partir do email".
+              (async () => {
+                try {
+                  const { collection, query, where, getDocs, limit } = await import('firebase/firestore');
+                  const usersRef = collection(db, 'users');
+                  
+                  // Try multiple common legacy patterns
+                  const emailQueries = [
+                    query(usersRef, where('email', '==', loggedUser.email), limit(1)),
+                    query(usersRef, where('email', '==', loggedUser.email?.toLowerCase()), limit(1))
+                  ];
 
-            // If it's the first time we get data from server, ensure loader is gone
-            if (isFirstLoad) {
-              setAuthLoading(false);
+                  let oldData: any = null;
+                  
+                  // 1. Check if the doc ID is the email (legacy pattern)
+                  const emailDocSnap = await getDoc(doc(db, 'users', loggedUser.email!));
+                  if (emailDocSnap.exists()) {
+                    oldData = emailDocSnap.data();
+                  }
+
+                  // 2. Search by email field if not found
+                  if (!oldData) {
+                    for (const q of emailQueries) {
+                      const querySnap = await getDocs(q);
+                      if (!querySnap.empty) {
+                        oldData = querySnap.docs[0].data();
+                        break;
+                      }
+                    }
+                  }
+
+                  if (oldData) {
+                    console.log("Found existing profile by email. Migrating to new UID:", loggedUser.uid);
+                    
+                    // Duplicate the data to the new UID to ensure stable persistence
+                    // Use a merge set to avoid overwriting auth sync that might have happened
+                    await setDoc(docRef, {
+                      ...oldData,
+                      uid: loggedUser.uid,
+                      email: loggedUser.email,
+                      migratedAt: new Date().toISOString()
+                    }, { merge: true });
+                    
+                    // Snapshot will trigger and set authLoading(false)
+                  } else {
+                    // Truly new user - let background init handle the first doc creation
+                    // which will then trigger onSnapshot and setAuthLoading(false)
+                  }
+                } catch (err) {
+                  console.error("Error searching by email fallback:", err);
+                  setAuthLoading(false);
+                }
+              })();
             }
           }, (error) => {
             console.error("Firestore snapshot error:", error);
-            setAuthLoading(false); // Safety fallback
+            if (isFirstUpdate) {
+              setAuthLoading(false);
+              isFirstUpdate = false;
+            }
           });
         });
 
-        // If we have cache, we don't need to wait for snapshot to show the app
-        if (hasCache) {
-          setAuthLoading(false);
-        } else {
-          // Safety timeout: if no cache and no snapshot in 3s, just show onboarding
-          setTimeout(() => {
-            if (!snapshotReceived) {
-              setAuthLoading(false);
-            }
-          }, 3000);
-        }
+        // Initialize status tracking
+        updateDoc(docRef, { 
+          onlineStatus: 'online',
+          lastSeen: new Date().toISOString()
+        }).catch(() => {});
 
-        // Run heavy migration/init stuff in the background
+        const statusInterval = setInterval(() => {
+          updateDoc(docRef, { 
+            lastSeen: new Date().toISOString() 
+          }).catch(() => {});
+        }, 60000);
+
+        // Safety timeout: reduced to 2.5s
+        setTimeout(() => {
+          if (!snapshotReceived && !hasCache) {
+            console.log("Startup safety timeout reached");
+            setAuthLoading(false);
+          }
+        }, 2500);
+
+        // Background initialization
         (async () => {
           try {
+            // Wait a small bit to allow email migration to win the race if needed
+            await new Promise(resolve => setTimeout(resolve, 800));
+
             const docSnap = await getDoc(docRef);
             if (!docSnap.exists()) {
+              console.log("Creating new user profile doc...");
               const initialData: any = {
                 uid: loggedUser.uid,
                 email: loggedUser.email,
@@ -255,47 +394,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 planType: isAdmin ? 'PROFISSIONAL' : 'FREE',
                 createdAt: new Date().toISOString()
               };
-
-              // Check for pending guest payment
-              try {
-                const pendingRef = doc(db, 'users', `pending_${loggedUser.email}`);
-                const pendingSnap = await getDoc(pendingRef);
-                if (pendingSnap.exists()) {
-                  const pendingData = pendingSnap.data();
-                  console.log("Merging pending guest payment for:", loggedUser.email);
-                  initialData.planType = pendingData.planType;
-                  initialData.role = pendingData.role;
-                  initialData.isPremium = pendingData.isPremium;
-                  initialData.stripeSubscriptionId = pendingData.stripeSubscriptionId;
-                  initialData.subscriptionEndsAt = pendingData.subscriptionEndsAt;
-                  
-                  // Delete placeholder after migration
-                  import('firebase/firestore').then(({ deleteDoc }) => deleteDoc(pendingRef));
-                }
-              } catch (pendingErr) {
-                console.error("Error checking pending payment:", pendingErr);
+              
+              // Pending guest logic...
+              const { doc: getPendingDoc, getDoc: fetchPendingDoc, deleteDoc } = await import('firebase/firestore');
+              const pendingRef = getPendingDoc(db, 'users', `pending_${loggedUser.email}`);
+              const pendingSnap = await fetchPendingDoc(pendingRef);
+              if (pendingSnap.exists()) {
+                const pData = pendingSnap.data();
+                Object.assign(initialData, pData);
+                await deleteDoc(pendingRef);
               }
 
-              await setDoc(docRef, initialData);
-            } else if (!docSnap.data()?.profile && !isAdmin) {
-              // Migration check
-              const localProfile = localStorage.getItem('fitai_profile');
-              const localPlan = localStorage.getItem('fitai_plan');
-              if (localProfile && localPlan) {
-                const migrationData = {
-                  profile: JSON.parse(localProfile),
-                  plan: JSON.parse(localPlan),
-                  planType: isAdmin ? 'PROFISSIONAL' : (localStorage.getItem('fitai_plan_type') || 'FREE'),
-                  trialEndsAt: localStorage.getItem('fitai_trial_ends') || null
-                };
-                await setDoc(docRef, migrationData, { merge: true });
-                ['fitai_profile', 'fitai_plan', 'fitai_plan_type', 'fitai_trial_ends'].forEach(k => localStorage.removeItem(k));
-              }
+              await setDoc(docRef, initialData, { merge: true });
             }
-          } catch (error) {
-            console.error("Background initialization error:", error);
-          }
+          } catch (e) { console.error("BG Init error:", e); }
         })();
+
 
       } else {
         if (unsubscribeSnapshot) {
@@ -733,6 +847,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await saveToFirestore({ plan: newPlan });
   };
 
+  const joinChallenge = async (challengeId: string) => {
+    if (!profile || !user) return;
+    const joinedChallenges = profile.joinedChallenges || [];
+    if (joinedChallenges.includes(challengeId)) return;
+
+    const newChallenges = [...joinedChallenges, challengeId];
+    setProfile({ joinedChallenges: newChallenges });
+  };
+
   const doCheckIn = async () => {
     if (!profile || !user) return;
     
@@ -830,7 +953,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount,
       addExerciseProgress, getExerciseProgress,
       toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
-      addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn
+      addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn,
+      addExerciseToDay, joinChallenge
     }}>
       {children}
     </UserContext.Provider>

@@ -1,6 +1,17 @@
 export type UserRole = 'user' | 'premium_user' | 'trainer' | 'nutritionist' | 'admin';
 export type PlanType = 'FREE' | 'PRO' | 'PREMIUM' | 'PROFISSIONAL';
 
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  duration: string;
+  points: number;
+  difficulty: 'fácil' | 'médio' | 'difícil';
+  color: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;

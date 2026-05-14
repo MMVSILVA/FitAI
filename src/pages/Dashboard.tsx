@@ -7,14 +7,14 @@ import {
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
   Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus, ArrowLeft,
-  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target
+  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target, LayoutDashboard
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   AreaChart, Area
 } from 'recharts';
-import { APP_VERSION } from '../constants';
+import { APP_VERSION, CHALLENGES } from '../constants';
 import { Logo } from '../components/Logo';
 import { HomeView } from '../components/HomeView';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
@@ -24,11 +24,12 @@ import { ProfessionalProfileView } from '../components/ProfessionalProfileView';
 import { Ranking } from '../components/Ranking';
 import { GymLocator } from '../components/GymLocator';
 import { ChatView } from '../components/ChatView';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
 
 
 import { translate, translateExerciseName, ptToEnSearch } from '../lib/exerciseTranslations';
+import { ExerciseImage } from '../components/ExerciseImage';
 
 function ExerciseRow({ 
   exercise, 
@@ -52,6 +53,36 @@ function ExerciseRow({
   const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFISSIONAL';
   const [isLogging, setIsLogging] = useState(false);
   const [logSuccess, setLogSuccess] = useState(false);
+
+  // Best source for GIF search is English name or keyword
+  const searchName = exercise.imageKeyword || exercise.englishName || exercise.name;
+  const lowerSearch = searchName.toLowerCase().trim();
+  const isPortuguese = !/[a-zA-Z]/.test(searchName) || (exercise.name === searchName && !exercise.englishName);
+  
+  // Custom refined keywords for common messy terms
+  const refinedKeywords: Record<string, string> = {
+    'agachamento com peso do corpo': 'bodyweight squat',
+    'flexão de braços': 'push up',
+    'abdominal': 'crunch',
+    'esteira': 'treadmill running',
+    'agachamento': 'squat',
+    'supino': 'bench press',
+    'levantamento terra': 'deadlift',
+    'rosca direta': 'bicep curl',
+    'puxada frente': 'lat pulldown',
+    'remada': 'rowing machine',
+    'extensora': 'leg extension',
+    'flexora': 'leg curl',
+    'leg press': 'leg press',
+    'panturrilha': 'calf raise',
+    'desenvolvimento': 'shoulder press',
+    'elevação lateral': 'lateral raise'
+  };
+
+  // If we only have Portuguese, try to translate it for better search results
+  const termForApi = refinedKeywords[lowerSearch] || (isPortuguese ? ptToEnSearch(searchName) : searchName);
+  
+  const gifUrl = exercise.gifUrl || `/api/exercises/gif-by-name?name=${encodeURIComponent(termForApi.toLowerCase())}`;
 
   const handleLogProgress = async () => {
     if (!exercise.weight || isLogging) return;
@@ -102,7 +133,17 @@ function ExerciseRow({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 items-start w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-6 items-start w-full">
+        {/* Imagem Demonstrativa */}
+        <div className="w-full aspect-square sm:aspect-auto sm:h-full min-h-[200px] rounded-2xl overflow-hidden border border-gray-200 dark:border-white/5 shadow-inner bg-black">
+          <ExerciseImage 
+            src={gifUrl} 
+            alt={exercise.name} 
+            className="w-full h-full"
+            proxy={true}
+          />
+        </div>
+
         {/* Info e Instruções */}
         <div className="space-y-4 w-full">
           <div className="flex flex-col gap-3 w-full">
@@ -209,13 +250,27 @@ export default function Dashboard() {
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
     toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
-    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay
+    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay, joinChallenge
   } = useUser();
   
   const [searchParams, setSearchParams] = useSearchParams();
   const viewingAsUserId = searchParams.get('viewAs');
   const initialTab = (searchParams.get('tab') as any) || 'workout';
   const paymentSuccess = searchParams.get('success') === 'true';
+
+  useEffect(() => {
+    // CRITICAL: Validate connection to Firestore on boot
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error: any) {
+        if (error.message && error.message.includes('the client is offline')) {
+          console.error("Firestore Offline: Check configuration or network.");
+        }
+      }
+    }
+    testConnection();
+  }, []);
 
   useEffect(() => {
     if (paymentSuccess) {
@@ -804,6 +859,20 @@ export default function Dashboard() {
         }))
         .filter((u: any) => !u.isAdmin || u.email?.toLowerCase().trim() !== user?.email?.toLowerCase().trim());
 
+      // Force include requested user for simulation/visibility
+      const forcedEmail = 'nangelicaalcantara@gmail.com';
+      if (!enrichedUsers.some(u => u.email?.toLowerCase().trim() === forcedEmail)) {
+        enrichedUsers.push({
+          id: 'forced-nangelica',
+          email: forcedEmail,
+          displayName: 'N. Angélica Alcântara',
+          role: 'user',
+          planType: 'PRO',
+          photoURL: '',
+          isForced: true
+        });
+      }
+
       setAllUsers(enrichedUsers);
 
       setAdminStats({
@@ -1163,7 +1232,7 @@ export default function Dashboard() {
           <Link to="/dashboard" className="bg-white text-purple-600 px-3 py-1 rounded-full hover:bg-gray-100 transition-all font-bold">Encerrar</Link>
         </div>
       )}
-      <AnimatePresence>
+      <AnimatePresence mode="sync">
         {user?.email === 'nangelicaalcantara@gmail.com' && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
@@ -1288,7 +1357,7 @@ export default function Dashboard() {
       </header>
 
       {/* Floating Timer */}
-      <AnimatePresence>
+      <AnimatePresence mode="sync">
         {showTimer && (
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
@@ -1323,31 +1392,38 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      <main className="max-w-5xl mx-auto px-3 sm:px-6 pt-8 overflow-x-hidden">
+      <main className="max-w-5xl mx-auto px-2 sm:px-6 pt-6 sm:pt-8 overflow-x-hidden">
         {/* User Hero Section (Inspired by Wellhub images) */}
         <div className="mb-12 space-y-8">
-          <div className="flex justify-between items-start">
-            <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-6 sm:items-center">
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-[0.9] text-black dark:text-white max-w-xl">
-                  {profile?.displayName || user?.displayName || 'Usuário FitAI'}
+                <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-[0.9] text-black dark:text-white max-w-[280px] sm:max-w-xl">
+                  {profile?.displayName && !profile.displayName.includes('@') ? (
+                    profile.displayName
+                  ) : (user?.displayName && !user.displayName.includes('@')) ? (
+                    user.displayName
+                  ) : (
+                    profile?.displayName?.split('@')[0] || user?.displayName?.split('@')[0] || 'FitAI User'
+                  )}
                 </h1>
-                <div className="bg-purple-600/10 text-purple-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-purple-500/20 shadow-sm self-start">
-                   NÍVEL {profile.level || 1}
+                <div className="bg-purple-600/10 text-purple-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-purple-500/20 shadow-sm self-start whitespace-nowrap">
+                   NÍVEL {profile?.level || 1}
                 </div>
               </div>
               <div className="inline-block bg-purple-600/10 dark:bg-purple-600/20 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                PLANO {profile.planType === 'FREE' ? 'BASIC' : profile.planType}+
+                PLANO {profile?.planType === 'FREE' ? 'BASIC' : profile?.planType}+
               </div>
             </div>
-            {user?.photoURL ? (
+            {(user?.photoURL || profile?.photoURL) ? (
               <img 
-                src={user.photoURL} 
+                src={user?.photoURL || profile?.photoURL} 
                 alt="Profile" 
-                className="w-20 h-20 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-white dark:border-zinc-900 shadow-2xl"
+                className="w-20 h-20 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-white dark:border-zinc-900 shadow-2xl shrink-0"
+                referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full bg-purple-600 text-white flex items-center justify-center text-4xl font-black border-4 border-white dark:border-zinc-900 shadow-2xl">
+              <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full bg-purple-600 text-white flex items-center justify-center text-3xl sm:text-4xl font-black border-4 border-white dark:border-zinc-900 shadow-2xl shrink-0">
                 {(profile.displayName || 'U').charAt(0).toUpperCase()}
               </div>
             )}
@@ -1356,24 +1432,24 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <motion.div 
               whileHover={{ y: -5 }}
-              className="bg-white dark:bg-zinc-900 rounded-[3rem] p-8 sm:p-10 shadow-2xl shadow-black/5 border border-gray-100 dark:border-white/5 flex items-center justify-between group overflow-hidden relative"
+              className="bg-white dark:bg-zinc-900 rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-10 shadow-2xl shadow-black/5 border border-gray-100 dark:border-white/5 flex items-center justify-between group overflow-hidden relative"
             >
               <div className="relative z-10">
-                <p className="text-6xl sm:text-7xl font-black text-black dark:text-white mb-2 leading-none">{profile.checkInDates?.length || 0}</p>
+                <p className="text-5xl sm:text-7xl font-black text-black dark:text-white mb-2 leading-none">{profile?.checkInDates?.length || 0}</p>
                 <p className="text-gray-500 dark:text-gray-400 font-bold tracking-tight text-lg mb-6">Check-ins totais</p>
                 
                 {!isViewingAs && (
                   <motion.button
                     whileTap={{ scale: 0.95 }}
                     onClick={handleCheckInNow}
-                    disabled={profile.checkInDates?.includes(new Date().toISOString().split('T')[0])}
+                    disabled={profile?.checkInDates?.includes(new Date().toISOString().split('T')[0])}
                     className={`px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl flex items-center gap-2 ${
-                      profile.checkInDates?.includes(new Date().toISOString().split('T')[0])
+                      profile?.checkInDates?.includes(new Date().toISOString().split('T')[0])
                         ? 'bg-green-500/10 text-green-500 border border-green-500/20 cursor-default'
                         : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20'
                     }`}
                   >
-                    {profile.checkInDates?.includes(new Date().toISOString().split('T')[0]) ? (
+                    {profile?.checkInDates?.includes(new Date().toISOString().split('T')[0]) ? (
                       <><CheckCircle2 className="w-4 h-4" /> Realizado hoje</>
                     ) : (
                       <><Activity className="w-4 h-4" /> Confirmar Check-in</>
@@ -1392,30 +1468,38 @@ export default function Dashboard() {
 
             <motion.div 
               whileHover={{ y: -5 }}
-              className="bg-gradient-to-br from-purple-800 to-purple-950 rounded-[3rem] p-8 sm:p-10 shadow-2xl shadow-purple-950/20 border border-white/5 relative overflow-hidden group"
+              className="bg-gradient-to-br from-purple-800 to-purple-950 rounded-[2.5rem] sm:rounded-[3rem] p-6 sm:p-10 shadow-2xl shadow-purple-950/20 border border-white/5 relative overflow-hidden group"
             >
               <div className="absolute top-0 right-0 p-4 opacity-20 transition-transform group-hover:scale-110">
-                <Flame className="w-32 h-32 text-orange-400" />
+                <Flame className="w-24 h-24 sm:w-32 sm:h-32 text-orange-400" />
               </div>
               <div className="relative z-10">
-                <h3 className="text-3xl sm:text-4xl font-black text-white mb-2 leading-tight">
-                  Sequência de <span className="text-orange-400">{profile.streak || 0}</span> dias
+                <h3 className="text-2xl sm:text-4xl font-black text-white mb-2 leading-tight">
+                  Sequência de <span className="text-orange-400">{profile?.streak || 0}</span> dias
                 </h3>
                 <p className="text-white/80 font-bold mb-6 italic">
-                  {profile.streak && profile.streak > 0 
+                  {profile?.streak && profile.streak > 0 
                     ? (profile.streak >= 7 ? `${Math.floor(profile.streak/7)} semanas e ${profile.streak%7} dias` : "Mantendo o ritmo! 🔥")
                     : "Comece sua jornada hoje! 🚀"}
                 </p>
                 <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5, 6, 7].map(i => {
-                    const isActive = (profile.streak || 0) % 7 >= i || ((profile.streak || 0) > 0 && (profile.streak || 0) % 7 === 0 && i <= 7);
+                  {[0, 1, 2, 3, 4, 5, 6].map(i => {
+                    const now = new Date();
+                    const dayDate = new Date(now.setDate(now.getDate() - now.getDay() + i));
+                    const dateStr = dayDate.toISOString().split('T')[0];
+                    const isActive = profile.checkInDates?.includes(dateStr);
+                    const dayName = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][i];
+                    
                     return (
-                      <div key={i} className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border transition-all ${
-                        isActive 
-                          ? 'bg-orange-500/40 border-orange-400 text-white' 
-                          : 'bg-white/10 border-white/10 text-white/30'
-                      }`}>
-                        <CheckCircle2 className={`w-4 h-4 sm:w-5 sm:h-5 ${isActive ? 'scale-110' : 'opacity-20'}`} />
+                      <div key={i} className="flex flex-col items-center gap-1">
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border transition-all ${
+                          isActive 
+                            ? 'bg-orange-500/40 border-orange-400 text-white shadow-lg shadow-orange-500/20' 
+                            : 'bg-white/10 border-white/10 text-white/30'
+                        }`}>
+                          <CheckCircle2 className={`w-4 h-4 sm:w-5 sm:h-5 ${isActive ? 'scale-110' : 'opacity-20'}`} />
+                        </div>
+                        <span className="text-[8px] font-black text-white/40 uppercase tracking-tighter">{dayName}</span>
                       </div>
                     );
                   })}
@@ -1471,20 +1555,32 @@ export default function Dashboard() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto no-scrollbar -mx-3 px-3">
-          {isAdmin && (
+        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto no-scrollbar -mx-3 px-3 scroll-smooth">
+          <div className="flex gap-2 sm:gap-4 min-w-max">
+            {isAdmin && (
+              <button 
+                onClick={() => handleTabChange('admin')}
+                className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-8 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-base whitespace-nowrap ${
+                  activeTab === 'admin' 
+                  ? 'bg-red-600 text-white shadow-xl shadow-red-600/20' 
+                  : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+                }`}
+              >
+                <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+                Painel ADM
+              </button>
+            )}
             <button 
-              onClick={() => handleTabChange('admin')}
-              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-                activeTab === 'admin' 
-                ? 'bg-red-600 text-white shadow-xl shadow-red-600/20' 
-                : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+              onClick={() => handleTabChange('routine')}
+              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-8 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-base whitespace-nowrap ${
+                activeTab === 'routine' 
+                  ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20' 
+                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
             >
-              <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
-              Painel ADM
+              <LayoutDashboard className="w-4 h-4 sm:w-5 sm:h-5" />
+              Início
             </button>
-          )}
           <button 
             onClick={() => handleTabChange('workout')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
@@ -1522,18 +1618,6 @@ export default function Dashboard() {
           >
             <TrendingUp className={`w-5 h-5 sm:w-6 sm:h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
             Evolução
-            {(isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
-          </button>
-          <button 
-            onClick={() => handleTabChange('routine')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'routine' 
-                ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-orange-500 text-white shadow-xl shadow-orange-500/20') 
-                : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Calendar className={`w-5 h-5 sm:w-6 sm:h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
-            Rotina
             {(isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           
@@ -1604,6 +1688,7 @@ export default function Dashboard() {
             Academias
           </button>
         </div>
+      </div>
 
         {/* Content */}
         <motion.div
@@ -1830,20 +1915,60 @@ export default function Dashboard() {
                 </section>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-white/5 flex flex-col justify-between aspect-square group">
+                  <motion.div 
+                    whileHover={{ y: -5 }} 
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleTabChange('ranking')}
+                    className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-white/5 flex flex-col justify-between aspect-square group cursor-pointer"
+                  >
                     <Target className="w-10 h-10 text-purple-600" />
                     <div>
                       <p className="text-2xl font-black tracking-tighter leading-none mb-1">Rank Global</p>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dispute o topo</p>
                     </div>
                   </motion.div>
-                  <motion.div whileHover={{ y: -5 }} className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-white/5 flex flex-col justify-between aspect-square">
+                  <motion.div 
+                    whileHover={{ y: -5 }} 
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleTabChange('evolution')}
+                    className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-white/5 flex flex-col justify-between aspect-square group cursor-pointer"
+                  >
                     <Award className="w-10 h-10 text-yellow-500" />
                     <div>
                       <p className="text-2xl font-black tracking-tighter leading-none mb-1">Especialista</p>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Coletar insígnias</p>
                     </div>
                   </motion.div>
+
+  {(isAdmin || role === 'trainer' || linkedTrainerId) && (
+    <motion.div 
+      whileHover={{ y: -5 }} 
+      whileTap={{ scale: 0.95 }}
+      onClick={() => handleTabChange('personal')}
+      className="bg-gradient-to-br from-green-500/10 to-green-600/10 dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-green-500/20 dark:border-white/5 flex flex-col justify-between aspect-square group cursor-pointer"
+    >
+      <Dumbbell className="w-10 h-10 text-green-500" />
+      <div>
+        <p className="text-2xl font-black tracking-tighter leading-none mb-1">Gestão Trainer</p>
+        <p className="text-[10px] font-black text-green-500 uppercase tracking-widest">Seu Coach</p>
+      </div>
+    </motion.div>
+  )}
+
+  {(isAdmin || role === 'nutritionist' || linkedNutritionistId) && (
+    <motion.div 
+      whileHover={{ y: -5 }} 
+      whileTap={{ scale: 0.95 }}
+      onClick={() => handleTabChange('nutrition')}
+      className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-purple-500/20 dark:border-white/5 flex flex-col justify-between aspect-square group cursor-pointer"
+    >
+      <Apple className="w-10 h-10 text-purple-500" />
+      <div>
+        <p className="text-2xl font-black tracking-tighter leading-none mb-1">Gestão Nutri</p>
+        <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Protocolo Alimentar</p>
+      </div>
+    </motion.div>
+  )}
                 </div>
               </div>
             </div>
@@ -1998,7 +2123,64 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
+                  {/* Challenges Section */}
+                <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-3xl p-6 sm:p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Trophy className="w-5 h-5 text-yellow-500" />
+                        Desafios da Comunidade
+                      </h3>
+                      <p className="text-sm text-gray-500">Participe e ganhe pontos extras</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {CHALLENGES.map((challenge) => {
+                      const isJoined = profile?.joinedChallenges?.includes(challenge.id);
+                      return (
+                        <div 
+                          key={challenge.id}
+                          className={`p-4 rounded-2xl border transition-all ${
+                            isJoined 
+                              ? 'bg-purple-600/5 border-purple-500/30 ring-1 ring-purple-500/20' 
+                              : 'bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/5'
+                          }`}
+                        >
+                          <div className="flex gap-4">
+                            <div className="text-3xl shrink-0">{challenge.icon}</div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-sm truncate">{challenge.title}</h4>
+                              <p className="text-xs text-gray-500 line-clamp-2 mt-1 leading-tight">{challenge.description}</p>
+                              
+                              <div className="flex items-center gap-2 mt-3">
+                                <span className="text-[9px] font-black bg-gray-200 dark:bg-white/10 px-2 py-0.5 rounded uppercase">{challenge.duration}</span>
+                                <span className="text-[9px] font-black text-purple-600 dark:text-purple-400 uppercase">+{challenge.points} pts</span>
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  joinChallenge(challenge.id);
+                                  setToast({ show: true, message: `🚀 Você entrou no desafio: ${challenge.title}!`, type: 'success' });
+                                }}
+                                disabled={isJoined}
+                                className={`w-full mt-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                                  isJoined
+                                    ? 'bg-green-500/20 text-green-600 cursor-default'
+                                    : 'bg-black dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95'
+                                }`}
+                              >
+                                {isJoined ? 'Participando' : 'Participar Agora'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
                     <ProgressComparison targetUserId={profile?.uid} />
                   </div>
                 </div>
@@ -2076,7 +2258,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'ranking' && (
-            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-12">
+            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
               <Ranking />
             </div>
           )}
@@ -2930,6 +3112,29 @@ export default function Dashboard() {
                 </div>
                 <div className="relative z-10">
                   <h3 className="text-xl font-black text-black dark:text-white uppercase tracking-tighter mb-6 flex items-center gap-2">
+                     Painéis de Acesso Rápido
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+                    <Link to="/trainer" className="bg-green-600/10 border border-green-500/20 p-6 rounded-3xl hover:bg-green-600/20 transition-all group">
+                      <Dumbbell className="w-8 h-8 text-green-500 mb-4 group-hover:scale-110 transition-transform" />
+                      <h4 className="font-black text-white uppercase tracking-widest text-xs">Painel do Personal</h4>
+                      <p className="text-[10px] text-gray-400 mt-1">Gerenciar alunos, treinos e chats.</p>
+                    </Link>
+                    
+                    <Link to="/nutritionist" className="bg-purple-600/10 border border-purple-500/20 p-6 rounded-3xl hover:bg-purple-600/20 transition-all group">
+                      <Apple className="w-8 h-8 text-purple-500 mb-4 group-hover:scale-110 transition-transform" />
+                      <h4 className="font-black text-white uppercase tracking-widest text-xs">Painel do Nutri</h4>
+                      <p className="text-[10px] text-gray-400 mt-1">Gerenciar dietas e pacientes.</p>
+                    </Link>
+
+                    <div className="bg-red-600/10 border border-red-500/20 p-6 rounded-3xl opacity-50 cursor-not-allowed">
+                      <Users className="w-8 h-8 text-red-500 mb-4" />
+                      <h4 className="font-black text-white uppercase tracking-widest text-xs">Painel de Vendas</h4>
+                      <p className="text-[10px] text-gray-400 mt-1">Relatórios financeiros (Breve).</p>
+                    </div>
+                  </div>
+
+                  <h3 className="text-xl font-black text-black dark:text-white uppercase tracking-tighter mb-6 flex items-center gap-2">
                      Simular Nível de Acesso (Instantâneo)
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -3154,9 +3359,14 @@ export default function Dashboard() {
       )}
 
       {/* User History Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="sync">
         {viewingUserHistory && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-6"
+          >
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3313,14 +3523,19 @@ export default function Dashboard() {
                  </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
       {/* Premium Nutri Modals */}
-      <AnimatePresence>
+      <AnimatePresence mode="sync">
         {showMacroDetails && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-6"
+          >
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3372,11 +3587,16 @@ export default function Dashboard() {
                 Entendi
               </button>
             </motion.div>
-          </div>
+          </motion.div>
         )}
 
         {showSupplementGuide && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-6"
+          >
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3451,11 +3671,16 @@ export default function Dashboard() {
                 Voltar
               </button>
             </motion.div>
-          </div>
+          </motion.div>
         )}
 
         {showRoutineSummary && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-6"
+          >
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3524,11 +3749,16 @@ export default function Dashboard() {
                 Fechar
               </button>
             </motion.div>
-          </div>
+          </motion.div>
         )}
 
         {showEditProfileModal && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-6"
+          >
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3652,14 +3882,19 @@ export default function Dashboard() {
                 </div>
               </form>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
       {/* Admin Panel Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="sync">
         {showAdminModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          >
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3798,7 +4033,7 @@ export default function Dashboard() {
                 </section>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

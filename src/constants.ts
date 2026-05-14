@@ -1,5 +1,50 @@
-export const APP_VERSION = '1.0.4'; // Increment this to trigger update notifications
-export const BUILD_DATE = '2026-04-24';
+import { Challenge } from './types';
+
+export const APP_VERSION = '1.0.5';
+export const BUILD_DATE = '2026-05-07';
+
+export const CHALLENGES: Challenge[] = [
+  {
+    id: 'streak_7',
+    title: 'Guerreiro da Semana',
+    description: 'Complete 7 dias seguidos de treino sem falhar.',
+    icon: '🔥',
+    duration: '7 dias',
+    points: 500,
+    difficulty: 'médio',
+    color: 'orange'
+  },
+  {
+    id: 'early_bird',
+    title: 'Madrugador Elite',
+    description: 'Treine antes das 8h da manhã por 5 dias.',
+    icon: '🌅',
+    duration: '5 dias',
+    points: 300,
+    difficulty: 'fácil',
+    color: 'yellow'
+  },
+  {
+    id: 'hydration_king',
+    title: 'Rei da Hidratação',
+    description: 'Beba 3L de água todos os dias por 14 dias.',
+    icon: '💧',
+    duration: '14 dias',
+    points: 400,
+    difficulty: 'fácil',
+    color: 'blue'
+  },
+  {
+    id: 'heavy_lifter',
+    title: 'Peso de Elite',
+    description: 'Aumente sua carga em 10% em 3 exercícios base.',
+    icon: '🏋️',
+    duration: '30 dias',
+    points: 1000,
+    difficulty: 'difícil',
+    color: 'purple'
+  }
+];
 
 /**
  * STRIPE CONFIGURATION REQUIREMENTS:

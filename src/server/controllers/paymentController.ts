@@ -48,13 +48,13 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
     const normalizedPlan = (plan === "PROFESSIONAL" || plan === "PROFISSIONAL") ? "PROFISSIONAL" : plan;
 
     if (normalizedPlan === "PROFISSIONAL") {
-      rawPriceId = process.env.STRIPE_PRICE_ID_PROFISSIONAL || "";
+      rawPriceId = process.env.STRIPE_PRICE_ID_PROFISSIONAL || "price_1TRe4MCVEgijuso4xhL6gSpn";
       envVarName = "STRIPE_PRICE_ID_PROFISSIONAL";
     } else if (normalizedPlan === "PREMIUM") {
-      rawPriceId = process.env.STRIPE_PRICE_ID_PREMIUM || "";
+      rawPriceId = process.env.STRIPE_PRICE_ID_PREMIUM || "price_1TOm3CCVEgijuso4h63UP1b3";
       envVarName = "STRIPE_PRICE_ID_PREMIUM";
     } else {
-      rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "";
+      rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1TOm2UCVEgijuso4yuRkIuoC";
       envVarName = "STRIPE_PRICE_ID_PRO";
     }
 
