@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Trophy, Medal, Star, User, Loader2, ShieldCheck, Target } from 'lucide-react';
+import { Trophy, Medal, Star, User, Loader2, ShieldCheck, Target, Zap, Flame } from 'lucide-react';
 import { useUser } from '../store/userStore';
 
 export function Ranking() {
@@ -164,6 +164,32 @@ export function Ranking() {
                 {leader.streak > 0 && (
                   <span className="text-[8px] sm:text-[9px] bg-orange-500/10 text-orange-600 px-1.5 sm:px-2 py-0.5 rounded font-black uppercase whitespace-nowrap">🔥 {leader.streak} dias</span>
                 )}
+                {/* Medals and Challenges */}
+                <div className="flex items-center gap-1 ml-1 sm:ml-2">
+                  {(leader.medals || []).slice(0, 3).map((m: any, i: number) => {
+                    const Icon = m.icon === 'Zap' ? Zap : 
+                                 m.icon === 'Shield' ? ShieldCheck : 
+                                 m.icon === 'Flame' ? Flame : 
+                                 m.icon === 'Trophy' ? Trophy : Star;
+                    const colors: Record<string, string> = {
+                      'Zap': 'bg-yellow-500 text-black',
+                      'Shield': 'bg-blue-500 text-white',
+                      'Flame': 'bg-orange-500 text-white',
+                      'Trophy': 'bg-rose-500 text-white',
+                      'Star': 'bg-purple-500 text-white'
+                    };
+                    return (
+                      <div key={i} title={m.name} className={`w-4 h-4 sm:w-5 sm:h-5 rounded-md flex items-center justify-center border border-white/20 shadow-sm ${colors[m.icon] || colors.Star}`}>
+                        <Icon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      </div>
+                    );
+                  })}
+                  {(leader.joinedChallenges || []).length > 0 && (
+                    <div title="Participando de Desafios" className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 rounded-md flex items-center justify-center border border-white/20 shadow-sm ml-1 text-white">
+                      <Target className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

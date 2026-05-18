@@ -47,7 +47,11 @@ interface UserState {
   deleteWorkoutReport: (dayIndex: number, reportId: string) => Promise<void>;
   doCheckIn: () => Promise<{ success: boolean; isThirdDay?: boolean; totalDays?: number } | void>;
   setPlanTypeForUser: (targetUid: string, newPlanType: PlanType) => Promise<{ success: boolean; message: string }>;
-  addExerciseToDay: (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string }) => Promise<void>;
+  addExerciseToDay: (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string; rest: string }) => Promise<void>;
+  removeExerciseFromDay: (dayIndex: number, exerciseIndex: number) => Promise<void>;
+  addWorkoutDay: (dayData: { day: string; focus: string; exercises: any[] }) => Promise<void>;
+  removeWorkoutDay: (dayIndex: number) => Promise<void>;
+  updateWorkoutDay: (dayIndex: number, dayData: { day?: string; focus?: string }) => Promise<void>;
   joinChallenge: (challengeId: string) => Promise<void>;
 }
 
@@ -201,6 +205,36 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (!data.email && loggedUser.email) authUpdates.email = loggedUser.email;
               
               const isMasterAdmin = loggedUser.email === 'vinidoctor@gmail.com';
+              const today = new Date();
+              const todayStr = today.toISOString().split('T')[0];
+
+              // --- RESET LOGIC ---
+              // If it's a new week (specifically Monday or if last reset was > 7 days ago)
+              // We reset the "completedExercises" and plan day checks
+              const lastResetDate = data.lastWeeklyReset || data.createdAt || '';
+              const lastReset = new Date(lastResetDate);
+              
+              // Check if we are in a different week or if it's Monday and we haven't reset today
+              const isMonday = today.getDay() === 1;
+              const diffTime = today.getTime() - lastReset.getTime();
+              const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+              if ((isMonday && lastResetDate !== todayStr) || diffDays >= 7) {
+                console.log("Weekly reset triggered for:", loggedUser.email);
+                authUpdates.completedExercises = [];
+                authUpdates.lastWeeklyReset = todayStr;
+                
+                // Also reset isCompleted in the plan if it exists
+                if (data.plan && data.plan.days) {
+                  const updatedPlan = { ...data.plan };
+                  updatedPlan.days = updatedPlan.days.map((day: any) => ({
+                    ...day,
+                    isCompleted: false
+                  }));
+                  authUpdates.plan = updatedPlan;
+                }
+              }
+
               // Apply requested check-ins and role for master user
               if (isMasterAdmin) {
                 const currentCheckins = data.checkInDates || [];
@@ -212,7 +246,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Force role to user as requested
                 if (data.role !== 'user') authUpdates.role = 'user';
 
-                // Force nangelica into client lists
+                // Force nangelica into client lists and vice-versa
                 const nEmail = 'nangelicaalcantara@gmail.com';
                 const currentTrainerClients = data.trainerClients || [];
                 const currentNutriClients = data.nutritionistClients || [];
@@ -222,6 +256,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (!currentNutriClients.includes(nEmail)) {
                   authUpdates.nutritionistClients = [...currentNutriClients, nEmail];
                 }
+                
+                // Ensure Master has a linked trainer/nutri (himself or nangelica)
+                // for testing as a student
+                if (!data.linkedTrainerId) authUpdates.linkedTrainerId = 'admin-trainer';
+                if (!data.linkedNutritionistId) authUpdates.linkedNutritionistId = 'admin-nutri';
               }
 
               if (Object.keys(authUpdates).length > 0) {
@@ -830,19 +869,48 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await saveToFirestore({ plan: newPlan });
   };
 
-  const addExerciseToDay = async (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string }) => {
+  const addExerciseToDay = async (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string; rest: string }) => {
     if (!plan) return;
     const newPlan = JSON.parse(JSON.stringify(plan)); // Deep clone
     if (!newPlan.days[dayIndex].exercises) newPlan.days[dayIndex].exercises = [];
     
-    // Check if exercise already exists to avoid duplicates
-    const exerciseExists = newPlan.days[dayIndex].exercises.some((e: any) => 
-      e.name.toLowerCase().trim() === exercise.name.toLowerCase().trim()
-    );
-    
-    if (exerciseExists) return;
-
     newPlan.days[dayIndex].exercises.push(exercise);
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
+  const removeExerciseFromDay = async (dayIndex: number, exerciseIndex: number) => {
+    if (!plan) return;
+    const newPlan = JSON.parse(JSON.stringify(plan));
+    newPlan.days[dayIndex].exercises.splice(exerciseIndex, 1);
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
+  const addWorkoutDay = async (dayData: { day: string; focus: string; exercises: any[] }) => {
+    if (!plan) return;
+    const newPlan = JSON.parse(JSON.stringify(plan));
+    newPlan.days.push({
+      ...dayData,
+      isCompleted: false,
+      workoutReports: []
+    });
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
+  const removeWorkoutDay = async (dayIndex: number) => {
+    if (!plan) return;
+    const newPlan = JSON.parse(JSON.stringify(plan));
+    newPlan.days.splice(dayIndex, 1);
+    setPlanState(newPlan);
+    await saveToFirestore({ plan: newPlan });
+  };
+
+  const updateWorkoutDay = async (dayIndex: number, dayData: { day?: string; focus?: string }) => {
+    if (!plan) return;
+    const newPlan = JSON.parse(JSON.stringify(plan));
+    newPlan.days[dayIndex] = { ...newPlan.days[dayIndex], ...dayData };
     setPlanState(newPlan);
     await saveToFirestore({ plan: newPlan });
   };
@@ -916,11 +984,31 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       newStreak = 1;
     }
 
+    // Medal Logic
+    const currentMedals = profile.medals || [];
+    const totalCheckIns = newCheckInDates.length;
+    const newMedals = [...currentMedals];
+    
+    const medalCriteria = [
+      { id: 'm1', name: 'Iniciante Fit', threshold: 1, icon: 'Zap' },
+      { id: 'm10', name: 'Atleta de Bronze', threshold: 10, icon: 'Shield' },
+      { id: 'm50', name: 'Fera da Academia', threshold: 50, icon: 'Flame' },
+      { id: 'm100', name: 'Mestre do Treino', threshold: 100, icon: 'Trophy' },
+      { id: 'm200', name: 'Lenda do FitAI', threshold: 200, icon: 'Award' }
+    ];
+
+    medalCriteria.forEach(m => {
+      if (totalCheckIns >= m.threshold && !newMedals.some(exist => exist.name === m.name)) {
+        newMedals.push({ name: m.name, icon: m.icon, earnedAt: new Date().toISOString() });
+      }
+    });
+
     const updates = {
       points: newPoints,
       level: newLevel,
       checkInDates: newCheckInDates,
       streak: newStreak,
+      medals: newMedals,
       updatedAt: new Date().toISOString()
     };
 
@@ -954,7 +1042,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addExerciseProgress, getExerciseProgress,
       toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
       addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn,
-      addExerciseToDay, joinChallenge
+      addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge
     }}>
       {children}
     </UserContext.Provider>

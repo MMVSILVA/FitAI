@@ -103,7 +103,18 @@ router.get('/exercises/search', async (req, res) => {
       'panturrilha': 'calf',
       'panturrilhas': 'calf',
       'coxa': 'thigh',
-      'quadríceps': 'quads'
+      'quadríceps': 'quads',
+      'ombros': 'shoulders',
+      'agachamento': 'squat',
+      'supino': 'bench press',
+      'rosca': 'curl',
+      'remada': 'row',
+      'puxada': 'pulldown',
+      'elevação': 'raise',
+      'extensão': 'extension',
+      'flexão': 'pushup',
+      'abdominais': 'waist',
+      'cardio': 'cardio'
     };
     
     if (name && typeof name === 'string') {
@@ -403,6 +414,7 @@ router.get('/exercises/gif-by-name', async (req, res) => {
     }
 
     // Search for the exercise
+    const normalizedSearch = searchName.toLowerCase().replace(/[-_]/g, ' ').trim();
     const mirrors = [
       'https://oss.exercisedb.dev/api/v1/exercises/name/',
       'https://exercisedblist.vercel.app/api/v1/exercises/name/',
@@ -410,37 +422,48 @@ router.get('/exercises/gif-by-name', async (req, res) => {
     ];
 
     let foundGif = null;
-    for (const base of mirrors) {
-      try {
-        const response = await fetch(`${base}${encodeURIComponent(searchName)}`, {
-          signal: AbortSignal.timeout(3000)
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const items = Array.isArray(data) ? data : (data.data || []);
-          if (items.length > 0 && items[0].gifUrl) {
-            foundGif = items[0].gifUrl;
-            break;
+    const searchTerms = [normalizedSearch];
+    
+    // Add variations if needed (e.g., if it has multiple words, try the first two)
+    if (normalizedSearch.split(' ').length > 2) {
+      searchTerms.push(normalizedSearch.split(' ').slice(0, 2).join(' '));
+    }
+
+    for (const term of searchTerms) {
+      if (foundGif) break;
+      for (const base of mirrors) {
+        try {
+          const response = await fetch(`${base}${encodeURIComponent(term)}`, {
+            signal: AbortSignal.timeout(3000)
+          });
+          if (response.ok) {
+            const data = await response.json();
+            const items = Array.isArray(data) ? data : (data.data || []);
+            if (items.length > 0 && items[0].gifUrl) {
+              foundGif = items[0].gifUrl;
+              break;
+            }
           }
+        } catch (e) {
+          // Continue
         }
-      } catch (e) {
-        // Continue
       }
     }
 
     // Fallback to GitHub dump if mirrors fail
     if (!foundGif) {
       const allExercises = await getFullDbFromGithub();
+      const term = normalizedSearch.toLowerCase();
       
       // 1. Precise match (includes)
       let match = allExercises.find(ex => 
-        ex.name?.toLowerCase().includes(searchName.toLowerCase()) ||
-        (ex.id && ex.id.toLowerCase() === searchName.toLowerCase())
+        ex.name?.toLowerCase().includes(term) ||
+        (ex.id && ex.id.toLowerCase() === term.replace(/\s+/g, '-'))
       );
       
       // 2. Keyword match (split by spaces and find if any word matches significantly)
       if (!match) {
-        const words = searchName.toLowerCase().split(' ').filter(w => w.length > 3);
+        const words = term.split(' ').filter(w => w.length > 3);
         if (words.length > 0) {
           match = allExercises.find(ex => 
             words.every(word => ex.name?.toLowerCase().includes(word))
@@ -459,8 +482,8 @@ router.get('/exercises/gif-by-name', async (req, res) => {
     }
 
     // Final fallback: Better styled placeholder
-    console.warn(`GIF not found for: ${searchName}. Redirecting to placeholder.`);
-    res.redirect(`https://placehold.co/600x600/111111/666666?text=Demonstracao+Indisponivel\n${encodeURIComponent(searchName.toUpperCase())}`);
+    console.warn(`GIF not found for: ${searchName} (normalized: ${normalizedSearch}). Redirecting to placeholder.`);
+    res.redirect(`https://placehold.co/600x600/111111/666666?text=Demonstracao+Indisponivel\n${encodeURIComponent(normalizedSearch.toUpperCase())}`);
   } catch (error: any) {
     console.error("GIF by Name Error:", error);
     res.redirect('https://placehold.co/600x600/111111/666666?text=Erro+no+Servidor');

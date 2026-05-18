@@ -51,6 +51,7 @@ export interface UserProfile {
   checkInDates?: string[];
   badges?: string[];
   joinedChallenges?: string[];
+  medals?: { name: string; icon: string; earnedAt: string }[];
   // Professional fields
   bio?: string;
   specialty?: string;

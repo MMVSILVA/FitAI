@@ -84,7 +84,9 @@ export function UpdateNotification() {
       unsubscribe = onSnapshot(doc(db, 'system', 'config'), (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          if (data.latestVersion && data.latestVersion !== APP_VERSION) {
+          const dismissedForVersion = sessionStorage.getItem(`update_dismissed_${data.latestVersion}`);
+          
+          if (data.latestVersion && data.latestVersion !== APP_VERSION && dismissedForVersion !== 'true') {
             setFirestoreUpdate({
               version: data.latestVersion,
               message: data.updateMessage || 'Uma nova versão do FitAI está disponível com melhorias e correções.'
@@ -108,11 +110,24 @@ export function UpdateNotification() {
   }, []);
 
   const handleUpdate = () => {
+    if (firestoreUpdate) {
+      sessionStorage.setItem(`update_dismissed_${firestoreUpdate.version}`, 'true');
+    }
+    
     if (needUpdate) {
       updateServiceWorker(true);
     } else {
       window.location.reload();
     }
+  };
+
+  const handleDismiss = () => {
+    if (firestoreUpdate) {
+      sessionStorage.setItem(`update_dismissed_${firestoreUpdate.version}`, 'true');
+    }
+    setShow(false);
+    setOfflineReady(false);
+    setNeedUpdate(false);
   };
 
   const isVisible = show || needUpdate || offlineReady;
@@ -132,11 +147,7 @@ export function UpdateNotification() {
             
             <div className="absolute top-4 right-4">
               <button 
-                onClick={() => {
-                  setShow(false);
-                  setOfflineReady(false);
-                  setNeedUpdate(false);
-                }}
+                onClick={handleDismiss}
                 className="text-gray-500 hover:text-white transition-colors"
                 aria-label="Fechar"
               >

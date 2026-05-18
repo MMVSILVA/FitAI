@@ -9,36 +9,28 @@ import { useUser } from '../store/userStore';
 import { UserProfile } from '../types';
 
 export function HomeView() {
-  const { user, profile, planType } = useUser();
+  const { user, profile, planType, doCheckIn } = useUser();
 
   const handleCheckIn = async () => {
     if (!user || !profile) return;
-    try {
-      const { doc, updateDoc, arrayUnion } = await import('firebase/firestore');
-      const { db } = await import('../firebase');
-      const today = new Date().toISOString().split('T')[0];
-      
-      if (profile.checkInDates?.includes(today)) {
-        alert('Você já fez check-in hoje!');
-        return;
-      }
-
-      await updateDoc(doc(db, 'users', user.uid), {
-        checkInDates: arrayUnion(today),
-        streak: (profile.streak || 0) + 1,
-        points: (profile.points || 0) + 50,
-        updatedAt: new Date().toISOString()
-      });
-    } catch (err) {
-      console.error("Error doing check-in:", err);
+    const res = await doCheckIn();
+    if (res && (res as any).success) {
+      alert('Check-in realizado com sucesso!');
     }
   };
 
-  const medals = [
+  const medalsData = profile?.medals?.length ? profile.medals.map((m: any, i: number) => ({
+    id: `m-${i}`,
+    name: m.name,
+    icon: m.icon === 'Zap' ? <Zap className="w-8 h-8 text-white" /> :
+          m.icon === 'Shield' ? <Target className="w-8 h-8 text-white" /> :
+          m.icon === 'Flame' ? <Flame className="w-8 h-8 text-white" /> :
+          m.icon === 'Trophy' ? <Trophy className="w-8 h-8 text-white" /> :
+          <Award className="w-8 h-8 text-white" />,
+    color: i % 2 === 0 ? 'bg-zinc-900' : 'bg-rose-600',
+    year: new Date(m.earnedAt).getFullYear().toString()
+  })) : [
     { id: '1', name: 'Mestre do Bem-estar', icon: <Zap className="w-8 h-8 text-white" />, color: 'bg-zinc-900', year: '2026' },
-    { id: '2', name: '200 Check-ins', icon: <MapPin className="w-8 h-8 text-white" />, color: 'bg-rose-600', count: '200' },
-    { id: '3', name: 'Dia Mundial da Atividade', icon: <Award className="w-8 h-8 text-white" />, color: 'bg-blue-600', year: '2026' },
-    { id: '4', name: 'Dia Internacional', icon: <Star className="w-8 h-8 text-white" />, color: 'bg-purple-600', year: '2026' },
   ];
 
   const challenges = [
@@ -59,6 +51,27 @@ export function HomeView() {
     { day: '09', label: 'SAB' },
     { day: '10', label: 'DOM' },
   ];
+
+  // Helper to calculate check-ins for different periods
+  const getCheckInStats = () => {
+    const dates = profile.checkInDates || [];
+    const now = new Date();
+    
+    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    startOfWeek.setHours(0,0,0,0);
+    
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    return {
+      week: dates.filter(d => new Date(d) >= startOfWeek).length,
+      month: dates.filter(d => new Date(d) >= startOfMonth).length,
+      year: dates.filter(d => new Date(d) >= startOfYear).length,
+      total: dates.length
+    };
+  };
+
+  const stats = getCheckInStats();
 
   if (!profile) return null;
 
@@ -87,18 +100,18 @@ export function HomeView() {
               Plano {profile.planType === 'FREE' ? 'Basic' : (profile.planType === 'PROFISSIONAL' ? 'Coach Pro' : 'Premium')}+
             </div>
           </div>
-          <div className="flex flex-col items-end gap-3">
-             <div className="bg-gray-100 dark:bg-zinc-800 p-3 rounded-full border border-gray-200 dark:border-white/10 shadow-sm cursor-pointer hover:scale-105 transition-all">
-                <Settings className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+          <div className="flex flex-col items-end gap-3 text-right">
+             <div className="bg-gray-100 dark:bg-zinc-800 p-2 rounded-full border border-gray-200 dark:border-white/10 shadow-sm cursor-pointer hover:scale-105 transition-all">
+                <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
              </div>
              {user?.photoURL ? (
                 <img 
                   src={user.photoURL} 
                   alt="Profile" 
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-white dark:border-zinc-900 shadow-2xl"
+                  className="w-14 h-14 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-white dark:border-zinc-900 shadow-2xl"
                 />
              ) : (
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-purple-600 text-white flex items-center justify-center text-2xl font-black border-4 border-white dark:border-zinc-900 shadow-2xl">
+                <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-purple-600 text-white flex items-center justify-center text-xl sm:text-2xl font-black border-4 border-white dark:border-zinc-900 shadow-2xl">
                    {(profile.displayName || 'U').charAt(0).toUpperCase()}
                 </div>
              )}
@@ -109,22 +122,41 @@ export function HomeView() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <motion.div 
             whileHover={{ y: -5 }}
-            className="bg-white dark:bg-zinc-900 rounded-[3rem] p-10 shadow-2xl shadow-black/5 border border-gray-100 dark:border-white/5 flex items-center justify-between group"
+            className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 shadow-2xl shadow-black/5 border border-gray-100 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between group gap-6"
           >
-            <div>
-              <p className="text-7xl font-black text-black dark:text-white mb-2 leading-none">{profile.checkInDates?.length || 0}</p>
-              <p className="text-gray-500 dark:text-gray-400 font-bold tracking-tight text-lg">Check-ins realizados</p>
+            <div className="flex-1 w-full text-center sm:text-left">
+              <div className="flex items-baseline justify-center sm:justify-start gap-2 mb-1">
+                <p className="text-6xl font-black text-black dark:text-white leading-none">{stats.total}</p>
+                <p className="text-gray-500 font-bold text-xs uppercase tracking-widest">Totais</p>
+              </div>
+              <p className="text-gray-400 dark:text-gray-500 font-bold tracking-tight text-sm mb-6 uppercase">Check-ins realizados</p>
+              
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                <div className="bg-gray-50 dark:bg-white/5 p-2 rounded-xl border border-gray-100 dark:border-white/5 text-center">
+                  <p className="text-lg font-black text-black dark:text-white leading-none">{stats.week}</p>
+                  <p className="text-[8px] font-bold text-gray-400 uppercase">Semana</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-white/5 p-2 rounded-xl border border-gray-100 dark:border-white/5 text-center">
+                  <p className="text-lg font-black text-black dark:text-white leading-none">{stats.month}</p>
+                  <p className="text-[8px] font-bold text-gray-400 uppercase">Mês</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-white/5 p-2 rounded-xl border border-gray-100 dark:border-white/5 text-center">
+                  <p className="text-lg font-black text-black dark:text-white leading-none">{stats.year}</p>
+                  <p className="text-[8px] font-bold text-gray-400 uppercase">Ano</p>
+                </div>
+              </div>
+
               <button 
                 onClick={handleCheckIn}
-                className="mt-6 bg-black dark:bg-white text-white dark:text-black px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-600 dark:hover:bg-rose-500 hover:text-white transition-all shadow-xl shadow-black/10"
+                className="w-full bg-black dark:bg-white text-white dark:text-black px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-600 dark:hover:bg-rose-500 hover:text-white transition-all shadow-xl shadow-black/10"
               >
                 Fazer Check-in
               </button>
             </div>
-            <div className="flex -space-x-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="w-20 h-20 bg-rose-500 rounded-full flex items-center justify-center border-4 border-white dark:border-zinc-900 shadow-2xl group-hover:translate-x-2 transition-transform">
-                  <MapPin className="w-10 h-10 text-white fill-white/20" />
+            <div className="flex -space-x-4">
+              {[1, 2].map((i) => (
+                <div key={i} className="w-16 h-16 bg-rose-500 rounded-full flex items-center justify-center border-4 border-white dark:border-zinc-900 shadow-2xl group-hover:translate-x-2 transition-transform">
+                  <MapPin className="w-8 h-8 text-white fill-white/20" />
                 </div>
               ))}
             </div>
@@ -185,13 +217,13 @@ export function HomeView() {
           <button className="text-sm font-bold text-gray-500 hover:text-black dark:hover:text-white border-b-2 border-gray-200 dark:border-white/10 uppercase tracking-tighter">Ver tudo</button>
         </div>
         <div className="flex gap-6 overflow-x-auto no-scrollbar pb-4 -mx-1 px-1">
-          {medals.map((medal) => (
+          {medalsData.map((medal) => (
             <div key={medal.id} className="flex flex-col items-center gap-3 shrink-0 w-32 group">
               <div className={`w-28 h-28 ${medal.color} rounded-[2rem] flex items-center justify-center relative overflow-hidden shadow-2xl group-hover:scale-105 transition-transform`}>
                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
                  {medal.icon}
                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-[10px] font-black text-white">
-                    {medal.year || medal.count}
+                    {medal.year || (medal as any).count}
                  </div>
               </div>
               <p className="text-[11px] font-black text-center text-gray-600 dark:text-gray-400 leading-tight uppercase tracking-tight">
@@ -210,27 +242,34 @@ export function HomeView() {
         </div>
         <div className="space-y-4">
           {challenges.map((challenge) => (
-            <div key={challenge.id} className="relative rounded-[3rem] overflow-hidden group shadow-2xl">
+            <div key={challenge.id} className="relative rounded-[2.5rem] overflow-hidden group shadow-2xl">
               <img 
                 src={challenge.image} 
                 alt={challenge.title}
-                className="w-full h-80 object-cover transition-transform duration-700 group-hover:scale-110"
+                className="w-full h-48 sm:h-56 object-cover transition-transform duration-700 group-hover:scale-110"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-10 flex flex-col justify-end">
-                <div className="space-y-2 mb-6">
-                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Por {challenge.by}</p>
-                  <h3 className="text-3xl font-black text-white tracking-tighter">{challenge.title}</h3>
-                  <p className="text-white/80 text-sm font-bold">Meta: {challenge.meta}</p>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent p-6 sm:p-10 flex flex-col justify-end">
+                <div className="space-y-1 mb-4">
+                  <p className="text-white/60 text-[9px] font-black uppercase tracking-[0.2em]">Por {challenge.by}</p>
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tighter leading-tight">{challenge.title}</h3>
+                  <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest">{challenge.meta}</p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex -space-x-3">
                     {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-zinc-800 flex items-center justify-center text-[10px] font-black text-white">
-                        {i === 4 ? '+1k' : '👤'}
+                      <div key={i} className="w-8 h-8 rounded-full border-2 border-black bg-zinc-800 flex items-center justify-center text-[10px] font-black text-white overflow-hidden shadow-lg shadow-black/50">
+                        <img 
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=user${i}`} 
+                          className="w-full h-full object-cover" 
+                          alt="" 
+                        />
                       </div>
                     ))}
+                    <div className="w-8 h-8 rounded-full border-2 border-black bg-zinc-900 flex items-center justify-center text-[8px] font-black text-rose-500 shadow-lg shadow-black/50">
+                      +1K
+                    </div>
                   </div>
-                  <button className="bg-rose-600 hover:bg-rose-500 text-white px-10 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-rose-600/30 active:scale-95">
+                  <button className="bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-rose-600/30 active:scale-95">
                     Participar
                   </button>
                 </div>

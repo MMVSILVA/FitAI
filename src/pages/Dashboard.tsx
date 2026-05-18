@@ -7,7 +7,7 @@ import {
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
   Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus, ArrowLeft,
-  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target, LayoutDashboard
+  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target, LayoutDashboard, Trash2
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { 
@@ -61,14 +61,15 @@ function ExerciseRow({
   
   // Custom refined keywords for common messy terms
   const refinedKeywords: Record<string, string> = {
+    'agachamento livre': 'barbell squat',
+    'agachamento': 'barbell squat',
     'agachamento com peso do corpo': 'bodyweight squat',
     'flexão de braços': 'push up',
     'abdominal': 'crunch',
     'abdominal reto': 'crunch',
     'esteira': 'treadmill running',
-    'agachamento': 'squat',
     'supino': 'bench press',
-    'supino reto': 'bench press',
+    'supino reto': 'barbell bench press',
     'supino inclinado': 'incline bench press',
     'supino declinado': 'decline bench press',
     'levantamento terra': 'deadlift',
@@ -146,36 +147,16 @@ function ExerciseRow({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-6 items-start w-full">
-        {/* Imagem Demonstrativa */}
-        <div className="w-full h-full relative group">
-          <div className="w-full aspect-square sm:aspect-auto sm:h-full min-h-[200px] rounded-2xl overflow-hidden border border-gray-200 dark:border-white/5 shadow-inner bg-black">
-            <ExerciseImage 
-              src={gifUrl} 
-              alt={exercise.name} 
-              className="w-full h-full"
-              proxy={true}
-            />
-          </div>
-          <a 
-            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.englishName || termForApi) + '+exercise+tutorial'}`}
-            target="_blank"
-            rel="noreferrer"
-            className="absolute bottom-3 right-3 p-2 bg-black/60 hover:bg-red-600 backdrop-blur-md rounded-xl text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all shadow-xl border border-white/10"
-          >
-            <Play className="w-3.5 h-3.5 fill-current" /> Tutorial
-          </a>
-        </div>
-
+      <div className="grid grid-cols-1 gap-6 items-start w-full">
         {/* Info e Instruções */}
-        <div className="space-y-4 w-full">
-          <div className="flex flex-col gap-3 w-full">
+        <div className="flex flex-col gap-6 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
             <div className="bg-purple-600/10 border border-purple-500/20 px-3 py-2 rounded-lg flex flex-col justify-center w-full">
               <p className="text-[10px] sm:text-[11px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-tighter mb-0.5">Séries x Repetições</p>
               <p className="text-sm sm:text-lg font-black text-black dark:text-white leading-none">{exercise.sets} x {exercise.reps}</p>
             </div>
             
-            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 sm:gap-3 w-full hover:border-purple-500/30 transition-all group/weight">
+            <div className="bg-purple-600/5 dark:bg-zinc-900/50 border border-purple-500/10 dark:border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 sm:gap-3 w-full hover:border-purple-500/30 transition-all group/weight col-span-2">
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-[9px] sm:text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest mb-0.5 opacity-60">Sua Carga</p>
                 <div className="flex items-center gap-2">
@@ -207,6 +188,18 @@ function ExerciseRow({
                 </button>
               )}
             </div>
+
+            <button 
+              onClick={() => {
+                const query = encodeURIComponent((exercise.englishName || exercise.name) + ' exercise tutorial');
+                window.open(`https://www.youtube.com/results?search_query=${query}`, '_blank');
+              }}
+              className="bg-red-600/10 border border-red-500/20 px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm"
+              title="Ver Tutorial no YouTube"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span className="text-[10px] font-black uppercase">Tutorial</span>
+            </button>
           </div>
 
           {exercise.technicalDescription && (
@@ -273,7 +266,7 @@ export default function Dashboard() {
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
     toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
-    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay, joinChallenge
+    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge
   } = useUser();
   
   const [searchParams, setSearchParams] = useSearchParams();
@@ -416,6 +409,9 @@ export default function Dashboard() {
   const [celebrationData, setCelebrationData] = useState<{ message: string; days: number }>({ message: '', days: 0 });
   const [suggestedExercises, setSuggestedExercises] = useState<{ name: string; dayIndex: number }[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEditingWorkout, setIsEditingWorkout] = useState(false);
+  const [isEditingPlanInfo, setIsEditingPlanInfo] = useState(false);
+  const [showSalesDashboard, setShowSalesDashboard] = useState(false);
 
   // Sync check-ins and streaks if they are inconsistent
   useEffect(() => {
@@ -1922,9 +1918,9 @@ export default function Dashboard() {
                   <div className="flex justify-between items-end mb-6">
                     <h2 className="text-2xl font-black uppercase tracking-tighter">Desafios Ativos</h2>
                   </div>
-                  <div className="relative rounded-[3rem] overflow-hidden group shadow-2xl bg-gradient-to-br from-purple-900 to-black h-80 flex flex-col justify-end p-10">
+                  <div className="relative rounded-[3rem] overflow-hidden group shadow-2xl bg-gradient-to-br from-purple-900 to-black h-64 flex flex-col justify-end p-10">
                     <div className="absolute top-0 right-0 p-10 opacity-10 scale-150 rotate-12">
-                      <Trophy className="w-64 h-64 text-white" />
+                      <Trophy className="w-48 h-48 text-white" />
                     </div>
                     <div className="relative z-10">
                       <p className="text-white/60 text-xs font-black uppercase tracking-widest mb-2">DESAFIO DE MAIO</p>
@@ -2296,17 +2292,106 @@ export default function Dashboard() {
             <div className="space-y-6 sm:space-y-8 relative w-full overflow-x-hidden">
               {isBlocked && <Paywall feature="Treinos" type="expired" />}
               <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-3 sm:p-8 overflow-hidden">
-                <h3 className="text-lg sm:text-xl font-bold mb-6 flex items-center gap-2 px-1">
-                  <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  Rotina Semanal ({profile.daysPerWeek} dias)
-                </h3>
+                <div className="flex items-center justify-between mb-6 px-1">
+                  <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    Rotina Semanal ({plan.days.length} dias)
+                  </h3>
+                  {!isViewingAs && (
+                    <div className="flex gap-2">
+                       <button 
+                        onClick={() => setIsEditingPlanInfo(!isEditingPlanInfo)}
+                        className={`p-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${
+                          isEditingPlanInfo ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                        }`}
+                      >
+                        {isEditingPlanInfo ? 'Sair Info' : 'Editar Info'}
+                      </button>
+                      <button 
+                        onClick={() => setIsEditingWorkout(!isEditingWorkout)}
+                        className={`p-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${
+                          isEditingWorkout ? 'bg-purple-600 border-purple-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                        }`}
+                      >
+                        {isEditingWorkout ? 'Sair Edição' : 'Editar Plano'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {isEditingPlanInfo && (
+                  <div className="mb-8 p-6 bg-blue-600/5 border border-blue-500/20 rounded-[2rem] space-y-4">
+                    <h4 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-4">Informações do Protocolo</h4>
+                    <div className="space-y-4">
+                       <div>
+                          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Estratégia de Progressão</label>
+                          <textarea 
+                            value={plan.progression || ''}
+                            onChange={(e) => setPlan({ ...plan, progression: e.target.value })}
+                            className="w-full bg-white dark:bg-black border border-white/10 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none h-24"
+                          />
+                       </div>
+                       <div>
+                          <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Recomendações (uma por linha)</label>
+                          <textarea 
+                            value={(plan.recommendations || []).join('\n')}
+                            onChange={(e) => setPlan({ ...plan, recommendations: e.target.value.split('\n').filter(l => l.trim() !== '') })}
+                            placeholder="Frutas liberadas... Beber 4L de água..."
+                            className="w-full bg-white dark:bg-black border border-white/10 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none h-24"
+                          />
+                       </div>
+                       <button 
+                        onClick={async () => {
+                          try {
+                            const { doc, updateDoc } = await import('firebase/firestore');
+                            const { db } = await import('../firebase');
+                            const targetId = isViewingAs ? profile.uid : user.uid;
+                            await updateDoc(doc(db, 'users', targetId), { plan });
+                            setToast({ isVisible: true, message: 'Informações do plano salvas!', type: 'success' });
+                            setIsEditingPlanInfo(false);
+                          } catch (err) {
+                            setToast({ isVisible: true, message: 'Erro ao salvar info.', type: 'error' });
+                          }
+                        }}
+                        className="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest"
+                       >
+                         Salvar Alterações Globais
+                       </button>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="grid gap-4">
                   {plan.days.map((day, idx) => (
                     <div key={`day-${idx}-${day.day}`} className="bg-white dark:bg-black border border-gray-200 dark:border-white/5 rounded-2xl p-3 sm:p-6 hover:border-purple-500/30 transition-colors shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                        <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400 shrink-0">{day.day}</h4>
-                        <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white break-words max-w-full">{day.focus}</span>
+                        {isEditingWorkout ? (
+                          <div className="flex gap-2 flex-1 min-w-0">
+                            <input 
+                              type="text" 
+                              value={day.day}
+                              onChange={(e) => updateWorkoutDay(idx, { day: e.target.value })}
+                              className="bg-zinc-800 border-white/10 border p-2 rounded-xl text-sm font-bold text-white w-24"
+                            />
+                            <input 
+                              type="text" 
+                              value={day.focus}
+                              onChange={(e) => updateWorkoutDay(idx, { focus: e.target.value })}
+                              className="bg-zinc-800 border-white/10 border p-2 rounded-xl text-sm font-bold text-white flex-1"
+                            />
+                            <button 
+                              onClick={() => confirm('Remover este dia de treino?') && removeWorkoutDay(idx)}
+                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <h4 className="text-lg font-bold text-purple-600 dark:text-purple-400 shrink-0">{day.day}</h4>
+                            <span className="text-sm font-medium bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full text-gray-600 dark:text-white break-words max-w-full">{day.focus}</span>
+                          </>
+                        )}
                       </div>
                       
                       <div className="space-y-4">
@@ -2315,18 +2400,44 @@ export default function Dashboard() {
                            const uniqueKey = ex.id ? `${ex.id}-${i}` : `${ex.name}-${i}`;
                            const exerciseId = `${idx}-${i}`;
                            return (
-                             <ExerciseRow 
-                               key={uniqueKey} 
-                               exercise={ex} 
-                               dayIdx={idx} 
-                               exerciseIdx={i} 
-                               restSeconds={restSeconds} 
-                               onStartRest={startRest}
-                               checked={completedExercises.has(exerciseId)}
-                               onToggleCheck={handleToggleExercise}
-                             />
+                             <div key={uniqueKey} className="relative group/ex">
+                               <ExerciseRow 
+                                 exercise={ex} 
+                                 dayIdx={idx} 
+                                 exerciseIdx={i} 
+                                 restSeconds={restSeconds} 
+                                 onStartRest={startRest}
+                                 checked={completedExercises.has(exerciseId)}
+                                 onToggleCheck={handleToggleExercise}
+                               />
+                               {isEditingWorkout && (
+                                 <button 
+                                   onClick={() => removeExerciseFromDay(idx, i)}
+                                   className="absolute -top-2 -right-2 p-1.5 bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover/ex:opacity-100 transition-opacity"
+                                 >
+                                   <X className="w-3 h-3" />
+                                 </button>
+                               )}
+                             </div>
                            );
                         })}
+
+                        {isEditingWorkout && (
+                          <button 
+                            onClick={() => {
+                              const name = prompt('Nome do exercício:');
+                              if (!name) return;
+                              const series = prompt('Séries:', '3');
+                              const reps = prompt('Repetições:', '12');
+                              const weight = prompt('Peso/Carga:', '10kg');
+                              const rest = prompt('Descanso:', '60s');
+                              addExerciseToDay(idx, { name, series, reps: reps || '12', weight: weight || '0', rest: rest || '60s' });
+                            }}
+                            className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl text-[10px] font-black text-gray-400 uppercase tracking-widest hover:border-purple-500 hover:text-purple-500 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" /> Adicionar Exercício
+                          </button>
+                        )}
                       </div>
 
                       {/* Day Feedback */}
@@ -2447,6 +2558,20 @@ export default function Dashboard() {
                       </div>
                     </div>
                   ))}
+                  
+                  {isEditingWorkout && (
+                    <button 
+                      onClick={() => {
+                        const dayName = prompt('Dia (ex: SEXTA):');
+                        if (!dayName) return;
+                        const focus = prompt('Foco (ex: Quadríceps):');
+                        addWorkoutDay({ day: dayName, focus: focus || 'Geral', exercises: [] });
+                      }}
+                      className="w-full py-8 border-2 border-dashed border-purple-500/30 rounded-3xl text-xs font-black text-purple-500 uppercase tracking-widest hover:bg-purple-500/5 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-6 h-6" /> Adicionar Novo Dia de Treino
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -3150,11 +3275,14 @@ export default function Dashboard() {
                       <p className="text-[10px] text-gray-400 mt-1">Gerenciar dietas e pacientes.</p>
                     </Link>
 
-                    <div className="bg-red-600/10 border border-red-500/20 p-6 rounded-3xl opacity-50 cursor-not-allowed">
-                      <Users className="w-8 h-8 text-red-500 mb-4" />
+                    <button 
+                      onClick={() => setShowSalesDashboard(true)}
+                      className="bg-red-600/10 border border-red-500/20 p-6 rounded-3xl hover:bg-red-600/20 transition-all group text-left"
+                    >
+                      <Users className="w-8 h-8 text-red-500 mb-4 group-hover:scale-110 transition-transform" />
                       <h4 className="font-black text-white uppercase tracking-widest text-xs">Painel de Vendas</h4>
-                      <p className="text-[10px] text-gray-400 mt-1">Relatórios financeiros (Breve).</p>
-                    </div>
+                      <p className="text-[10px] text-gray-400 mt-1">Relatórios financeiros e assinaturas.</p>
+                    </button>
                   </div>
 
                   <h3 className="text-xl font-black text-black dark:text-white uppercase tracking-tighter mb-6 flex items-center gap-2">
@@ -3333,6 +3461,26 @@ export default function Dashboard() {
                                       title="Ver Histórico"
                                      >
                                        <History className="w-4 h-4" />
+                                     </button>
+                                     <button 
+                                      onClick={async () => {
+                                        if (confirm(`⚠️ ATENÇÃO: Deseja realmente REMOVER o usuário ${u.displayName || u.email}? Esta ação é irreversível!`)) {
+                                          try {
+                                            const { deleteDoc, doc } = await import('firebase/firestore');
+                                            const { db } = await import('../firebase');
+                                            await deleteDoc(doc(db, 'users', u.id));
+                                            setToast({ show: true, message: 'Usuário removido com sucesso.', type: 'success' });
+                                            fetchAdminStats();
+                                          } catch (err) {
+                                            console.error("Error deleting user:", err);
+                                            setToast({ show: true, message: 'Erro ao remover usuário.', type: 'error' });
+                                          }
+                                        }
+                                      }}
+                                      className="p-2.5 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl transition-all"
+                                      title="Deletar Usuário"
+                                     >
+                                       <Trash2 className="w-4 h-4" />
                                      </button>
                                      <button 
                                       onClick={() => {
@@ -4054,6 +4202,112 @@ export default function Dashboard() {
                     )}
                   </button>
                 </section>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSalesDashboard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] flex items-center justify-center px-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-zinc-900 border border-white/10 rounded-[3rem] w-full max-w-4xl p-10 overflow-hidden shadow-[0_32px_120px_-20px_rgba(0,0,0,1)] relative"
+            >
+              <div className="absolute top-0 right-0 w-96 h-96 bg-rose-600/20 blur-[120px] -mr-48 -mt-48 pointer-events-none" />
+              
+              <div className="flex justify-between items-center mb-10">
+                <div>
+                  <h2 className="text-4xl font-black text-white tracking-tighter flex items-center gap-3">
+                     <Trophy className="w-10 h-10 text-yellow-500" /> Painel de Vendas
+                  </h2>
+                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mt-2">Stripe Connect | Business Intelligence</p>
+                </div>
+                <button 
+                  onClick={() => setShowSalesDashboard(false)}
+                  className="p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all border border-white/10"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+                 {[
+                   { label: 'Receita Total', val: 'R$ 14.280', sub: '+12% este mês', color: 'text-rose-500', icon: TrendingUp },
+                   { label: 'Assinaturas', val: '82', sub: 'Planos Ativos', color: 'text-purple-500', icon: Users },
+                   { label: 'Conversão', val: '3.8%', sub: 'Checkout rate', color: 'text-blue-500', icon: Activity }
+                 ].map((s, i) => (
+                   <div key={i} className="bg-white/5 border border-white/10 p-8 rounded-[2rem] relative overflow-hidden group">
+                      <div className="flex justify-between items-start mb-4">
+                         <div className="p-3 bg-white/5 rounded-xl">
+                            <s.icon className={`w-5 h-5 ${s.color}`} />
+                         </div>
+                      </div>
+                      <p className="text-4xl font-black text-white leading-none mb-2">{s.val}</p>
+                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-tight">{s.label}</p>
+                      <p className={`text-[10px] font-bold mt-2 ${s.color.replace('text-', 'bg-').replace('-500', '-500/10')} ${s.color} px-2 py-1 rounded inline-block uppercase`}>
+                        {s.sub}
+                      </p>
+                   </div>
+                 ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                 <div className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+                    <div className="flex justify-between items-center mb-8">
+                      <h4 className="text-xs font-black text-white uppercase tracking-widest">Performance de Vendas (30d)</h4>
+                      <span className="text-[10px] font-bold text-gray-500 border border-white/10 px-2 py-1 rounded-lg">Stripe Analytics</span>
+                    </div>
+                    <div className="h-56">
+                       <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={[
+                            { d: '01', v: 400 }, { d: '07', v: 850 }, { d: '14', v: 620 },
+                            { d: '21', v: 1100 }, { d: '28', v: 1450 }
+                          ]}>
+                             <defs>
+                                <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                                   <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4}/>
+                                   <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                                </linearGradient>
+                             </defs>
+                             <XAxis dataKey="d" hide />
+                             <Tooltip contentStyle={{ background: '#111', border: '1px solid #333' }} />
+                             <Area type="monotone" dataKey="v" stroke="#f43f5e" fillOpacity={1} fill="url(#salesGrad)" strokeWidth={4} />
+                          </AreaChart>
+                       </ResponsiveContainer>
+                    </div>
+                 </div>
+                 <div className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+                    <h4 className="text-xs font-black text-white uppercase tracking-widest mb-8">Composição de Receita</h4>
+                    <div className="space-y-6">
+                       {[
+                         { name: 'Planos Pro', val: 'R$ 8.400', p: 60, c: 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]' },
+                         { name: 'Planos Elite', val: 'R$ 4.200', p: 30, c: 'bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' },
+                         { name: 'Consultas AI', val: 'R$ 1.680', p: 10, c: 'bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]' }
+                       ].map(source => (
+                         <div key={source.name}>
+                            <div className="flex justify-between text-[11px] font-black uppercase tracking-widest mb-2">
+                               <span className="text-gray-400">{source.name}</span>
+                               <span className="text-white">{source.val}</span>
+                            </div>
+                            <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden">
+                               <motion.div 
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${source.p}%` }}
+                                 className={`h-full ${source.c}`} 
+                               />
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+                 </div>
               </div>
             </motion.div>
           </motion.div>
