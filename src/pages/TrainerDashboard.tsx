@@ -6,9 +6,9 @@ import { db } from '../firebase';
 import { collection, query, where, limit, getDocs, doc, updateDoc, arrayUnion, getDoc, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
 import { 
   Users, LayoutDashboard, MessageCircle, Settings, Plus, Search, 
-  ChevronRight, ChevronLeft, UserPlus, Save, Loader2, X, Dumbbell, Activity, Send 
+  ChevronRight, ChevronLeft, UserPlus, Save, Loader2, X, Dumbbell, Activity, Send, Zap
 } from 'lucide-react';
-import { UserProfile, WorkoutPlan } from '../types';
+import { UserProfile, WorkoutPlan, Exercise } from '../types';
 
 export default function TrainerDashboard() {
   const { 
@@ -31,6 +31,7 @@ export default function TrainerDashboard() {
   const [selectedClient, setSelectedClient] = useState<UserProfile | null>(null);
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [generatingExId, setGeneratingExId] = useState<string | null>(null);
 
   // Chat States
   const [selectedChatClient, setSelectedChatClient] = useState<UserProfile | null>(null);
@@ -148,6 +149,49 @@ export default function TrainerDashboard() {
       alert('Erro ao atualizar perfil.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleGenerateAIFields = async (dIdx: number, eIdx: number) => {
+    if (!editingPlan) return;
+    const exercise = editingPlan.days[dIdx].exercises[eIdx];
+    if (!exercise.name || exercise.name.length < 3) {
+      alert('Digite o nome do exercício primeiro!');
+      return;
+    }
+
+    setGeneratingExId(`${dIdx}-${eIdx}`);
+    try {
+      const token = await user?.getIdToken();
+      const response = await fetch('/api/exercises/generate-details', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ exerciseName: exercise.name })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao gerar detalhes');
+      }
+      const data = await response.json();
+
+      const newDays = [...editingPlan.days];
+      newDays[dIdx].exercises[eIdx] = {
+        ...newDays[dIdx].exercises[eIdx],
+        technicalDescription: data.execution,
+        tips: data.tip,
+        breathing: data.breathing,
+        cadence: `${data.cadence} (${data.cadenceDetails})`
+      };
+      setEditingPlan({ ...editingPlan, days: newDays });
+    } catch (error) {
+      console.error("AI Generation Error:", error);
+      alert('Houve um erro ao gerar com IA. Tente novamente.');
+    } finally {
+      setGeneratingExId(null);
     }
   };
 
@@ -924,16 +968,30 @@ export default function TrainerDashboard() {
                         {day.exercises.map((ex, eIdx) => (
                           <div key={eIdx} className="grid grid-cols-12 gap-2 items-center">
                             <div className="col-span-1 text-[10px] text-gray-500 font-bold">{eIdx + 1}</div>
-                            <input 
-                              placeholder="Exercício"
-                              value={ex.name}
-                              onChange={(e) => {
-                                const newDays = [...editingPlan.days];
-                                newDays[dIdx].exercises[eIdx].name = e.target.value;
-                                setEditingPlan({ ...editingPlan, days: newDays });
-                              }}
-                              className="col-span-6 bg-white/5 border border-white/5 rounded-lg p-2 text-sm"
-                            />
+                            <div className="col-span-6 relative group">
+                              <input 
+                                placeholder="Exercício"
+                                value={ex.name}
+                                onChange={(e) => {
+                                  const newDays = [...editingPlan.days];
+                                  newDays[dIdx].exercises[eIdx].name = e.target.value;
+                                  setEditingPlan({ ...editingPlan, days: newDays });
+                                }}
+                                className="w-full bg-white/5 border border-white/5 rounded-lg p-2 text-sm pr-10"
+                              />
+                              <button
+                                onClick={() => handleGenerateAIFields(dIdx, eIdx)}
+                                disabled={generatingExId === `${dIdx}-${eIdx}`}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-300 disabled:opacity-50 transition-all p-1"
+                                title="Gerar detalhes com IA"
+                              >
+                                {generatingExId === `${dIdx}-${eIdx}` ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Zap className="w-3 h-3 fill-purple-400" />
+                                )}
+                              </button>
+                            </div>
                             <input 
                               placeholder="Sets"
                               value={ex.sets}

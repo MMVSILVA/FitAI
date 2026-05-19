@@ -24,6 +24,7 @@ import { ProfessionalProfileView } from '../components/ProfessionalProfileView';
 import { Ranking } from '../components/Ranking';
 import { GymLocator } from '../components/GymLocator';
 import { ChatView } from '../components/ChatView';
+import { ProfessionalsView } from '../components/ProfessionalsView';
 import { doc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -266,7 +267,7 @@ export default function Dashboard() {
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
     toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
-    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge
+    addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge, leaveChallenge
   } = useUser();
   
   const [searchParams, setSearchParams] = useSearchParams();
@@ -358,7 +359,7 @@ export default function Dashboard() {
   const isBlocked = isTrialExpired || isSubscriptionExpired;
   const isPremiumUser = planType !== 'FREE';
 
-  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms' | 'professionals'>(initialTab);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
 
   // Load completed exercises from profile
@@ -411,7 +412,61 @@ export default function Dashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditingWorkout, setIsEditingWorkout] = useState(false);
   const [isEditingPlanInfo, setIsEditingPlanInfo] = useState(false);
+  const [isAddingExercise, setIsAddingExercise] = useState(false);
+  const [isGeneratingExDetails, setIsGeneratingExDetails] = useState(false);
+  const [activeDayIdx, setActiveDayIdx] = useState<number | null>(null);
+  const [newExercise, setNewExercise] = useState({ 
+    name: '', 
+    series: '3', 
+    reps: '12', 
+    weight: '0kg', 
+    rest: '60s',
+    tips: '',
+    breathing: '',
+    cadence: '2:0:2',
+    technicalDescription: ''
+  });
   const [showSalesDashboard, setShowSalesDashboard] = useState(false);
+
+  const handleGenerateAIDetails = async () => {
+    if (!newExercise.name || newExercise.name.length < 3) {
+      showToast('Digite o nome do exercício primeiro!', 'error');
+      return;
+    }
+
+    setIsGeneratingExDetails(true);
+    try {
+      const token = await user?.getIdToken();
+      const response = await fetch('/api/exercises/generate-details', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ exerciseName: newExercise.name })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao gerar detalhes');
+      }
+      const data = await response.json();
+
+      setNewExercise({
+        ...newExercise,
+        technicalDescription: data.execution,
+        tips: data.tip,
+        breathing: data.breathing,
+        cadence: `${data.cadence} (${data.cadenceDetails})`
+      });
+      showToast('Detalhes profissionais gerados com sucesso!');
+    } catch (error) {
+      console.error("AI Generation Error:", error);
+      showToast('Houve um erro ao gerar com IA.', 'error');
+    } finally {
+      setIsGeneratingExDetails(false);
+    }
+  };
 
   // Sync check-ins and streaks if they are inconsistent
   useEffect(() => {
@@ -1631,13 +1686,12 @@ export default function Dashboard() {
             onClick={() => handleTabChange('evolution')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'evolution' 
-                ? (isFree || isBlocked ? 'bg-zinc-800 text-gray-500 border border-white/5' : 'bg-blue-500 text-white shadow-xl shadow-blue-500/20') 
+                ? 'bg-blue-500 text-white shadow-xl shadow-blue-500/20' 
                 : 'bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
-            <TrendingUp className={`w-5 h-5 sm:w-6 sm:h-6 ${isFree || isBlocked ? 'text-gray-600' : ''}`} />
+            <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" />
             Evolução
-            {(isFree || isBlocked) && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
           </button>
           
           {/* Personal Tab */}
@@ -1705,6 +1759,18 @@ export default function Dashboard() {
           >
             <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
             Academias
+          </button>
+
+          <button 
+            onClick={() => handleTabChange('professionals')}
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+              activeTab === 'professionals' 
+              ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' 
+              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+            Profissionais
           </button>
         </div>
       </div>
@@ -1926,8 +1992,14 @@ export default function Dashboard() {
                       <p className="text-white/60 text-xs font-black uppercase tracking-widest mb-2">DESAFIO DE MAIO</p>
                       <h3 className="text-4xl font-black text-white tracking-tighter mb-2">70k Pontos em 7 Dias</h3>
                       <p className="text-white/80 text-sm font-bold mb-8">Meta: 70.000 pontos • 1.2k participando</p>
-                      <button className="bg-purple-600 hover:bg-purple-500 text-white px-10 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-purple-600/30 active:scale-95">
-                        Participar Agora
+                      <button 
+                        onClick={() => {
+                          joinChallenge('c1');
+                          setToast({ isVisible: true, message: 'Você entrou no desafio!', type: 'success' });
+                        }}
+                        className="bg-purple-600 hover:bg-purple-500 text-white px-10 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-purple-600/30 active:scale-95"
+                      >
+                        {profile?.joinedChallenges?.includes('c1') ? 'Participando ✅' : 'Participar Agora'}
                       </button>
                     </div>
                   </div>
@@ -1938,24 +2010,24 @@ export default function Dashboard() {
                     whileHover={{ y: -5 }} 
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleTabChange('ranking')}
-                    className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-white/5 flex flex-col justify-between aspect-square group cursor-pointer"
+                    className="bg-white dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 border border-gray-100 dark:border-white/5 flex flex-col justify-between h-36 sm:h-44 group cursor-pointer"
                   >
-                    <Target className="w-10 h-10 text-purple-600" />
+                    <Target className="w-8 h-8 sm:w-10 sm:h-10 text-purple-600" />
                     <div>
-                      <p className="text-2xl font-black tracking-tighter leading-none mb-1">Rank Global</p>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dispute o topo</p>
+                      <p className="text-xl sm:text-2xl font-black tracking-tighter leading-none mb-1">Rank Global</p>
+                      <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Dispute o topo</p>
                     </div>
                   </motion.div>
                   <motion.div 
                     whileHover={{ y: -5 }} 
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleTabChange('evolution')}
-                    className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-white/5 flex flex-col justify-between aspect-square group cursor-pointer"
+                    className="bg-white dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 border border-gray-100 dark:border-white/5 flex flex-col justify-between h-36 sm:h-44 group cursor-pointer"
                   >
-                    <Award className="w-10 h-10 text-yellow-500" />
+                    <Award className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-500" />
                     <div>
-                      <p className="text-2xl font-black tracking-tighter leading-none mb-1">Especialista</p>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Coletar insígnias</p>
+                      <p className="text-xl sm:text-2xl font-black tracking-tighter leading-none mb-1">Especialista</p>
+                      <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Coletar insígnias</p>
                     </div>
                   </motion.div>
 
@@ -1964,7 +2036,7 @@ export default function Dashboard() {
       whileHover={{ y: -5 }} 
       whileTap={{ scale: 0.95 }}
       onClick={() => handleTabChange('personal')}
-      className="bg-gradient-to-br from-green-500/10 to-green-600/10 dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-green-500/20 dark:border-white/5 flex flex-col justify-between aspect-square group cursor-pointer"
+      className="bg-gradient-to-br from-green-500/10 to-green-600/10 dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 border border-green-500/20 dark:border-white/5 flex flex-col justify-between h-36 sm:h-44 group cursor-pointer"
     >
       <Dumbbell className="w-10 h-10 text-green-500" />
       <div>
@@ -1979,7 +2051,7 @@ export default function Dashboard() {
       whileHover={{ y: -5 }} 
       whileTap={{ scale: 0.95 }}
       onClick={() => handleTabChange('nutrition')}
-      className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 dark:bg-zinc-900 rounded-[2.5rem] p-8 border border-purple-500/20 dark:border-white/5 flex flex-col justify-between aspect-square group cursor-pointer"
+      className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 border border-purple-500/20 dark:border-white/5 flex flex-col justify-between h-36 sm:h-44 group cursor-pointer"
     >
       <Apple className="w-10 h-10 text-purple-500" />
       <div>
@@ -1988,6 +2060,18 @@ export default function Dashboard() {
       </div>
     </motion.div>
   )}
+                  <motion.div 
+                    whileHover={{ y: -5 }} 
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleTabChange('gyms')}
+                    className="bg-white dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 border border-gray-100 dark:border-white/5 flex flex-col justify-between h-36 sm:h-44 group cursor-pointer"
+                  >
+                    <MapPin className="w-8 h-8 sm:w-10 sm:h-10 text-red-500" />
+                    <div>
+                      <p className="text-xl sm:text-2xl font-black tracking-tighter leading-none mb-1">Academias</p>
+                      <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Parceiras Próximas</p>
+                    </div>
+                  </motion.div>
                 </div>
               </div>
             </div>
@@ -1995,19 +2079,7 @@ export default function Dashboard() {
 
           {activeTab === 'evolution' && (
             <div className="space-y-8">
-              {(isFree || isBlocked) ? (
-                <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-12 text-center flex flex-col items-center">
-                  <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6">
-                    <Lock className="w-8 h-8 text-purple-600 dark:text-purple-500" />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-4">Evolução Bloqueada</h3>
-                  <p className="text-gray-400 mb-8 max-w-sm">Ative a assinatura PRO para ativar os recursos de acompanhamento de progresso e biometria.</p>
-                  <Link to="/checkout?plan=PRO" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold transition-all">
-                    Upgrade para PRO
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-8">
+              <div className="space-y-8">
                   {/* Gamification Banner */}
                   <motion.div 
                     initial={{ opacity: 0, y: -20 }}
@@ -2201,9 +2273,8 @@ export default function Dashboard() {
 
                 <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
                     <ProgressComparison targetUserId={profile?.uid} />
-                  </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -2285,6 +2356,12 @@ export default function Dashboard() {
           {activeTab === 'gyms' && (
             <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
               <GymLocator />
+            </div>
+          )}
+
+          {activeTab === 'professionals' && (
+            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
+              <ProfessionalsView />
             </div>
           )}
 
@@ -2422,20 +2499,15 @@ export default function Dashboard() {
                            );
                         })}
 
-                        {isEditingWorkout && (
+                        {(!isViewingAs || isEditingWorkout) && (
                           <button 
                             onClick={() => {
-                              const name = prompt('Nome do exercício:');
-                              if (!name) return;
-                              const series = prompt('Séries:', '3');
-                              const reps = prompt('Repetições:', '12');
-                              const weight = prompt('Peso/Carga:', '10kg');
-                              const rest = prompt('Descanso:', '60s');
-                              addExerciseToDay(idx, { name, series, reps: reps || '12', weight: weight || '0', rest: rest || '60s' });
+                              setActiveDayIdx(idx);
+                              setIsAddingExercise(true);
                             }}
-                            className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl text-[10px] font-black text-gray-400 uppercase tracking-widest hover:border-purple-500 hover:text-purple-500 transition-all flex items-center justify-center gap-2"
+                            className="w-full py-5 border-2 border-dashed border-purple-500/20 hover:border-purple-500 rounded-3xl text-[11px] font-black text-gray-400 hover:text-purple-500 hover:bg-purple-500/5 transition-all flex items-center justify-center gap-2 mt-4"
                           >
-                            <Plus className="w-4 h-4" /> Adicionar Exercício
+                            <Plus className="w-5 h-5" /> Adicionar Exercício
                           </button>
                         )}
                       </div>
@@ -2559,7 +2631,7 @@ export default function Dashboard() {
                     </div>
                   ))}
                   
-                  {isEditingWorkout && (
+                  {!isViewingAs && (
                     <button 
                       onClick={() => {
                         const dayName = prompt('Dia (ex: SEXTA):');
@@ -2567,7 +2639,7 @@ export default function Dashboard() {
                         const focus = prompt('Foco (ex: Quadríceps):');
                         addWorkoutDay({ day: dayName, focus: focus || 'Geral', exercises: [] });
                       }}
-                      className="w-full py-8 border-2 border-dashed border-purple-500/30 rounded-3xl text-xs font-black text-purple-500 uppercase tracking-widest hover:bg-purple-500/5 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-8 border-2 border-dashed border-purple-500/30 rounded-3xl text-xs font-black text-purple-500 uppercase tracking-widest hover:bg-purple-500/5 transition-all flex items-center justify-center gap-2 mt-6"
                     >
                       <Plus className="w-6 h-6" /> Adicionar Novo Dia de Treino
                     </button>
@@ -4314,6 +4386,178 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {isAddingExercise && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] flex items-center justify-center px-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-zinc-900 border border-white/10 rounded-[3rem] w-full max-w-md p-8 shadow-[0_32px_120px_-20px_rgba(0,0,0,1)]"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl font-black text-white tracking-tighter">Novo Exercício</h3>
+                <button 
+                  onClick={() => setIsAddingExercise(false)}
+                  className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all border border-white/10"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+
+              <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Nome do Exercício</label>
+                  <div className="relative group">
+                    <input 
+                      type="text"
+                      value={newExercise.name}
+                      onChange={e => setNewExercise({...newExercise, name: e.target.value})}
+                      placeholder="Ex: Supino Reto"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all pr-12"
+                    />
+                    <button
+                      onClick={handleGenerateAIDetails}
+                      disabled={isGeneratingExDetails}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-300 transition-all p-2 disabled:opacity-50"
+                      title="Gerar detalhes técnicos com IA"
+                    >
+                      {isGeneratingExDetails ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Zap className="w-5 h-5 fill-purple-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Séries</label>
+                    <input 
+                      type="text"
+                      value={newExercise.series}
+                      onChange={e => setNewExercise({...newExercise, series: e.target.value})}
+                      placeholder="3"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Repetições</label>
+                    <input 
+                      type="text"
+                      value={newExercise.reps}
+                      onChange={e => setNewExercise({...newExercise, reps: e.target.value})}
+                      placeholder="12"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all text-center"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Carga</label>
+                    <input 
+                      type="text"
+                      value={newExercise.weight}
+                      onChange={e => setNewExercise({...newExercise, weight: e.target.value})}
+                      placeholder="10kg"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Descanso</label>
+                    <input 
+                      type="text"
+                      value={newExercise.rest}
+                      onChange={e => setNewExercise({...newExercise, rest: e.target.value})}
+                      placeholder="60s"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all text-center"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Execução Técnica</label>
+                  <textarea 
+                    value={newExercise.technicalDescription}
+                    onChange={e => setNewExercise({...newExercise, technicalDescription: e.target.value})}
+                    placeholder="Resuma a execução correta..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all h-20 resize-none text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Dica</label>
+                    <input 
+                      type="text"
+                      value={newExercise.tips}
+                      onChange={e => setNewExercise({...newExercise, tips: e.target.value})}
+                      placeholder="Cotovelos fechados..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Respiração</label>
+                    <input 
+                      type="text"
+                      value={newExercise.breathing}
+                      onChange={e => setNewExercise({...newExercise, breathing: e.target.value})}
+                      placeholder="Solte o ar na subida..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-2">Cadência</label>
+                  <input 
+                    type="text"
+                    value={newExercise.cadence}
+                    onChange={e => setNewExercise({...newExercise, cadence: e.target.value})}
+                    placeholder="2:0:2"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-purple-500 transition-all text-center font-mono"
+                  />
+                  <p className="text-[9px] text-gray-500 mt-1 uppercase tracking-widest text-center">desc : isom : sub</p>
+                </div>
+
+                <button 
+                  onClick={async () => {
+                    if (!newExercise.name || activeDayIdx === null) return;
+                    try {
+                      await addExerciseToDay(activeDayIdx, newExercise);
+                      setIsAddingExercise(false);
+                      setNewExercise({ 
+                        name: '', 
+                        series: '3', 
+                        reps: '12', 
+                        weight: '0kg', 
+                        rest: '60s',
+                        tips: '',
+                        breathing: '',
+                        cadence: '2:0:2',
+                        technicalDescription: ''
+                      });
+                      setToast({ isVisible: true, message: 'Exercício adicionado!', type: 'success' });
+                    } catch (err) {
+                      setToast({ isVisible: true, message: 'Erro ao adicionar exercício.', type: 'error' });
+                    }
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white p-5 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-purple-600/30 transition-all active:scale-95"
+                >
+                  Adicionar ao Treino
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Toast 
         isVisible={toast.isVisible} 
         message={toast.message} 
@@ -4351,7 +4595,8 @@ export default function Dashboard() {
                       name: current.name,
                       series: '3',
                       reps: '12',
-                      weight: '0'
+                      weight: '0',
+                      rest: '60s'
                     });
                     setSuggestedExercises(prev => prev.slice(1));
                     showToast('Exercício adicionado ao plano!', 'success');

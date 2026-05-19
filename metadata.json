@@ -1,5 +1,6 @@
 {
   "name": "FitAI",
   "description": "Seu treino e dieta ajustados automaticamente por IA, como um personal 24h.",
-  "requestFramePermissions": ["notifications", "geolocation"]
+  "requestFramePermissions": ["notifications", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

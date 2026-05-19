@@ -1,4 +1,5 @@
 import express from 'express';
+import { GoogleGenAI, Type } from "@google/genai";
 import * as paymentController from '../controllers/paymentController.ts';
 import { isAdminEmail } from '../config/admins.ts';
 import { authMiddleware, AuthRequest } from '../middleware/auth.ts';
@@ -6,6 +7,69 @@ import { authMiddleware, AuthRequest } from '../middleware/auth.ts';
 const router = express.Router({
   caseSensitive: false,
   mergeParams: true
+});
+
+// Initialize Gemini
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    }
+  }
+});
+
+// AI Exercise Generation Route
+router.post('/exercises/generate-details', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { exerciseName } = req.body;
+    if (!exerciseName) {
+      return res.status(400).json({ error: 'Nome do exercício é obrigatório' });
+    }
+
+    console.log(`Generating details for exercise: ${exerciseName}`);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: `Gere detalhes técnicos profissionais para o exercício: ${exerciseName}.
+      O retorno deve ser em português e focado em um personal trainer de alto nível.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          required: ["execution", "tip", "breathing", "cadence", "cadenceDetails"],
+          properties: {
+            execution: {
+              type: Type.STRING,
+              description: "Instrução curta e clara de como executar o movimento (máximo 150 caracteres).",
+            },
+            tip: {
+              type: Type.STRING,
+              description: "Uma dica chave para segurança ou performance.",
+            },
+            breathing: {
+              type: Type.STRING,
+              description: "Instrução de quando inspirar e expirar.",
+            },
+            cadence: {
+              type: Type.STRING,
+              description: "Cadência recomendada no formato X:Y:Z (ex: 2:0:2).",
+            },
+            cadenceDetails: {
+              type: Type.STRING,
+              description: "Explicação da cadência (ex: 2s desc | 0s isom | 2s sub).",
+            }
+          }
+        },
+      },
+    });
+
+    const details = JSON.parse(response.text || '{}');
+    res.json(details);
+  } catch (error: any) {
+    console.error("Gemini Generation Error:", error);
+    res.status(500).json({ error: 'Erro ao gerar detalhes com IA', details: error.message });
+  }
 });
 
 // Debug middleware for the router
@@ -104,7 +168,6 @@ router.get('/exercises/search', async (req, res) => {
       'panturrilhas': 'calf',
       'coxa': 'thigh',
       'quadríceps': 'quads',
-      'ombros': 'shoulders',
       'agachamento': 'squat',
       'supino': 'bench press',
       'rosca': 'curl',
@@ -113,7 +176,6 @@ router.get('/exercises/search', async (req, res) => {
       'elevação': 'raise',
       'extensão': 'extension',
       'flexão': 'pushup',
-      'abdominais': 'waist',
       'cardio': 'cardio'
     };
     

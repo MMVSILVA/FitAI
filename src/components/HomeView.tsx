@@ -3,13 +3,27 @@ import { motion } from 'motion/react';
 import { 
   Trophy, Flame, MapPin, Calendar, ChevronRight, 
   Settings, Search, User as UserIcon, CheckCircle2,
-  Zap, Star, Target, Award, Copy
+  Zap, Star, Target, Award, Copy, Share2, LogOut
 } from 'lucide-react';
 import { useUser } from '../store/userStore';
 import { UserProfile } from '../types';
+import { CHALLENGES } from '../constants';
 
 export function HomeView() {
-  const { user, profile, planType, doCheckIn } = useUser();
+  const { user, profile, planType, doCheckIn, joinChallenge, leaveChallenge } = useUser();
+
+  const handleShare = (challenge: any) => {
+    if (navigator.share) {
+      navigator.share({
+        title: `Desafio: ${challenge.title}`,
+        text: `Estou participando do desafio ${challenge.title} no FitAI! Venha treinar comigo.`,
+        url: window.location.href,
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(`Estou no desafio ${challenge.title} do FitAI!`);
+      alert('Link do desafio copiado!');
+    }
+  };
 
   const handleCheckIn = async () => {
     if (!user || !profile) return;
@@ -31,17 +45,6 @@ export function HomeView() {
     year: new Date(m.earnedAt).getFullYear().toString()
   })) : [
     { id: '1', name: 'Mestre do Bem-estar', icon: <Zap className="w-8 h-8 text-white" />, color: 'bg-zinc-900', year: '2026' },
-  ];
-
-  const challenges = [
-    {
-      id: 'c1',
-      title: 'Maio: 70k Pontos em 7 Dias',
-      meta: '70.000 pontos por participante',
-      participants: 1240,
-      image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop',
-      by: 'FitAI'
-    }
   ];
 
   const weekDays = [
@@ -234,6 +237,56 @@ export function HomeView() {
         </div>
       </section>
 
+      {/* Joined Challenges Section */}
+      {profile.joinedChallenges && profile.joinedChallenges.length > 0 && (
+        <section>
+          <div className="flex justify-between items-end mb-6 px-1">
+            <h2 className="text-2xl font-black uppercase tracking-tighter">Seus Desafios</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {profile.joinedChallenges.map(id => {
+              const ch = CHALLENGES.find(c => c.id === id) || { 
+                id, 
+                title: 'Desafio Ativo', 
+                description: 'Continue progredindo!', 
+                points: 0
+              };
+              return (
+                <div key={id} className="bg-zinc-900 rounded-[2rem] p-6 border border-white/5 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <Trophy className="w-20 h-20 text-white" />
+                  </div>
+                  <div className="relative z-10 w-full">
+                    <h3 className="text-xl font-black text-white mb-1 truncate">{ch.title}</h3>
+                    <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-6 line-clamp-1">{ch.description || (ch as any).meta}</p>
+                    
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => handleShare(ch)}
+                        className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                      >
+                        <Share2 className="w-3.5 h-3.5" /> Compartilhar
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Tem certeza que deseja desistir deste desafio?')) {
+                            leaveChallenge(id);
+                          }
+                        }}
+                        className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all"
+                        title="Desistir"
+                      >
+                        <LogOut className="w-5 h-5 rotate-180" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Challenges Section */}
       <section>
         <div className="flex justify-between items-end mb-6 px-1">
@@ -241,35 +294,26 @@ export function HomeView() {
           <button className="text-sm font-bold text-gray-500 hover:text-black dark:hover:text-white border-b-2 border-gray-200 dark:border-white/10 uppercase tracking-tighter">Ver tudo</button>
         </div>
         <div className="space-y-4">
-          {challenges.map((challenge) => (
-            <div key={challenge.id} className="relative rounded-[2.5rem] overflow-hidden group shadow-2xl">
-              <img 
-                src={challenge.image} 
-                alt={challenge.title}
-                className="w-full h-48 sm:h-56 object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent p-6 sm:p-10 flex flex-col justify-end">
+          {CHALLENGES.filter(c => !profile?.joinedChallenges?.includes(c.id)).slice(0, 3).map((challenge) => (
+            <div key={challenge.id} className="relative rounded-[2.5rem] overflow-hidden group shadow-2xl bg-zinc-900 border border-white/5">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent p-6 sm:p-10 flex flex-col justify-end min-h-[200px]">
                 <div className="space-y-1 mb-4">
-                  <p className="text-white/60 text-[9px] font-black uppercase tracking-[0.2em]">Por {challenge.by}</p>
+                  <p className="text-white/60 text-[9px] font-black uppercase tracking-[0.2em]">Desafio {challenge.difficulty}</p>
                   <h3 className="text-xl sm:text-2xl font-black text-white tracking-tighter leading-tight">{challenge.title}</h3>
-                  <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest">{challenge.meta}</p>
+                  <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest">{challenge.points} pontos • {challenge.duration}</p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex -space-x-3">
-                    {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="w-8 h-8 rounded-full border-2 border-black bg-zinc-800 flex items-center justify-center text-[10px] font-black text-white overflow-hidden shadow-lg shadow-black/50">
-                        <img 
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=user${i}`} 
-                          className="w-full h-full object-cover" 
-                          alt="" 
-                        />
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="w-8 h-8 rounded-full border-2 border-black bg-zinc-800 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-black/50 overflow-hidden">
+                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=user${i+10}`} alt="" />
                       </div>
                     ))}
-                    <div className="w-8 h-8 rounded-full border-2 border-black bg-zinc-900 flex items-center justify-center text-[8px] font-black text-rose-500 shadow-lg shadow-black/50">
-                      +1K
-                    </div>
                   </div>
-                  <button className="bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-rose-600/30 active:scale-95">
+                  <button 
+                    onClick={() => joinChallenge(challenge.id)}
+                    className="bg-rose-600 hover:bg-rose-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-rose-600/30 active:scale-95"
+                  >
                     Participar
                   </button>
                 </div>

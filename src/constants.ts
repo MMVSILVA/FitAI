@@ -5,6 +5,16 @@ export const BUILD_DATE = '2026-05-07';
 
 export const CHALLENGES: Challenge[] = [
   {
+    id: 'c1',
+    title: '70k Pontos em 7 Dias',
+    description: 'Alcance 70.000 pontos em uma única semana de treinamento intenso.',
+    icon: '🏆',
+    duration: '7 dias',
+    points: 2000,
+    difficulty: 'difícil',
+    color: 'rose'
+  },
+  {
     id: 'streak_7',
     title: 'Guerreiro da Semana',
     description: 'Complete 7 dias seguidos de treino sem falhar.',

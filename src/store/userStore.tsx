@@ -47,12 +47,23 @@ interface UserState {
   deleteWorkoutReport: (dayIndex: number, reportId: string) => Promise<void>;
   doCheckIn: () => Promise<{ success: boolean; isThirdDay?: boolean; totalDays?: number } | void>;
   setPlanTypeForUser: (targetUid: string, newPlanType: PlanType) => Promise<{ success: boolean; message: string }>;
-  addExerciseToDay: (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string; rest: string }) => Promise<void>;
+  addExerciseToDay: (dayIndex: number, exercise: { 
+    name: string; 
+    series: string; 
+    reps: string; 
+    weight: string; 
+    rest: string;
+    tips?: string;
+    breathing?: string;
+    cadence?: string;
+    technicalDescription?: string;
+  }) => Promise<void>;
   removeExerciseFromDay: (dayIndex: number, exerciseIndex: number) => Promise<void>;
   addWorkoutDay: (dayData: { day: string; focus: string; exercises: any[] }) => Promise<void>;
   removeWorkoutDay: (dayIndex: number) => Promise<void>;
   updateWorkoutDay: (dayIndex: number, dayData: { day?: string; focus?: string }) => Promise<void>;
   joinChallenge: (challengeId: string) => Promise<void>;
+  leaveChallenge: (challengeId: string) => Promise<void>;
 }
 
 const UserContext = createContext<UserState | undefined>(undefined);
@@ -80,9 +91,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user?.email) {
       const isMasterAdmin = user.email === 'vinidoctor@gmail.com';
       if (isMasterAdmin) {
-        setIsAdmin(true);
-        // The user wants to be seen as a student (usuário/aluno)
-        // setRoleState('admin' as UserRole); // Removed forced role
+        // Master user is a student (aluno) by default
         setPlanType('PROFISSIONAL');
       }
 
@@ -190,8 +199,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             const isMasterAdmin = loggedUser.email === 'vinidoctor@gmail.com';
             if (isMasterAdmin) {
-              setIsAdmin(true);
-              // setRoleState('admin' as UserRole); // Removed
               setPlanType('PROFISSIONAL');
             }
 
@@ -245,22 +252,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
                 // Force role to user as requested
                 if (data.role !== 'user') authUpdates.role = 'user';
-
-                // Force nangelica into client lists and vice-versa
-                const nEmail = 'nangelicaalcantara@gmail.com';
-                const currentTrainerClients = data.trainerClients || [];
-                const currentNutriClients = data.nutritionistClients || [];
-                if (!currentTrainerClients.includes(nEmail)) {
-                  authUpdates.trainerClients = [...currentTrainerClients, nEmail];
-                }
-                if (!currentNutriClients.includes(nEmail)) {
-                  authUpdates.nutritionistClients = [...currentNutriClients, nEmail];
-                }
-                
-                // Ensure Master has a linked trainer/nutri (himself or nangelica)
-                // for testing as a student
-                if (!data.linkedTrainerId) authUpdates.linkedTrainerId = 'admin-trainer';
-                if (!data.linkedNutritionistId) authUpdates.linkedNutritionistId = 'admin-nutri';
               }
 
               if (Object.keys(authUpdates).length > 0) {
@@ -289,18 +280,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 localStorage.removeItem(`fitai_plan_${loggedUser.uid}`);
               }
 
-              if (data.role) {
-                setRoleState(data.role as UserRole);
-                if (data.role === 'admin' || isMasterAdmin) setIsAdmin(true);
+              const masterRole = isMasterAdmin ? 'user' : (data.role as UserRole);
+              if (masterRole) {
+                setRoleState(masterRole);
+                if (masterRole === 'admin') setIsAdmin(true);
               } else if (isMasterAdmin) {
-                setRoleState('user' as UserRole); // Master is student now
-                setIsAdmin(true);
+                setRoleState('user' as UserRole);
               }
+              // If it's the master user and isAdmin is true, it means they have administrative powers but are seen as a student
+              if (isMasterAdmin) setIsAdmin(true); 
 
               // Admin Auto-Fix: Ensure admin appears in ranking if not explicitly false
-              if ((data.role === 'admin' || data.email === 'vinidoctor@gmail.com') && data.showInRanking === undefined) {
+              if ((data.role === 'admin') && data.showInRanking === undefined) {
                 updateDoc(docRef, { showInRanking: true }).catch(() => {});
-                if (data.email === 'vinidoctor@gmail.com') setIsAdmin(true);
               }
 
               if (data.clients) setClients(data.clients);
@@ -869,12 +861,29 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await saveToFirestore({ plan: newPlan });
   };
 
-  const addExerciseToDay = async (dayIndex: number, exercise: { name: string; series: string; reps: string; weight: string; rest: string }) => {
+  const addExerciseToDay = async (dayIndex: number, exercise: { 
+    name: string; 
+    series: string; 
+    reps: string; 
+    weight: string; 
+    rest: string;
+    tips?: string;
+    breathing?: string;
+    cadence?: string;
+    technicalDescription?: string;
+  }) => {
     if (!plan) return;
     const newPlan = JSON.parse(JSON.stringify(plan)); // Deep clone
     if (!newPlan.days[dayIndex].exercises) newPlan.days[dayIndex].exercises = [];
     
-    newPlan.days[dayIndex].exercises.push(exercise);
+    // Ensure numeric sets
+    const sets = parseInt(exercise.series.replace(/[^\d]/g, '')) || 3;
+    
+    newPlan.days[dayIndex].exercises.push({
+      ...exercise,
+      sets,
+      reps: exercise.reps
+    });
     setPlanState(newPlan);
     await saveToFirestore({ plan: newPlan });
   };
@@ -921,6 +930,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (joinedChallenges.includes(challengeId)) return;
 
     const newChallenges = [...joinedChallenges, challengeId];
+    setProfile({ joinedChallenges: newChallenges });
+  };
+
+  const leaveChallenge = async (challengeId: string) => {
+    if (!profile || !user) return;
+    const joinedChallenges = profile.joinedChallenges || [];
+    const newChallenges = joinedChallenges.filter(id => id !== challengeId);
     setProfile({ joinedChallenges: newChallenges });
   };
 
@@ -1042,7 +1058,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addExerciseProgress, getExerciseProgress,
       toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
       addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn,
-      addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge
+      addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge, leaveChallenge
     }}>
       {children}
     </UserContext.Provider>
