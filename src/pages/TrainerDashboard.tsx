@@ -6,9 +6,10 @@ import { db } from '../firebase';
 import { collection, query, where, limit, getDocs, doc, updateDoc, arrayUnion, getDoc, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
 import { 
   Users, LayoutDashboard, MessageCircle, Settings, Plus, Search, 
-  ChevronRight, ChevronLeft, UserPlus, Save, Loader2, X, Dumbbell, Activity, Send, Zap
+  ChevronRight, ChevronLeft, UserPlus, Save, Loader2, X, Dumbbell, Activity, Send, Zap, Timer
 } from 'lucide-react';
 import { UserProfile, WorkoutPlan, Exercise } from '../types';
+import { RestIntervalTimer } from '../components/RestIntervalTimer';
 
 export default function TrainerDashboard() {
   const { 
@@ -24,7 +25,7 @@ export default function TrainerDashboard() {
   const isBlocked = (planType !== 'PROFISSIONAL' && !isAdmin) || (subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt) && !isAdmin);
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'clients' | 'chat' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'clients' | 'timer' | 'chat' | 'settings'>('overview');
   const [searchEmail, setSearchEmail] = useState('');
   const [searchStatus, setSearchStatus] = useState<{success?: boolean; message?: string} | null>(null);
 
@@ -354,11 +355,11 @@ export default function TrainerDashboard() {
       <div className="min-h-screen bg-black flex items-center justify-center p-6 text-center">
         <div className="max-w-md space-y-6">
           <Activity className="w-20 h-20 text-purple-500 mx-auto opacity-20" />
-          <h2 className="text-3xl font-black text-white">Painel Bloqueado</h2>
-          <p className="text-gray-400">Para utilizar as ferramentas de Treinador Profissional, sua assinatura profissional deve estar ativa.</p>
-          <div className="pt-4">
-            <a href="/checkout?plan=PROFISSIONAL" className="inline-block bg-purple-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-500 transition-all">
-              Ativar Assinatura Pro
+          <h2 className="text-3xl font-black text-white">Módulo Profissional em Breve</h2>
+          <p className="text-gray-400">O módulo para Treinadores e Personal Trainers estará disponível em breve com o lançamento do plano Profissional.</p>
+          <div className="pt-4 flex flex-col gap-3">
+            <a href="/dashboard" className="inline-block bg-purple-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-500 transition-all">
+              Ir para o Dashboard
             </a>
           </div>
         </div>
@@ -387,6 +388,12 @@ export default function TrainerDashboard() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'clients' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5'}`}
           >
             <Users className="w-5 h-5" /> Meus Alunos
+          </button>
+          <button 
+            onClick={() => setActiveTab('timer')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'timer' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5'}`}
+          >
+            <Timer className="w-5 h-5" /> Timer de Descanso
           </button>
           <button 
             onClick={() => setActiveTab('chat')}
@@ -487,6 +494,26 @@ export default function TrainerDashboard() {
                  </p>
                )}
             </section>
+
+            {/* Rest Interval Timer Tool for Sets */}
+            <section className="pt-4">
+              <RestIntervalTimer />
+            </section>
+          </div>
+        )}
+
+        {activeTab === 'timer' && (
+          <div className="space-y-6 max-w-4xl mx-auto">
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Timer className="w-6 h-6 text-green-500" />
+                Cronômetro de Intervalo entre Séries
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Utilize durante a condução de treinos presenciais ou online para sincronizar e controlar o descanso dos alunos com precisão.
+              </p>
+            </div>
+            <RestIntervalTimer />
           </div>
         )}
 

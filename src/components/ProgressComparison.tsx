@@ -80,7 +80,7 @@ export const ProgressComparison: React.FC<{ targetUserId?: string }> = ({ target
           Libere ferramentas de comparação avançadas. Monitore carga, repetições e volume de múltiplos exercícios em tempo real.
         </p>
         <Link 
-          to="/checkout?plan=PREMIUM" 
+          to="/checkout?plan=PRO" 
           className="bg-purple-600 hover:bg-purple-500 text-white px-10 py-4 rounded-2xl font-black transition-all shadow-xl shadow-purple-600/30 uppercase tracking-widest text-xs transform hover:scale-105 active:scale-95"
         >
           Seja PRO para Evoluir

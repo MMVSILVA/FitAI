@@ -5,7 +5,7 @@ service cloud.firestore {
     // ==========================================
     // 1. PUBLIC SYSTEM RULES (MUST BE TOP FOR PRECEDENCE)
     // ==========================================
-    match /system/config {
+    match /system/{configId} {
       allow read: if true;
       allow write: if isAdmin();
     }
@@ -29,6 +29,10 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && 
              (
+               (request.auth.token.email != null && (
+                 request.auth.token.email == 'vinidoctor@gmail.com' ||
+                 request.auth.token.email.lower() == 'vinidoctor@gmail.com'
+               )) ||
                exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
                (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
                 get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
@@ -137,7 +141,8 @@ service cloud.firestore {
           'linkedTrainerId', 'linkedNutritionistId', 'trainerId', 'nutritionistId',
           'workout', 'plan', 'profile', 'progress', 'completedExercises',
           'clients', 'trainerClients', 'nutritionistClients',
-          'adherenceLogs', 'points', 'level', 'streak', 'checkInDates', 'badges', 'theme'
+          'adherenceLogs', 'points', 'level', 'streak', 'checkInDates', 'badges', 'theme',
+          'targetWeight', 'weightHistory', 'hydration', 'dailyWaterLogs', 'weightEntries'
         ])
       ) || (
         // Allow professionals to link themselves to a user
@@ -229,6 +234,30 @@ service cloud.firestore {
         isAdmin()
       );
       allow create: if isOwner(incoming().fromId) && isValidMessage(incoming());
+    }
+
+    // Weight History
+    match /weight_history/{entryId} {
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.userId) || 
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedTrainerId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedNutritionistId == request.auth.uid
+      );
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Hydration Logs
+    match /hydration_logs/{logId} {
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.userId) || 
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedTrainerId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedNutritionistId == request.auth.uid
+      );
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Default Deny (Globally inside the main block)

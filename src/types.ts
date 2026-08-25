@@ -52,6 +52,10 @@ export interface UserProfile {
   badges?: string[];
   joinedChallenges?: string[];
   medals?: { name: string; icon: string; earnedAt: string }[];
+  targetWeight?: number;
+  weightHistory?: WeightEntry[];
+  hydration?: HydrationData;
+  workoutReminder?: WorkoutReminderConfig;
   // Professional fields
   bio?: string;
   specialty?: string;
@@ -159,3 +163,35 @@ export interface Message {
   text: string;
   timestamp: string;
 }
+
+export interface WeightEntry {
+  id: string;
+  date: string; // ISO date string (YYYY-MM-DD or ISO)
+  weight: number; // in kg
+  bodyFat?: number; // percentage
+  leanMass?: number; // in kg
+  notes?: string;
+}
+
+export interface HydrationLogItem {
+  id: string;
+  time: string; // HH:mm
+  amount: number; // in ml (e.g. 250, 500)
+  type?: 'water' | 'tea' | 'coconut_water' | 'shake';
+}
+
+export interface HydrationData {
+  goal: number; // in ml (e.g. 2500, 3000)
+  date: string; // YYYY-MM-DD
+  logs: HydrationLogItem[];
+  streakDays?: number;
+}
+
+export interface WorkoutReminderConfig {
+  enabled: boolean;
+  time: string; // HH:mm format (e.g. "07:00", "18:30")
+  daysOfWeek: number[]; // 0 for Sunday, 1 for Monday, ..., 6 for Saturday
+  customMessage?: string;
+  soundEnabled?: boolean;
+}
+

@@ -92,6 +92,35 @@ router.get('/auth/admin-check', authMiddleware, (req: AuthRequest, res) => {
   res.json({ isAdmin: isAdminEmail(emailToCheck) });
 });
 
+// Admin Broadcast Update
+router.post('/admin/broadcast-update', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const verifiedEmail = req.userEmail;
+    if (!isAdminEmail(verifiedEmail)) {
+      return res.status(403).json({ error: 'Acesso negado: apenas administradores podem enviar atualizações' });
+    }
+
+    const { latestVersion, updateMessage } = req.body;
+    if (!updateMessage) {
+      return res.status(400).json({ error: 'Mensagem de atualização obrigatória' });
+    }
+
+    const { getAdminDb } = await import('../lib/firebase-admin.ts');
+    const adminDb = getAdminDb();
+    await adminDb.collection('system').doc('config').set({
+      latestVersion: latestVersion || '1.0.0',
+      updateMessage,
+      updatedAt: new Date().toISOString(),
+      updatedBy: verifiedEmail || 'admin'
+    }, { merge: true });
+
+    res.json({ success: true, message: 'Notificação de atualização transmitida com sucesso' });
+  } catch (error: any) {
+    console.error('Error in /admin/broadcast-update:', error);
+    res.status(500).json({ error: 'Erro ao transmitir atualização', details: error.message });
+  }
+});
+
 // Simple in-memory cache for exercise searches
 const exerciseCache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour

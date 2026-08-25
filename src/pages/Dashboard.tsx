@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '../store/userStore';
 import { Navigate, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserRole, PlanType, UserProfile, WorkoutPlan } from '../types';
+import { DailyMacrosCard } from '../components/DailyMacrosCard';
+import { PrintWorkoutModal } from '../components/PrintWorkoutModal';
 import { 
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
   Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus, ArrowLeft,
-  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target, LayoutDashboard, Trash2
+  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target, LayoutDashboard, Trash2, Printer, FileDown, FileText
 } from 'lucide-react';
 import { logoutFirebase } from '../firebase';
 import { 
@@ -19,6 +21,9 @@ import { Logo } from '../components/Logo';
 import { HomeView } from '../components/HomeView';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
 import { ProgressComparison } from '../components/ProgressComparison';
+import { WeightHistoryTracker } from '../components/WeightHistoryTracker';
+import { HydrationTracker } from '../components/HydrationTracker';
+import { WorkoutReminderWidget } from '../components/WorkoutReminderWidget';
 import { Toast, ToastType } from '../components/Toast';
 import { ProfessionalProfileView } from '../components/ProfessionalProfileView';
 import { Ranking } from '../components/Ranking';
@@ -51,7 +56,7 @@ function ExerciseRow({
   key?: any;
 }) {
   const { updateExerciseWeight, addExerciseProgress, planType } = useUser();
-  const isPremiumUser = planType === 'PREMIUM' || planType === 'PROFISSIONAL';
+  const isPremiumUser = planType !== 'FREE';
   const [isLogging, setIsLogging] = useState(false);
   const [logSuccess, setLogSuccess] = useState(false);
 
@@ -412,6 +417,7 @@ export default function Dashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditingWorkout, setIsEditingWorkout] = useState(false);
   const [isEditingPlanInfo, setIsEditingPlanInfo] = useState(false);
+  const [showPrintWorkoutModal, setShowPrintWorkoutModal] = useState(false);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [isGeneratingExDetails, setIsGeneratingExDetails] = useState(false);
   const [activeDayIdx, setActiveDayIdx] = useState<number | null>(null);
@@ -1030,14 +1036,48 @@ export default function Dashboard() {
 
     setAdminActionLoading(true);
     try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      const { db } = await import('../firebase');
-      await setDoc(doc(db, 'system', 'config'), {
-        latestVersion: versionInput || APP_VERSION,
-        updateMessage: updateMsgInput,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      setAdminFeedback({ type: 'success', msg: 'Notificação enviada com sucesso!' });
+      let broadcastSuccess = false;
+      
+      // Try direct client-side Firestore write first
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        const { db } = await import('../firebase');
+        await setDoc(doc(db, 'system', 'config'), {
+          latestVersion: versionInput || APP_VERSION,
+          updateMessage: updateMsgInput,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        broadcastSuccess = true;
+      } catch (clientErr) {
+        console.warn("Client Firestore broadcast failed, trying server API fallback...", clientErr);
+      }
+
+      // If client write failed or had permissions lag, fallback to server admin route
+      if (!broadcastSuccess && user) {
+        const token = await user.getIdToken();
+        const response = await fetch('/api/admin/broadcast-update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            latestVersion: versionInput || APP_VERSION,
+            updateMessage: updateMsgInput
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Falha ao transmitir atualização via servidor');
+        }
+        broadcastSuccess = true;
+      }
+
+      if (broadcastSuccess) {
+        setAdminFeedback({ type: 'success', msg: 'Notificação enviada com sucesso!' });
+        setUpdateMsgInput('');
+      }
     } catch (error) {
       console.error("Error broadcasting update:", error);
       setAdminFeedback({ type: 'error', msg: 'Erro ao enviar notificação' });
@@ -1222,64 +1262,79 @@ export default function Dashboard() {
         </p>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl text-left mb-12">
-          <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2rem] flex flex-col shadow-2xl">
-            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Pro</h5>
-            <p className="text-4xl font-black text-purple-400 mb-6">R$ 39,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
-            <ul className="text-sm text-gray-400 space-y-3 mb-8 flex-1 font-medium">
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Treinos ilimitados
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Dieta completa
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Evolução detalhada
-              </li>
-            </ul>
-            <Link to="/checkout?plan=PRO" className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs">
-              Assinar Pro
-            </Link>
-          </div>
-
+          {/* Plano Pro - ATIVO */}
           <div className="bg-purple-900/10 border-2 border-purple-500 p-8 rounded-[2rem] flex flex-col relative text-left shadow-2xl shadow-purple-500/10">
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest py-1.5 px-4 rounded-full shadow-lg">
               Recomendado
             </div>
-            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Premium</h5>
-            <p className="text-4xl font-black text-purple-400 mb-6">R$ 59,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
+            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Pro</h5>
+            <p className="text-4xl font-black text-purple-400 mb-6">R$ 39,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
             <ul className="text-sm text-gray-400 space-y-3 mb-8 flex-1 font-medium">
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Tudo do Pro
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Treinos adaptativos ilimitados por IA
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Chat 24h com Coach IA
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Dieta completa & macros estratégicos
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Ajustes diários
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Chat 24h com Coach IA & ajustes diários
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Análise de evolução e progressão de cargas
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-500" /> Suporte prioritário VIP
               </li>
             </ul>
-            <Link to="/checkout?plan=PREMIUM" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs shadow-xl shadow-purple-600/30">
-              Assinar Premium
+            <Link to="/checkout?plan=PRO" className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs shadow-xl shadow-purple-600/30">
+              Assinar Pro
             </Link>
           </div>
 
-          <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2rem] flex flex-col shadow-2xl">
-            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Profissional</h5>
-            <p className="text-4xl font-black text-green-400 mb-6">R$ 149,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
-            <ul className="text-sm text-gray-400 space-y-3 mb-8 flex-1 font-medium">
+          {/* Plano Premium - EM BREVE */}
+          <div className="bg-zinc-900/60 border border-white/5 p-8 rounded-[2rem] flex flex-col relative text-left shadow-2xl opacity-75 grayscale-[25%]">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-zinc-800 border border-white/10 text-amber-400 text-[10px] font-black uppercase tracking-widest py-1 px-3 rounded-full shadow-md">
+              Em Breve
+            </div>
+            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Premium</h5>
+            <p className="text-4xl font-black text-gray-400 mb-6">R$ 59,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
+            <ul className="text-sm text-gray-500 space-y-3 mb-8 flex-1 font-medium">
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" /> Tudo do Premium
+                <CheckCircle2 className="w-4 h-4 text-gray-600" /> Tudo do Pro
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" /> Gestão de Alunos (Trainer)
+                <CheckCircle2 className="w-4 h-4 text-gray-600" /> Chat 24h com Coach IA
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" /> Suporte VIP
+                <CheckCircle2 className="w-4 h-4 text-gray-600" /> Ajustes diários de rotina
               </li>
             </ul>
-            <Link to="/checkout?plan=PROFISSIONAL" className="w-full bg-white/10 hover:bg-white/20 text-white py-4 rounded-2xl font-black transition-all text-center uppercase tracking-widest text-xs">
-              Assinar Profissional
-            </Link>
+            <button disabled className="w-full bg-white/5 border border-white/10 text-gray-500 py-4 rounded-2xl font-black text-center uppercase tracking-widest text-xs cursor-not-allowed">
+              Em Breve
+            </button>
+          </div>
+
+          {/* Plano Profissional - EM BREVE */}
+          <div className="bg-zinc-900/60 border border-white/5 p-8 rounded-[2rem] flex flex-col relative text-left shadow-2xl opacity-75 grayscale-[25%]">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-zinc-800 border border-white/10 text-amber-400 text-[10px] font-black uppercase tracking-widest py-1 px-3 rounded-full shadow-md">
+              Em Breve
+            </div>
+            <h5 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Profissional</h5>
+            <p className="text-4xl font-black text-gray-400 mb-6">R$ 149,90<span className="text-sm font-medium text-gray-500 lowercase ml-1">/mês</span></p>
+            <ul className="text-sm text-gray-500 space-y-3 mb-8 flex-1 font-medium">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-gray-600" /> Tudo do Premium
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-gray-600" /> Gestão de Alunos (Trainer/Nutri)
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-gray-600" /> Suporte VIP Exclusivo
+              </li>
+            </ul>
+            <button disabled className="w-full bg-white/5 border border-white/10 text-gray-500 py-4 rounded-2xl font-black text-center uppercase tracking-widest text-xs cursor-not-allowed">
+              Em Breve
+            </button>
           </div>
         </div>
         
@@ -1486,7 +1541,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="inline-block bg-purple-600/10 dark:bg-purple-600/20 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                PLANO {profile?.planType === 'FREE' ? 'BASIC' : profile?.planType}+
+                PLANO {profile?.planType === 'FREE' ? 'GRATUITO' : profile?.planType}
               </div>
             </div>
             {(user?.photoURL || profile?.photoURL) ? (
@@ -1620,7 +1675,7 @@ export default function Dashboard() {
                      <span className="text-sm ml-1">dias</span>
                    </p>
                 </div>
-                <Link to="/checkout?plan=PREMIUM" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-8 py-4 sm:py-5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-xl shadow-orange-500/30 flex items-center justify-center gap-3 active:scale-95 group/btn">
+                <Link to="/checkout?plan=PRO" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-8 py-4 sm:py-5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-xl shadow-orange-500/30 flex items-center justify-center gap-3 active:scale-95 group/btn">
                    Fidelizar Agora <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -1793,14 +1848,24 @@ export default function Dashboard() {
 
               {/* Today's Training Choice */}
               <div className="bg-gradient-to-br from-purple-600/10 to-indigo-600/10 border border-purple-500/20 rounded-3xl p-6 sm:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/20">
-                    <Dumbbell className="w-6 h-6" />
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/20">
+                      <Dumbbell className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold">Treino do Dia</h3>
+                      <p className="text-sm text-gray-500">Escolha sua sessão de hoje ou siga a recomendação</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold">Treino do Dia</h3>
-                    <p className="text-sm text-gray-500">Escolha sua sessão de hoje ou siga a recomendação</p>
-                  </div>
+
+                  <button
+                    onClick={() => setShowPrintWorkoutModal(true)}
+                    className="inline-flex items-center gap-2 bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Imprimir / PDF do Treino
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1838,6 +1903,32 @@ export default function Dashboard() {
                   })}
                 </div>
               </div>
+
+              {/* Card de Resumo de Macronutrientes do Dia */}
+              <DailyMacrosCard onNavigateDiet={() => handleTabChange('diet')} />
+
+              {/* Gráfico de Acompanhamento de Peso na Dashboard */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-blue-500" />
+                    <h3 className="text-xl font-bold">Evolução do Peso Corporal</h3>
+                  </div>
+                  <button
+                    onClick={() => handleTabChange('evolution')}
+                    className="text-xs font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1"
+                  >
+                    Ver detalhes <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <WeightHistoryTracker targetUserId={profile?.uid} />
+              </div>
+
+              {/* Hydration Tracker */}
+              <HydrationTracker />
+
+              {/* Lembretes Diários de Treino com Notificações do Navegador */}
+              <WorkoutReminderWidget />
 
               <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -2121,98 +2212,8 @@ export default function Dashboard() {
                     </div>
                   </motion.div>
 
-                  <div className="bg-zinc-950 border border-white/10 rounded-3xl p-8 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform">
-                      <TrendingUp className="w-64 h-64 text-purple-500" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-6 flex items-center gap-2 relative z-10">
-                       <TrendingUp className="w-5 h-5 text-purple-400" />
-                       Análise de Performance Visual
-                    </h3>
-                    
-                    <div className="h-[450px] w-full relative z-10">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
-                          <defs>
-                            <linearGradient id="colorPeso" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
-                            </linearGradient>
-                            <linearGradient id="colorMassa" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#222' : '#ddd'} vertical={false} />
-                          <XAxis 
-                            dataKey="name" 
-                            stroke="#555" 
-                            fontSize={10} 
-                            tickLine={false} 
-                            axisLine={false}
-                            padding={{ left: 20, right: 20 }}
-                          />
-                          <YAxis stroke="#555" fontSize={10} tickLine={false} axisLine={false} domain={['dataMin - 5', 'dataMax + 5']} />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: theme === 'dark' ? '#0a0a0a' : '#fff', 
-                              border: `1px solid ${theme === 'dark' ? '#333' : '#eee'}`, 
-                              borderRadius: '16px',
-                              boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
-                            }}
-                            itemStyle={{ fontWeight: '900', fontSize: '13px' }}
-                            cursor={{ stroke: '#a855f7', strokeWidth: 2 }}
-                          />
-                          <Legend 
-                            verticalAlign="top" 
-                            height={48} 
-                            wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', paddingBottom: '20px' }}
-                          />
-                          <Area 
-                            name="Peso Corporal (kg)"
-                            type="monotone" 
-                            dataKey="peso" 
-                            stroke="#a855f7" 
-                            strokeWidth={4} 
-                            fillOpacity={1}
-                            fill="url(#colorPeso)"
-                            dot={{ r: 5, fill: '#a855f7', strokeWidth: 2, stroke: '#fff' }} 
-                            activeDot={{ r: 8, strokeWidth: 0 }}
-                          />
-                          <Area 
-                            name="Massa Magra (est.)"
-                            type="monotone" 
-                            dataKey="massa" 
-                            stroke="#10b981" 
-                            strokeWidth={4} 
-                            fillOpacity={1}
-                            fill="url(#colorMassa)"
-                            dot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} 
-                            activeDot={{ r: 8, strokeWidth: 0 }}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-                       <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Peso Médio</p>
-                          <p className="text-xl font-black">{profile.weight} kg</p>
-                       </div>
-                       <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Gasto Calórico Médio</p>
-                          <p className="text-xl font-black">2.450 <span className="text-xs">kcal</span></p>
-                       </div>
-                       <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Volume de Treino</p>
-                          <p className="text-xl font-black text-purple-400">Alto</p>
-                       </div>
-                       <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Frequência Semanal</p>
-                          <p className="text-xl font-black text-green-400">100%</p>
-                       </div>
-                    </div>
-                  </div>
+                  {/* Weight History Tracker with Recharts visualization */}
+                  <WeightHistoryTracker targetUserId={profile?.uid} />
 
                   {/* Challenges Section */}
                 <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 rounded-3xl p-6 sm:p-8">
@@ -2369,31 +2370,41 @@ export default function Dashboard() {
             <div className="space-y-6 sm:space-y-8 relative w-full overflow-x-hidden">
               {isBlocked && <Paywall feature="Treinos" type="expired" />}
               <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-3 sm:p-8 overflow-hidden">
-                <div className="flex items-center justify-between mb-6 px-1">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6 px-1">
                   <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                     <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                     Rotina Semanal ({plan.days.length} dias)
                   </h3>
-                  {!isViewingAs && (
-                    <div className="flex gap-2">
-                       <button 
-                        onClick={() => setIsEditingPlanInfo(!isEditingPlanInfo)}
-                        className={`p-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${
-                          isEditingPlanInfo ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
-                        }`}
-                      >
-                        {isEditingPlanInfo ? 'Sair Info' : 'Editar Info'}
-                      </button>
-                      <button 
-                        onClick={() => setIsEditingWorkout(!isEditingWorkout)}
-                        className={`p-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${
-                          isEditingWorkout ? 'bg-purple-600 border-purple-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
-                        }`}
-                      >
-                        {isEditingWorkout ? 'Sair Edição' : 'Editar Plano'}
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setShowPrintWorkoutModal(true)}
+                      className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-purple-600/20 flex items-center gap-1.5 active:scale-95"
+                      title="Imprimir ou gerar versão PDF para levar à academia"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Imprimir / PDF
+                    </button>
+                    {!isViewingAs && (
+                      <>
+                         <button 
+                          onClick={() => setIsEditingPlanInfo(!isEditingPlanInfo)}
+                          className={`p-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${
+                            isEditingPlanInfo ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                          }`}
+                        >
+                          {isEditingPlanInfo ? 'Sair Info' : 'Editar Info'}
+                        </button>
+                        <button 
+                          onClick={() => setIsEditingWorkout(!isEditingWorkout)}
+                          className={`p-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${
+                            isEditingWorkout ? 'bg-purple-600 border-purple-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                          }`}
+                        >
+                          {isEditingWorkout ? 'Sair Edição' : 'Editar Plano'}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {isEditingPlanInfo && (
@@ -4644,6 +4655,14 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal de Impressão e PDF do Treino para Academia */}
+      <PrintWorkoutModal
+        isOpen={showPrintWorkoutModal}
+        onClose={() => setShowPrintWorkoutModal(false)}
+        plan={plan}
+        profile={profile}
+      />
     </div>
   );
 }

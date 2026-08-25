@@ -299,11 +299,11 @@ export default function NutritionistDashboard() {
       <div className="min-h-screen bg-black flex items-center justify-center p-6 text-center">
         <div className="max-w-md space-y-6">
           <Activity className="w-20 h-20 text-green-500 mx-auto opacity-20" />
-          <h2 className="text-3xl font-black text-white">Painel Bloqueado</h2>
-          <p className="text-gray-400">Para utilizar as ferramentas de Nutricionista Profissional, sua assinatura profissional deve estar ativa.</p>
-          <div className="pt-4">
-            <a href="/checkout?plan=PROFISSIONAL" className="inline-block bg-green-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-green-500 transition-all">
-              Ativar Assinatura Pro
+          <h2 className="text-3xl font-black text-white">Módulo Profissional em Breve</h2>
+          <p className="text-gray-400">O módulo para Nutricionistas estará disponível em breve com o lançamento do plano Profissional.</p>
+          <div className="pt-4 flex flex-col gap-3">
+            <a href="/dashboard" className="inline-block bg-green-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-green-500 transition-all">
+              Ir para o Dashboard
             </a>
           </div>
         </div>

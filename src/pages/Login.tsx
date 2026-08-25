@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, ArrowRight, LogIn, Camera, Loader2 } from 'lucide-react';
 import { signInWithGoogle, auth, db, storage } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useUser } from '../store/userStore';
@@ -21,7 +21,12 @@ export default function Login() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
   const [pendingAuthAction, setPendingAuthAction] = useState<(() => void) | null>(null);
@@ -86,12 +91,45 @@ export default function Login() {
     proceedWithAuth();
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = (resetEmail || email).trim().toLowerCase();
+    if (!cleanEmail) {
+      setError('Por favor, informe seu email para redefinir a senha.');
+      return;
+    }
+
+    setResetLoading(true);
+    setError('');
+    setSuccessMessage('');
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setResetSuccess(true);
+      setSuccessMessage('E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada e spam.');
+    } catch (err: any) {
+      console.error("Erro ao enviar email de recuperação:", err);
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        setError('Não encontramos nenhuma conta com este email. Verifique o endereço ou cadastre-se.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('O formato do email é inválido.');
+      } else {
+        setError('Erro ao enviar email de redefinição. Tente novamente mais tarde.');
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const proceedWithAuth = async () => {
     setError('');
+    setSuccessMessage('');
     setLoading(true);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password;
+
     try {
       if (isSignUp) {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
         const newUser = userCredential.user;
         
         let photoURL = '';
@@ -107,14 +145,14 @@ export default function Login() {
         }
 
         await updateProfile(newUser, {
-          displayName: name,
+          displayName: name.trim(),
           photoURL: photoURL || null
         });
 
         await setDoc(doc(db, 'users', newUser.uid), {
-          displayName: name,
-          email,
-          phone,
+          displayName: name.trim(),
+          email: cleanEmail,
+          phone: phone.trim(),
           photoURL,
           role: 'user',
           planType: 'FREE',
@@ -123,21 +161,37 @@ export default function Login() {
         });
 
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       }
       // Navigation is handled by useEffect
     } catch (err: any) {
       console.error("Erro no Auth:", err);
-      if (err.code === 'auth/email-already-in-use') {
-        setError('Este email já está em uso.');
-      } else if (err.code === 'auth/weak-password') {
+      const code = err.code || '';
+      const msg = err.message || '';
+
+      if (code === 'auth/email-already-in-use') {
+        setError('Este e-mail já está em uso. Faça login ou use outro e-mail.');
+      } else if (code === 'auth/weak-password') {
         setError('A senha deve ter pelo menos 6 caracteres.');
-      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setError('Email ou senha incorretos. Verifique os dados ou cadastre-se.');
-      } else if (err.code === 'auth/invalid-email') {
-        setError('O formato do email é inválido.');
+      } else if (
+        code === 'auth/user-not-found' || 
+        code === 'auth/wrong-password' || 
+        code === 'auth/invalid-credential' ||
+        code === 'auth/invalid-login-credentials' ||
+        msg.includes('invalid-credential') ||
+        msg.includes('invalid-login-credentials')
+      ) {
+        setError('E-mail ou senha incorretos. Verifique suas credenciais, crie uma conta nova se não for cadastrado, ou redefina sua senha.');
+      } else if (code === 'auth/invalid-email') {
+        setError('O formato do e-mail é inválido.');
+      } else if (code === 'auth/too-many-requests') {
+        setError('Muitas tentativas consecutivas. Aguarde alguns minutos ou redefina sua senha.');
+      } else if (code === 'auth/user-disabled') {
+        setError('Esta conta de usuário foi desativada.');
+      } else if (code === 'auth/network-request-failed') {
+        setError('Erro de conexão com a internet. Verifique sua rede e tente novamente.');
       } else {
-        setError(isSignUp ? 'Erro ao criar conta. Verifique os dados.' : 'Erro ao fazer login. Verifique suas credenciais.');
+        setError(isSignUp ? 'Erro ao criar conta. Verifique os dados e tente novamente.' : 'Erro ao fazer login. Verifique suas credenciais.');
       }
     } finally {
       setLoading(false);
@@ -247,8 +301,41 @@ export default function Login() {
         </p>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 text-sm text-center">
-            {error}
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 text-sm">
+            <p className="text-center mb-2">{error}</p>
+            {!isSignUp && (
+              <div className="flex justify-center gap-3 pt-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setResetSuccess(false);
+                    setError('');
+                    setShowForgotModal(true);
+                  }}
+                  className="text-purple-400 hover:underline font-medium"
+                >
+                  Esqueci a senha
+                </button>
+                <span className="text-white/20">•</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(true);
+                    setError('');
+                  }}
+                  className="text-purple-400 hover:underline font-medium"
+                >
+                  Criar nova conta
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 text-sm text-center">
+            {successMessage}
           </div>
         )}
 
@@ -340,7 +427,24 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Senha</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-400">Senha</label>
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setResetSuccess(false);
+                    setError('');
+                    setSuccessMessage('');
+                    setShowForgotModal(true);
+                  }}
+                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  Esqueceu a senha?
+                </button>
+              )}
+            </div>
             <input 
               type="password" 
               required
@@ -373,6 +477,7 @@ export default function Login() {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError('');
+                setSuccessMessage('');
               }} 
               className="text-purple-400 hover:text-purple-300 font-medium ml-2"
             >
@@ -381,6 +486,71 @@ export default function Login() {
           </p>
         </div>
       </motion.div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-zinc-950 border border-white/10 p-6 sm:p-8 rounded-3xl shadow-2xl relative"
+          >
+            <h3 className="text-2xl font-bold text-white mb-2">Recuperar Senha</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              Digite seu e-mail cadastrado e enviaremos um link para você redefinir sua senha com segurança.
+            </p>
+
+            {resetSuccess ? (
+              <div className="space-y-6">
+                <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 text-sm text-center">
+                  Link de recuperação enviado com sucesso para <strong className="text-white">{resetEmail || email}</strong>! Verifique sua caixa de entrada e spam.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotModal(false);
+                    setResetSuccess(false);
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold p-3 rounded-xl transition-colors"
+                >
+                  Voltar ao Login
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Seu E-mail</label>
+                  <input 
+                    type="email"
+                    required
+                    value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    className="w-full bg-black border border-white/20 rounded-xl p-4 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-gray-300 font-bold p-3 rounded-xl transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold p-3 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {resetLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar Link'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </motion.div>
+        </div>
+      )}
 
       <div className="absolute bottom-8 text-center text-gray-500 text-sm">
         <p>Desenvolvido por NVM Project Management</p>
