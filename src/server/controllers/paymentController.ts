@@ -43,11 +43,17 @@ function getFallbackPaymentLink(plan: string, userId?: string, userEmail?: strin
   } else if (normalizedPlan === "PREMIUM") {
     link = process.env.VITE_STRIPE_LINK_PREMIUM || process.env.STRIPE_LINK_PREMIUM || "";
   } else {
-    link = process.env.VITE_STRIPE_LINK_PRO || process.env.STRIPE_LINK_PRO || DEFAULT_PRO_PAYMENT_LINK;
+    link = process.env.VITE_STRIPE_LINK_PRO || process.env.STRIPE_LINK_PRO || "";
   }
 
   link = link.trim();
-  if (!link || (!link.startsWith('http://') && !link.startsWith('https://'))) return null;
+  if (!link || link.includes("your_") || link.includes("example") || link.includes("test_14A8w") || (!link.startsWith('http://') && !link.startsWith('https://'))) {
+    if (normalizedPlan === "PRO") {
+      link = DEFAULT_PRO_PAYMENT_LINK;
+    } else {
+      return null;
+    }
+  }
 
   const separator = link.includes('?') ? '&' : '?';
   let fullUrl = link;

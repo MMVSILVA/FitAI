@@ -30,7 +30,10 @@ export default function Checkout() {
   const price = priceMap[plan] || priceMap['PRO'];
 
   // Link direto de pagamento configurado
-  const stripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO || 'https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02';
+  const rawStripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO || '';
+  const stripeLinkPro = (rawStripeLinkPro && !rawStripeLinkPro.includes('your_pro_link'))
+    ? rawStripeLinkPro
+    : 'https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02';
 
   const isValidUrl = (url: string) => {
     if (!url || typeof url !== 'string') return false;
@@ -44,8 +47,26 @@ export default function Checkout() {
     if (!isValidUrl(base)) return null;
     
     const separator = base.includes('?') ? '&' : '?';
-    // Adiciona o UID do usuário para vincular o pagamento à conta
+    // Adiciona o UID do usuário e email para vincular o pagamento à conta
     return `${base}${user?.uid ? separator + 'client_reference_id=' + encodeURIComponent(user.uid) : ''}${user?.email ? (user?.uid ? '&' : '?') + 'prefilled_email=' + encodeURIComponent(user.email) : ''}`;
+  };
+
+  const redirectToStripe = (url: string) => {
+    try {
+      // Se estiver dentro de um iframe, abrir no topo ou nova aba evita bloqueio de X-Frame-Options do Stripe
+      if (window.self !== window.top) {
+        try {
+          window.top!.location.href = url;
+          return;
+        } catch {
+          window.open(url, '_blank', 'noopener,noreferrer');
+          return;
+        }
+      }
+      window.location.href = url;
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const hasValidDirectLink = isValidUrl(stripeLinkPro);
@@ -58,6 +79,9 @@ export default function Checkout() {
 
     setLoading(true);
     setError(null);
+
+    const manualFallback = getManualLink();
+
     try {
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
@@ -69,27 +93,36 @@ export default function Checkout() {
         })
       });
 
-      const data = await response.json();
-      if (response.ok && data.url) {
-        window.location.href = data.url;
-        return;
-      } else {
-        // Se a API retornou erro mas temos o link de pagamento direto configurado e validado
-        const manualLink = getManualLink();
-        if (manualLink) {
-          window.location.href = manualLink;
-          return;
-        }
-        throw new Error(data.error || "Erro ao criar sessão de pagamento.");
+      let data: any = null;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = null;
       }
+
+      if (response.ok && data?.url) {
+        redirectToStripe(data.url);
+        return;
+      }
+
+      if (data?.url) {
+        redirectToStripe(data.url);
+        return;
+      }
+
+      if (manualFallback) {
+        redirectToStripe(manualFallback);
+        return;
+      }
+
+      throw new Error(data?.error || "Erro ao criar sessão de pagamento.");
     } catch (err: any) {
       console.error("Checkout error:", err);
-      
-      const manualLink = getManualLink();
-      if (manualLink) {
-        window.location.href = manualLink;
+      if (manualFallback) {
+        redirectToStripe(manualFallback);
       } else {
-        setError(err.message || "Não foi possível iniciar o checkout. Verifique as configurações do Stripe nas variáveis de ambiente.");
+        setError(err.message || "Não foi possível iniciar o checkout.");
       }
     } finally {
       setTimeout(() => setLoading(false), 2000);
@@ -271,6 +304,17 @@ export default function Checkout() {
                 <div className="bg-black/5 dark:bg-white/5 p-3 rounded-lg text-[11px] font-mono text-gray-500 dark:text-gray-400 break-words">
                   {error}
                 </div>
+                {getManualLink() && (
+                  <a
+                    href={getManualLink()!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full mt-2 py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all"
+                  >
+                    Acessar Link Direto no Stripe
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
               </div>
             )}
 
