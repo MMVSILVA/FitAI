@@ -121,6 +121,17 @@ router.post('/admin/broadcast-update', authMiddleware, async (req: AuthRequest, 
   }
 });
 
+// Subscription Sync Route
+router.post('/subscription/sync-status', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { syncSubscriptionStatus } = await import('../controllers/paymentController.ts');
+    await syncSubscriptionStatus(req, res);
+  } catch (error: any) {
+    console.error('Error in /subscription/sync-status:', error);
+    res.status(500).json({ error: 'Erro ao sincronizar assinatura', details: error.message });
+  }
+});
+
 // Simple in-memory cache for exercise searches
 const exerciseCache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour

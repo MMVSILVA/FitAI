@@ -142,7 +142,8 @@ service cloud.firestore {
           'workout', 'plan', 'profile', 'progress', 'completedExercises',
           'clients', 'trainerClients', 'nutritionistClients',
           'adherenceLogs', 'points', 'level', 'streak', 'checkInDates', 'badges', 'theme',
-          'targetWeight', 'weightHistory', 'hydration', 'dailyWaterLogs', 'weightEntries'
+          'targetWeight', 'weightHistory', 'hydration', 'dailyWaterLogs', 'weightEntries',
+          'joinedChallenges', 'medals', 'workoutReminder', 'completedWorkouts'
         ])
       ) || (
         // Allow professionals to link themselves to a user
@@ -251,6 +252,18 @@ service cloud.firestore {
     // Hydration Logs
     match /hydration_logs/{logId} {
       allow read: if isSignedIn() && (
+        isOwner(resource.data.userId) || 
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedTrainerId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedNutritionistId == request.auth.uid
+      );
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Daily Check-ins
+    match /daily_checkins/{checkinId} {
+      allow read, list: if isSignedIn() && (
         isOwner(resource.data.userId) || 
         isAdmin() ||
         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedTrainerId == request.auth.uid ||

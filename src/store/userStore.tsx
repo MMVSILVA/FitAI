@@ -36,6 +36,7 @@ interface UserState {
   logout: () => void;
   calculateIMC: () => { value: string; category: string } | null;
   resetAccount: () => Promise<void>;
+  resetSimulation: () => Promise<{ success: boolean; message: string }>;
   addExerciseProgress: (exerciseName: string, weight: number, reps: number) => Promise<void>;
   getExerciseProgress: (exerciseName: string) => Promise<import('../types').ExerciseProgress[]>;
   toggleMealCheck: (mealIndex: number) => Promise<void>;
@@ -91,8 +92,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user?.email) {
       const isMasterAdmin = user.email === 'vinidoctor@gmail.com';
       if (isMasterAdmin) {
-        // Master user is a student (aluno) by default
-        setPlanType('PROFISSIONAL');
+        setIsAdmin(true);
       }
 
       user.getIdToken().then(token => {
@@ -105,8 +105,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .then(data => {
             if (data.isAdmin) {
               setIsAdmin(true);
-              // setRoleState('admin' as UserRole); // Removed forced role
-              setPlanType('PROFISSIONAL');
             } else if (!isMasterAdmin) {
               setIsAdmin(false);
             }
@@ -196,11 +194,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         import('firebase/firestore').then(({ onSnapshot }) => {
           unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
             snapshotReceived = true;
-
-            const isMasterAdmin = loggedUser.email === 'vinidoctor@gmail.com';
-            if (isMasterAdmin) {
-              setPlanType('PROFISSIONAL');
-            }
 
             if (docSnap.exists()) {
               const data = docSnap.data();
@@ -720,6 +713,32 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resetSimulation = async () => {
+    if (!user) return { success: false, message: 'Usuário não autenticado' };
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const docRef = doc(db, 'users', user.uid);
+      await updateDoc(docRef, {
+        planType: 'FREE',
+        isPremium: false,
+        subscriptionEndsAt: null,
+        trialEndsAt: null,
+        updatedAt: new Date().toISOString()
+      });
+      setPlanType('FREE');
+      setSubscriptionEndsAt(null);
+      setTrialEndsAt(null);
+      return { success: true, message: 'Simulação resetada com sucesso! Você agora está no plano FREE.' };
+    } catch (error: any) {
+      console.error("Error resetting simulation in Firestore:", error);
+      // Update local state even if Firestore rules or offline prevents remote write
+      setPlanType('FREE');
+      setSubscriptionEndsAt(null);
+      setTrialEndsAt(null);
+      return { success: true, message: 'Simulação resetada localmente para o plano FREE.' };
+    }
+  };
+
   const logout = () => {
     setProfileState(null);
     setPlanState(null);
@@ -1054,7 +1073,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       favorites, theme,
       setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, updatePlanForUser, 
       toggleFavorite, toggleTheme,
-      linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount,
+      linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount, resetSimulation,
       addExerciseProgress, getExerciseProgress,
       toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
       addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn,

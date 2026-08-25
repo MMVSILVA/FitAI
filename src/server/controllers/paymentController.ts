@@ -213,66 +213,121 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
   const sig = req.headers["stripe-signature"];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  if (!sig || !endpointSecret) return res.status(400).send("Missing sig/secret");
+  if (!sig || !endpointSecret) {
+    console.warn("[Webhook] Missing stripe-signature or STRIPE_WEBHOOK_SECRET");
+    return res.status(400).send("Missing sig/secret");
+  }
 
   try {
     const stripe = getStripe();
-    const event = stripe.webhooks.constructEvent(req.body, sig as any, endpointSecret);
+    let event: Stripe.Event;
+    
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig as any, endpointSecret);
+    } catch (constructErr: any) {
+      console.error(`[Webhook] Signature verification failed: ${constructErr.message}`);
+      return res.status(400).send(`Webhook Signature Error: ${constructErr.message}`);
+    }
+
+    console.log(`[Webhook] Processing Stripe event: ${event.type}`);
+
+    const { getAdminDb } = await import('../lib/firebase-admin.ts');
+    const db = getAdminDb();
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       let userId = session.client_reference_id;
-      const userEmail = session.customer_details?.email;
-      const plan = session.metadata?.plan;
+      const userEmail = session.customer_details?.email || (session.customer_email as string);
+      const plan = session.metadata?.plan || "PRO";
       const stripeSubscriptionId = session.subscription as string;
 
-      if ((userId || userEmail) && plan && stripeSubscriptionId) {
-        const stripe = getStripe();
-        const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId) as any;
-        
-        const { getAdminDb } = await import('../lib/firebase-admin.ts');
-        const db = getAdminDb();
-        
-        const dbPlan = (plan === 'PROFESSIONAL' || plan === 'PROFISSIONAL') ? 'PROFISSIONAL' : plan;
-        // Se o plano for PROFISSIONAL, o usuário vira um "trainer" para acessar o Dashboard de Profissional
-        const targetRole = (dbPlan === 'PROFISSIONAL') ? 'trainer' : (dbPlan === 'PREMIUM' ? 'premium_user' : 'user');
-        
-        if (!userId && userEmail) {
+      const dbPlan = (plan === 'PROFESSIONAL' || plan === 'PROFISSIONAL') ? 'PROFISSIONAL' : (plan || 'PRO').toUpperCase();
+      const targetRole = (dbPlan === 'PROFISSIONAL') ? 'trainer' : (dbPlan === 'PREMIUM' ? 'premium_user' : 'user');
+      
+      let subscriptionEndsAt = new Date();
+      subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + 30);
+
+      if (stripeSubscriptionId) {
+        try {
+          const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId) as any;
+          if (subscription && subscription.current_period_end) {
+            subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
+          }
+        } catch (subErr) {
+          console.warn("[Webhook] Could not retrieve Stripe subscription details, using +30d default:", subErr);
+        }
+      }
+
+      const dataToUpdate: any = {
+        planType: dbPlan,
+        role: targetRole,
+        isPremium: true,
+        stripeSubscriptionId: stripeSubscriptionId || null,
+        stripeCustomerId: session.customer as string || null,
+        subscriptionEndsAt: subscriptionEndsAt.toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!userId && userEmail) {
+        try {
           const usersSnap = await db.collection('users').where('email', '==', userEmail).get();
           if (!usersSnap.empty) {
             userId = usersSnap.docs[0].id;
           }
+        } catch (queryErr) {
+          console.warn("[Webhook] Could not query user by email:", queryErr);
+        }
+      }
+
+      if (userId) {
+        console.log(`[Webhook] Updating user ${userId} to plan ${dbPlan}`);
+        await db.collection('users').doc(userId).set(dataToUpdate, { merge: true });
+      } else if (userEmail) {
+        console.log(`[Webhook] User not found yet. Storing pending activation for ${userEmail}`);
+        await db.collection('users').doc(`pending_${userEmail}`).set({
+          ...dataToUpdate,
+          email: userEmail,
+          isPendingActivation: true
+        }, { merge: true });
+      }
+    }
+
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object as any;
+      const stripeSubscriptionId = (invoice.subscription as string) || (invoice.lines?.data?.[0]?.subscription as string);
+      const customerEmail = invoice.customer_email;
+
+      if (stripeSubscriptionId || customerEmail) {
+        let userDoc: FirebaseFirestore.DocumentReference | null = null;
+
+        if (stripeSubscriptionId) {
+          const usersSnap = await db.collection('users').where('stripeSubscriptionId', '==', stripeSubscriptionId).get();
+          if (!usersSnap.empty) userDoc = usersSnap.docs[0].ref;
         }
 
-        const subscriptionEndsAt = new Date(subscription.current_period_end * 1000);
-        const dataToUpdate = {
-          planType: dbPlan,
-          role: targetRole,
-          isPremium: true,
-          stripeSubscriptionId,
-          subscriptionEndsAt: subscriptionEndsAt.toISOString(),
-          updatedAt: new Date().toISOString()
-        };
+        if (!userDoc && customerEmail) {
+          const usersSnap = await db.collection('users').where('email', '==', customerEmail).get();
+          if (!usersSnap.empty) userDoc = usersSnap.docs[0].ref;
+        }
 
-        if (userId) {
-          await db.collection('users').doc(userId).update(dataToUpdate);
-        } else if (userEmail) {
-          await db.collection('users').doc(`pending_${userEmail}`).set({
-            ...dataToUpdate,
-            email: userEmail,
-            isPendingActivation: true
+        if (userDoc) {
+          const futureDate = new Date();
+          futureDate.setDate(futureDate.getDate() + 30);
+          await userDoc.update({
+            isPremium: true,
+            subscriptionEndsAt: futureDate.toISOString(),
+            updatedAt: new Date().toISOString()
           });
+          console.log(`[Webhook] Extended subscription for user after invoice payment succeeded.`);
         }
       }
     }
 
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as Stripe.Subscription;
-      const { getAdminDb } = await import('../lib/firebase-admin.ts');
-      const db = getAdminDb();
-      
       const usersSnap = await db.collection('users').where('stripeSubscriptionId', '==', subscription.id).get();
       if (!usersSnap.empty) {
+        console.log(`[Webhook] Subscription deleted for user doc: ${usersSnap.docs[0].id}`);
         await usersSnap.docs[0].ref.update({
           planType: 'FREE',
           isPremium: false,
@@ -284,6 +339,53 @@ export const handleWebhook = async (req: express.Request, res: express.Response)
 
     res.json({ received: true });
   } catch (err: any) {
+    console.error("[Webhook Error]:", err);
     res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+};
+
+export const syncSubscriptionStatus = async (req: express.Request, res: express.Response) => {
+  try {
+    const { userId, userEmail, plan } = req.body;
+    if (!userId && !userEmail) {
+      return res.status(400).json({ error: "userId ou userEmail obrigatório" });
+    }
+
+    const { getAdminDb } = await import('../lib/firebase-admin.ts');
+    const db = getAdminDb();
+
+    let targetUid = userId;
+    if (!targetUid && userEmail) {
+      const snap = await db.collection('users').where('email', '==', userEmail).get();
+      if (!snap.empty) {
+        targetUid = snap.docs[0].id;
+      }
+    }
+
+    if (!targetUid) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    const requestedPlan = (plan === 'PROFESSIONAL' || plan === 'PROFISSIONAL') ? 'PROFISSIONAL' : (plan || 'PRO').toUpperCase();
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 30);
+
+    const updateData: any = {
+      planType: requestedPlan,
+      isPremium: true,
+      subscriptionEndsAt: futureDate.toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (requestedPlan === 'PROFISSIONAL') {
+      updateData.role = 'trainer';
+    }
+
+    await db.collection('users').doc(targetUid).set(updateData, { merge: true });
+
+    res.json({ success: true, planType: requestedPlan, subscriptionEndsAt: futureDate.toISOString() });
+  } catch (err: any) {
+    console.error("Error in syncSubscriptionStatus:", err);
+    res.status(500).json({ error: err.message });
   }
 };

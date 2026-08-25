@@ -9,8 +9,10 @@ import {
   Dumbbell, Apple, Lock, Zap, ChevronRight, LogOut, Activity, Timer, 
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
   Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus, ArrowLeft,
-  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target, LayoutDashboard, Trash2, Printer, FileDown, FileText
+  History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target, LayoutDashboard, Trash2, Printer, FileDown, FileText,
+  RotateCcw, RefreshCw, Share2
 } from 'lucide-react';
+import { useSubscriptionSync } from '../hooks/useSubscriptionSync';
 import { logoutFirebase } from '../firebase';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -36,6 +38,13 @@ import { db } from '../firebase';
 
 import { translate, translateExerciseName, ptToEnSearch } from '../lib/exerciseTranslations';
 import { ExerciseImage } from '../components/ExerciseImage';
+import { WorkoutTimer } from '../components/WorkoutTimer';
+import { ExportReportModal } from '../components/ExportReportModal';
+import { Trends30DaysChart } from '../components/Trends30DaysChart';
+import { DailyCheckinForm } from '../components/DailyCheckinForm';
+import { ShareProgressModal } from '../components/ShareProgressModal';
+import { StreakAndBadgesWidget } from '../components/StreakAndBadgesWidget';
+import { WorkoutCalendar } from '../components/WorkoutCalendar';
 
 function ExerciseRow({ 
   exercise, 
@@ -50,7 +59,7 @@ function ExerciseRow({
   dayIdx: number; 
   exerciseIdx: number; 
   restSeconds: number; 
-  onStartRest: (s: number) => void;
+  onStartRest: (s: number, name?: string) => void;
   checked?: boolean;
   onToggleCheck?: (id: string) => void;
   key?: any;
@@ -256,10 +265,10 @@ function ExerciseRow({
           </div>
           
           <button 
-            onClick={() => onStartRest(restSeconds)}
+            onClick={() => onStartRest(restSeconds, exercise.name)}
             className="w-full bg-black text-white dark:bg-white dark:text-black hover:bg-purple-600 hover:text-white px-5 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-black/10 group"
           >
-            <Timer className="w-5 h-5 group-hover:rotate-12 transition-transform" /> Iniciar Descanso
+            <Timer className="w-5 h-5 group-hover:rotate-12 transition-transform" /> Iniciar Descanso ({restSeconds}s)
           </button>
         </div>
       </div>
@@ -270,10 +279,13 @@ function ExerciseRow({
 export default function Dashboard() {
   const { 
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
-    logout, calculateIMC, updateExerciseWeight, resetAccount, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
+    logout, calculateIMC, updateExerciseWeight, resetAccount, resetSimulation, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
     toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
     addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge, leaveChallenge
   } = useUser();
+
+  // Automatic subscription sync after Stripe checkout redirect
+  const { isChecking: isSyncingSub } = useSubscriptionSync();
   
   const [searchParams, setSearchParams] = useSearchParams();
   const viewingAsUserId = searchParams.get('viewAs');
@@ -364,7 +376,14 @@ export default function Dashboard() {
   const isBlocked = isTrialExpired || isSubscriptionExpired;
   const isPremiumUser = planType !== 'FREE';
 
-  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms' | 'professionals'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'calendar' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms' | 'professionals'>(initialTab);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareAchievementBadge, setShareAchievementBadge] = useState<{
+    title?: string;
+    description?: string;
+    metric?: string;
+    metricLabel?: string;
+  } | undefined>(undefined);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
 
   // Load completed exercises from profile
@@ -418,6 +437,18 @@ export default function Dashboard() {
   const [isEditingWorkout, setIsEditingWorkout] = useState(false);
   const [isEditingPlanInfo, setIsEditingPlanInfo] = useState(false);
   const [showPrintWorkoutModal, setShowPrintWorkoutModal] = useState(false);
+  const [showExportReportModal, setShowExportReportModal] = useState(false);
+  const [workoutTimerConfig, setWorkoutTimerConfig] = useState<{
+    isOpen: boolean;
+    initialSeconds: number;
+    mode: 'countdown' | 'stopwatch';
+    exerciseName?: string;
+  }>({
+    isOpen: false,
+    initialSeconds: 60,
+    mode: 'countdown',
+    exerciseName: undefined
+  });
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [isGeneratingExDetails, setIsGeneratingExDetails] = useState(false);
   const [activeDayIdx, setActiveDayIdx] = useState<number | null>(null);
@@ -1007,26 +1038,50 @@ export default function Dashboard() {
     try {
       const { doc, updateDoc } = await import('firebase/firestore');
       const { db } = await import('../firebase');
-      await updateDoc(doc(db, 'users', user.uid), {
-        planType: newPlan,
-        isPremium: newPlan === 'PREMIUM' || newPlan === 'PROFISSIONAL' || newPlan === 'PRO',
-        updatedAt: new Date().toISOString()
-      });
       
-      if (newPlan !== 'FREE') {
+      const isFree = newPlan === 'FREE';
+      const updates: any = {
+        planType: newPlan,
+        isPremium: !isFree,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (isFree) {
+        updates.subscriptionEndsAt = null;
+        updates.trialEndsAt = null;
+      } else {
         const futureDate = new Date();
         futureDate.setDate(futureDate.getDate() + 30);
-        await updateDoc(doc(db, 'users', user.uid), {
-          subscriptionEndsAt: futureDate.toISOString()
-        });
+        updates.subscriptionEndsAt = futureDate.toISOString();
       }
+
+      await updateDoc(doc(db, 'users', user.uid), updates);
       setAdminFeedback({ type: 'success', msg: `Plano alterado para ${newPlan}` });
+      setToast({ show: true, message: `Plano alterado para ${newPlan}`, type: 'success' });
     } catch (error) {
       console.error("Error updating admin plan:", error);
       setAdminFeedback({ type: 'error', msg: 'Erro ao atualizar plano' });
+      setToast({ show: true, message: 'Erro ao atualizar plano', type: 'error' });
     } finally {
       setAdminActionLoading(false);
       setTimeout(() => setAdminFeedback({ type: '', msg: '' }), 3000);
+    }
+  };
+
+  const handleResetSimulation = async () => {
+    if (!isAdmin || !user) return;
+    setAdminActionLoading(true);
+    try {
+      const res = await resetSimulation();
+      setAdminFeedback({ type: 'success', msg: res.message || 'Simulação resetada para o plano FREE' });
+      setToast({ show: true, message: '🔄 Simulação resetada! Você voltou ao plano FREE com sucesso.', type: 'success' });
+    } catch (error: any) {
+      console.error("Error resetting simulation:", error);
+      setAdminFeedback({ type: 'error', msg: 'Erro ao resetar simulação' });
+      setToast({ show: true, message: 'Erro ao resetar simulação', type: 'error' });
+    } finally {
+      setAdminActionLoading(false);
+      setTimeout(() => setAdminFeedback({ type: '', msg: '' }), 3500);
     }
   };
 
@@ -1171,11 +1226,16 @@ export default function Dashboard() {
     }
   }, [planType, subscriptionEndsAt, user, isAdmin]);
 
-  const startRest = (seconds: number) => {
+  const startRest = (seconds: number, name?: string) => {
     setTimeLeft(seconds);
     setTimerActive(true);
-    setShowTimer(true);
-    showToast(`Descanso de ${seconds}s iniciado!`, 'info');
+    setWorkoutTimerConfig({
+      isOpen: true,
+      initialSeconds: seconds,
+      mode: 'countdown',
+      exerciseName: name
+    });
+    showToast(`⏱️ Temporizador de ${seconds}s iniciado com alertas sonoros!`, 'info');
   };
 
   const formatTime = (seconds: number) => {
@@ -1340,10 +1400,13 @@ export default function Dashboard() {
         
         {isAdmin && (
           <button 
-            onClick={() => setShowAdminModal(true)}
-            className="mt-8 text-red-500 font-bold uppercase tracking-widest text-xs hover:underline flex items-center gap-2"
+            onClick={handleResetSimulation}
+            disabled={adminActionLoading}
+            className="mt-8 text-red-500 hover:text-red-400 font-bold uppercase tracking-widest text-xs hover:underline flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            title="Resetar nível de acesso e voltar para o plano FREE"
           >
-            <Users className="w-4 h-4" /> Resetar Simulação (Admin)
+            <RotateCcw className={`w-4 h-4 ${adminActionLoading ? 'animate-spin' : ''}`} /> 
+            {adminActionLoading ? 'Resetando...' : 'Resetar Simulação (Admin - Voltar para FREE)'}
           </button>
         )}
       </div>
@@ -1540,8 +1603,21 @@ export default function Dashboard() {
                    NÍVEL {profile?.level || 1}
                 </div>
               </div>
-              <div className="inline-block bg-purple-600/10 dark:bg-purple-600/20 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                PLANO {profile?.planType === 'FREE' ? 'GRATUITO' : profile?.planType}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-block bg-purple-600/10 dark:bg-purple-600/20 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                  PLANO {profile?.planType === 'FREE' ? 'GRATUITO' : profile?.planType}
+                </div>
+                <button
+                  onClick={() => {
+                    setShareAchievementBadge(undefined);
+                    setShowShareModal(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-pink-600/20 active:scale-95"
+                  title="Exportar e compartilhar conquistas nas redes sociais"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  Compartilhar Progresso
+                </button>
               </div>
             </div>
             {(user?.photoURL || profile?.photoURL) ? (
@@ -1720,6 +1796,15 @@ export default function Dashboard() {
             Treino
           </button>
           <button 
+            onClick={() => handleTabChange('calendar')}
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+              activeTab === 'calendar' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+            Calendário
+          </button>
+          <button 
             onClick={() => handleTabChange('library')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
               activeTab === 'library' ? 'bg-zinc-700 text-white border border-white/20 shadow-xl' : 'bg-white/5 text-gray-400 hover:bg-white/10'
@@ -1859,13 +1944,29 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => setShowPrintWorkoutModal(true)}
-                    className="inline-flex items-center gap-2 bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-                  >
-                    <Printer className="w-4 h-4" />
-                    Imprimir / PDF do Treino
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setShowExportReportModal(true)}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-emerald-600/20"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      Exportar Relatório PDF
+                    </button>
+                    <button
+                      onClick={() => setWorkoutTimerConfig({ isOpen: true, initialSeconds: 60, mode: 'countdown' })}
+                      className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-purple-600/20"
+                    >
+                      <Timer className="w-4 h-4" />
+                      Cronômetro & Timer
+                    </button>
+                    <button
+                      onClick={() => setShowPrintWorkoutModal(true)}
+                      className="inline-flex items-center gap-2 bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                    >
+                      <Printer className="w-4 h-4" />
+                      Ficha de Treino
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1904,25 +2005,19 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* Form de Check-in Diário (Peso, Sono, Energia, Hidratação, Calorias) */}
+              <DailyCheckinForm 
+                userId={profile?.uid}
+                onSaved={() => {
+                  setToast({ isVisible: true, message: 'Check-in diário gravado no histórico com sucesso!', type: 'success' });
+                }}
+              />
+
+              {/* Gráfico de Tendências de 30 Dias: Peso e Calorias Consumidas */}
+              <Trends30DaysChart userId={profile?.uid} />
+
               {/* Card de Resumo de Macronutrientes do Dia */}
               <DailyMacrosCard onNavigateDiet={() => handleTabChange('diet')} />
-
-              {/* Gráfico de Acompanhamento de Peso na Dashboard */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-xl font-bold">Evolução do Peso Corporal</h3>
-                  </div>
-                  <button
-                    onClick={() => handleTabChange('evolution')}
-                    className="text-xs font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1"
-                  >
-                    Ver detalhes <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-                <WeightHistoryTracker targetUserId={profile?.uid} />
-              </div>
 
               {/* Hydration Tracker */}
               <HydrationTracker />
@@ -2212,6 +2307,28 @@ export default function Dashboard() {
                     </div>
                   </motion.div>
 
+                  {/* Daily Check-in Form */}
+                  <DailyCheckinForm 
+                    userId={profile?.uid}
+                    onSaved={() => {
+                      setToast({ isVisible: true, message: 'Registro de evolução gravado com sucesso!', type: 'success' });
+                    }}
+                  />
+
+                  {/* Gráfico de Tendências de 30 Dias (Peso & Calorias) */}
+                  <Trends30DaysChart userId={profile?.uid} />
+
+                  {/* Botão de Exportação de Relatório PDF */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setShowExportReportModal(true)}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-xl shadow-emerald-600/20 active:scale-95"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      Exportar Relatório PDF / Ficha de Evolução
+                    </button>
+                  </div>
+
                   {/* Weight History Tracker with Recharts visualization */}
                   <WeightHistoryTracker targetUserId={profile?.uid} />
 
@@ -2377,12 +2494,52 @@ export default function Dashboard() {
                   </h3>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
-                      onClick={() => setShowPrintWorkoutModal(true)}
+                      onClick={() => {
+                        setShareAchievementBadge({
+                          title: 'Treino Concluído',
+                          description: 'Foco total no plano de treinamento',
+                          metric: `${plan.days.filter(d => d.isCompleted).length}/${plan.days.length} sessões`,
+                          metricLabel: 'Semana'
+                        });
+                        setShowShareModal(true);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-pink-600/20 flex items-center gap-1.5 active:scale-95"
+                      title="Compartilhar evolução do treino nas redes sociais"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      Compartilhar
+                    </button>
+                    <button
+                      onClick={() => handleTabChange('calendar')}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95"
+                      title="Ver histórico e calendário de treinos"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      Calendário
+                    </button>
+                    <button
+                      onClick={() => setShowExportReportModal(true)}
+                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5 active:scale-95"
+                      title="Exportar relatório completo em PDF"
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                      Relatório PDF
+                    </button>
+                    <button
+                      onClick={() => setWorkoutTimerConfig({ isOpen: true, initialSeconds: 60, mode: 'countdown' })}
                       className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-purple-600/20 flex items-center gap-1.5 active:scale-95"
+                      title="Abrir cronômetro de séries e temporizador de descanso com som"
+                    >
+                      <Timer className="w-3.5 h-3.5" />
+                      Cronômetro / Timer
+                    </button>
+                    <button
+                      onClick={() => setShowPrintWorkoutModal(true)}
+                      className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-black text-[10px] uppercase tracking-widest transition-all border border-white/10 flex items-center gap-1.5 active:scale-95"
                       title="Imprimir ou gerar versão PDF para levar à academia"
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      Imprimir / PDF
+                      Ficha Impressa
                     </button>
                     {!isViewingAs && (
                       <>
@@ -3368,8 +3525,16 @@ export default function Dashboard() {
                     </button>
                   </div>
 
-                  <h3 className="text-xl font-black text-black dark:text-white uppercase tracking-tighter mb-6 flex items-center gap-2">
-                     Simular Nível de Acesso (Instantâneo)
+                  <h3 className="text-xl font-black text-black dark:text-white uppercase tracking-tighter mb-6 flex items-center justify-between">
+                    <span className="flex items-center gap-2">Simular Nível de Acesso (Instantâneo)</span>
+                    <button
+                      onClick={handleResetSimulation}
+                      disabled={adminActionLoading}
+                      className="text-xs font-black bg-red-600/20 text-red-500 border border-red-500/30 px-3 py-1.5 rounded-xl hover:bg-red-600/30 transition-all flex items-center gap-1.5"
+                    >
+                      <RotateCcw className={`w-3.5 h-3.5 ${adminActionLoading ? 'animate-spin' : ''}`} />
+                      Resetar para FREE
+                    </button>
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {['FREE', 'PRO', 'PREMIUM', 'PROFISSIONAL'].map((p) => (
@@ -4226,7 +4391,17 @@ export default function Dashboard() {
 
                 {/* Alterar Plano */}
                 <section>
-                  <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Simular Plano do Usuário</label>
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Simular Plano do Usuário</label>
+                    <button
+                      onClick={handleResetSimulation}
+                      disabled={adminActionLoading}
+                      className="text-xs font-bold text-red-500 hover:text-red-400 flex items-center gap-1 hover:underline transition-all cursor-pointer"
+                    >
+                      <RotateCcw className={`w-3.5 h-3.5 ${adminActionLoading ? 'animate-spin' : ''}`} />
+                      Resetar para FREE
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {['FREE', 'PRO', 'PREMIUM', 'PROFISSIONAL'].map((p) => (
                       <button
@@ -4663,6 +4838,27 @@ export default function Dashboard() {
         plan={plan}
         profile={profile}
       />
+
+      {/* Modal de Exportação de Relatório Completo PDF */}
+      <ExportReportModal
+        isOpen={showExportReportModal}
+        onClose={() => setShowExportReportModal(false)}
+        plan={plan}
+        profile={profile}
+      />
+
+      {/* Cronômetro e Temporizador com Alertas Sonoros */}
+      {workoutTimerConfig.isOpen && (
+        <div className="fixed bottom-5 right-5 z-[210] max-w-sm w-[92vw] sm:w-80 animate-in fade-in slide-in-from-bottom-5">
+          <WorkoutTimer 
+            initialSeconds={workoutTimerConfig.initialSeconds}
+            mode={workoutTimerConfig.mode}
+            exerciseName={workoutTimerConfig.exerciseName}
+            isFloating={true}
+            onClose={() => setWorkoutTimerConfig(prev => ({ ...prev, isOpen: false }))}
+          />
+        </div>
+      )}
     </div>
   );
 }

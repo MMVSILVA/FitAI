@@ -1,7 +1,7 @@
 import { Challenge } from './types';
 
-export const APP_VERSION = '1.0.5';
-export const BUILD_DATE = '2026-05-07';
+export const APP_VERSION = '1.0.6';
+export const BUILD_DATE = '2026-08-25';
 
 export const CHALLENGES: Challenge[] = [
   {

@@ -93,12 +93,34 @@
         "updateMessage": { "type": "string" },
         "maintenanceMode": { "type": "boolean" }
       }
+    },
+    "DailyCheckin": {
+      "title": "DailyCheckin",
+      "description": "User daily health, sleep, weight and nutrition check-in entry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "weight": { "type": "number" },
+        "sleepHours": { "type": "number" },
+        "sleepQuality": { "type": "number" },
+        "energyLevel": { "type": "number" },
+        "waterIntakeMl": { "type": "number" },
+        "caloriesConsumed": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date", "createdAt"]
     }
   },
   "firestore": {
     "/system/{configId}": {
       "schema": { "$ref": "SystemConfig" },
       "description": "Global app configuration and versioning"
+    },
+    "/daily_checkins/{checkinId}": {
+      "schema": { "$ref": "DailyCheckin" },
+      "description": "Daily check-in and readiness logs"
     },
     "/users/{userId}": {
       "schema": { "$ref": "UserProfile" },

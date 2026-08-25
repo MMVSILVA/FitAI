@@ -195,3 +195,18 @@ export interface WorkoutReminderConfig {
   soundEnabled?: boolean;
 }
 
+export interface DailyCheckinEntry {
+  id: string;
+  userId: string;
+  date: string; // YYYY-MM-DD
+  weight?: number; // in kg
+  sleepHours?: number; // e.g. 7.5
+  sleepQuality?: number; // 1 to 5
+  energyLevel?: number; // 1 to 5
+  stressLevel?: number; // 1 to 10
+  waterIntakeMl?: number; // in ml
+  caloriesConsumed?: number; // in kcal
+  notes?: string;
+  createdAt: string;
+}
+

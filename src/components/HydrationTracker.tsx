@@ -218,13 +218,13 @@ export const HydrationTracker: React.FC<HydrationTrackerProps> = ({ className = 
     setShowCustomAddModal(false);
   };
 
-  // Quick preset buttons
+  // Quick preset buttons for common container sizes
   const quickPresets = [
     { label: '+200 ml', amount: 200, name: 'Copo' },
-    { label: '+250 ml', amount: 250, name: 'Copo Padrão' },
+    { label: '+300 ml', amount: 300, name: 'Caneca' },
     { label: '+500 ml', amount: 500, name: 'Garrafinha' },
-    { label: '+750 ml', amount: 750, name: 'Shaker' },
-    { label: '+1000 ml', amount: 1000, name: 'Garrafão' },
+    { label: '+750 ml', amount: 750, name: 'Squeeze' },
+    { label: '+1000 ml', amount: 1000, name: 'Garrafa 1L' },
   ];
 
   return (
