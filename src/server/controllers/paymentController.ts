@@ -85,20 +85,23 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
   }
 
   try {
-    let stripe: Stripe;
-    try {
-      stripe = getStripe();
-    } catch (keyErr: any) {
+    const envKey = process.env.STRIPE_SECRET_KEY;
+    const hasValidKey = envKey && isValidStripeKey(envKey);
+
+    // Se a chave da API não estiver ativa mas houver link direto configurado, use o link direto perfeitamente
+    if (!hasValidKey) {
       const fallbackUrl = getFallbackPaymentLink(normalizedPlan, userId, userEmail);
       if (fallbackUrl) {
-        console.warn(`Stripe secret key error (${keyErr.message}). Redirecting to configured direct payment link.`);
+        console.log(`[Payment] Redirecionando para Link de Pagamento Direto do Stripe: ${fallbackUrl}`);
         return res.json({ url: fallbackUrl, fallback: true });
       }
       return res.status(400).json({ 
-        error: keyErr.message || "Erro na chave secreta do Stripe.",
+        error: "A chave do Stripe ou link de pagamento não foram configurados.",
         isKeyError: true
       });
     }
+
+    const stripe = getStripe();
 
     let rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1TGqxLCerzmt0lUIK5KJOUIE";
     let envVarName = "STRIPE_PRICE_ID_PRO";
