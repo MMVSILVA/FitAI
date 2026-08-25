@@ -30,7 +30,7 @@ export default function Checkout() {
   const price = priceMap[plan] || priceMap['PRO'];
 
   // Link direto de pagamento configurado
-  const stripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO || '';
+  const stripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO || 'https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02';
 
   const isValidUrl = (url: string) => {
     if (!url || typeof url !== 'string') return false;

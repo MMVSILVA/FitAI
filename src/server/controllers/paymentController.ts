@@ -4,46 +4,32 @@ import Stripe from 'stripe';
 let stripeClient: Stripe | null = null;
 let lastKey: string | null = null;
 
+const DEFAULT_PRO_PAYMENT_LINK = "https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02";
+
+function isValidStripeKey(key?: string): boolean {
+  if (!key) return false;
+  const trimmed = key.replace(/^["']|["']$/g, '').trim();
+  if (trimmed.includes('*') || trimmed.includes('...') || trimmed.length < 25) return false;
+  return trimmed.startsWith('sk_') || trimmed.startsWith('rk_');
+}
+
 function getStripe(): Stripe {
-  const rawKey = process.env.STRIPE_SECRET_KEY;
-  if (!rawKey) {
-    console.error("STRIPE_SECRET_KEY is undefined in process.env");
-    throw new Error("A chave secreta do Stripe (STRIPE_SECRET_KEY) não foi configurada nas variáveis de ambiente do servidor.");
+  const envKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!envKey || !isValidStripeKey(envKey)) {
+    throw new Error("A chave secreta do Stripe (STRIPE_SECRET_KEY) não foi configurada ou é inválida.");
   }
-  
-  let key = rawKey.replace(/^["']|["']$/g, '').trim();
-  
-  // Detect if the key contains asterisks (e.g., rk_1TGql***************V3ry) or is truncated/masked
-  if (key.includes('*') || key.includes('...') || key.length < 25) {
-    console.error("Erro no Stripe: Chave secreta inválida ou mascarada com asteriscos/reticências.");
-    throw new Error(
-      "A chave secreta do Stripe (STRIPE_SECRET_KEY) foi inserida de forma mascarada ou truncada (com asteriscos ou reticências). " +
-      "Como corrigir: No Stripe Dashboard > Desenvolvedores > Chaves de API, clique em 'Revelar chave' (Reveal key), copie o código completo ('sk_live_...' ou 'rk_live_...') e cole nas Configurações (Settings) do projeto."
-    );
-  }
-  
-  // Tenta extrair a chave real caso o usuário tenha colado texto extra (ex: "Chave: sk_...")
-  const match = key.match(/(sk_|rk_)[a-zA-Z0-9_]{15,}/);
-  if (match) {
-    key = match[0];
-  } else if (key.startsWith('mk_')) {
-    key = 'rk_' + key.substring(3);
-  }
-  
-  if (!key.startsWith('sk_') && !key.startsWith('rk_')) {
-    throw new Error("Formato de chave do Stripe inválido. Chaves secretas devem iniciar com 'sk_' ou 'rk_'.");
-  }
-  
-  if (key.startsWith('rk_')) {
-    console.warn("Using Stripe RESTRICTED KEY (rk_). Ensure it has 'Checkout Sessions' and 'Subscriptions' write permissions.");
-  }
-  
+
+  const trimmed = envKey.replace(/^["']|["']$/g, '').trim();
+  const match = trimmed.match(/(sk_|rk_)[a-zA-Z0-9_]{15,}/);
+  const keyToUse = match ? match[0] : trimmed;
+
   // Se a chave mudou ou o cliente ainda não existe, cria um novo
-  if (!stripeClient || key !== lastKey) {
-    const censored = `${key.substring(0, 7)}...${key.substring(key.length - 4)}`;
+  if (!stripeClient || keyToUse !== lastKey) {
+    const censored = `${keyToUse.substring(0, 7)}...${keyToUse.substring(keyToUse.length - 4)}`;
     console.log(`Initializing Stripe with key: ${censored}`);
-    stripeClient = new Stripe(key, { apiVersion: '2023-10-16' as any });
-    lastKey = key;
+    stripeClient = new Stripe(keyToUse, { apiVersion: '2023-10-16' as any });
+    lastKey = keyToUse;
   }
   
   return stripeClient;
@@ -57,7 +43,7 @@ function getFallbackPaymentLink(plan: string, userId?: string, userEmail?: strin
   } else if (normalizedPlan === "PREMIUM") {
     link = process.env.VITE_STRIPE_LINK_PREMIUM || process.env.STRIPE_LINK_PREMIUM || "";
   } else {
-    link = process.env.VITE_STRIPE_LINK_PRO || process.env.STRIPE_LINK_PRO || "";
+    link = process.env.VITE_STRIPE_LINK_PRO || process.env.STRIPE_LINK_PRO || DEFAULT_PRO_PAYMENT_LINK;
   }
 
   link = link.trim();
