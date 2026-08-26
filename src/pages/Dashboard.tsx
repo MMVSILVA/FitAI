@@ -378,12 +378,19 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'calendar' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms' | 'professionals'>(initialTab);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [shareInitialFormat, setShareInitialFormat] = useState<'story' | 'square' | 'card'>('story');
   const [shareAchievementBadge, setShareAchievementBadge] = useState<{
     title?: string;
     description?: string;
     metric?: string;
     metricLabel?: string;
   } | undefined>(undefined);
+
+  const handleOpenStoriesShare = (badge?: { title?: string; description?: string; metric?: string; metricLabel?: string }) => {
+    setShareInitialFormat('story');
+    setShareAchievementBadge(badge);
+    setShowShareModal(true);
+  };
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
 
   // Load completed exercises from profile
@@ -1608,11 +1615,20 @@ export default function Dashboard() {
                   PLANO {profile?.planType === 'FREE' ? 'GRATUITO' : profile?.planType}
                 </div>
                 <button
+                  onClick={() => handleOpenStoriesShare()}
+                  className="inline-flex items-center gap-1.5 bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:opacity-95 text-white px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-pink-600/25 active:scale-95 border border-white/10"
+                  title="Exportar card 9:16 otimizado para Stories do Instagram"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Compartilhar nos Stories
+                </button>
+                <button
                   onClick={() => {
+                    setShareInitialFormat('square');
                     setShareAchievementBadge(undefined);
                     setShowShareModal(true);
                   }}
-                  className="inline-flex items-center gap-1.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-pink-600/20 active:scale-95"
+                  className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-purple-600/20 active:scale-95"
                   title="Exportar e compartilhar conquistas nas redes sociais"
                 >
                   <Share2 className="w-3.5 h-3.5" />
@@ -1930,6 +1946,19 @@ export default function Dashboard() {
               ) : isFree ? (
                 <Paywall feature="Rotina Diária" type="pro" />
               ) : null}
+
+              {/* Ofensiva Gamificada & Medalhas de Honra */}
+              <StreakAndBadgesWidget 
+                onOpenShareModal={(badgeTitle) => {
+                  setShareInitialFormat('square');
+                  setShareAchievementBadge(badgeTitle ? { title: badgeTitle, description: 'Conquista desbloqueada no FitAI' } : undefined);
+                  setShowShareModal(true);
+                }}
+                onOpenStoriesModal={(badgeTitle) => {
+                  handleOpenStoriesShare(badgeTitle ? { title: badgeTitle, description: 'Conquista desbloqueada no FitAI' } : undefined);
+                }}
+                onOpenCalendar={() => handleTabChange('calendar')}
+              />
 
               {/* Today's Training Choice */}
               <div className="bg-gradient-to-br from-purple-600/10 to-indigo-600/10 border border-purple-500/20 rounded-3xl p-6 sm:p-8">
@@ -2396,6 +2425,36 @@ export default function Dashboard() {
             </div>
           )}
 
+          {activeTab === 'calendar' && (
+            <div className="space-y-8 relative">
+              {isBlocked ? (
+                <Paywall feature="Calendário de Treinos" type="expired" />
+              ) : isFree ? (
+                <Paywall feature="Calendário de Treinos" type="pro" />
+              ) : null}
+
+              {/* Widget de Ofensiva e Medalhas */}
+              <StreakAndBadgesWidget 
+                onOpenShareModal={(badgeTitle) => {
+                  setShareAchievementBadge(badgeTitle ? { title: badgeTitle, description: 'Conquista desbloqueada no FitAI' } : undefined);
+                  setShowShareModal(true);
+                }}
+                onOpenCalendar={() => handleTabChange('calendar')}
+              />
+
+              {/* Calendário Interativo com Histórico de Conclusão */}
+              <WorkoutCalendar 
+                onSelectDayIndex={(_dayIdx) => {
+                  handleTabChange('workout');
+                }}
+                onOpenShareModal={() => {
+                  setShareAchievementBadge(undefined);
+                  setShowShareModal(true);
+                }}
+              />
+            </div>
+          )}
+
           {activeTab === 'library' && (
             <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-4 sm:p-8">
               <ExerciseLibrary />
@@ -2495,6 +2554,22 @@ export default function Dashboard() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => {
+                        handleOpenStoriesShare({
+                          title: 'Treino Concluído',
+                          description: 'Foco total no plano de treinamento',
+                          metric: `${plan.days.filter(d => d.isCompleted).length}/${plan.days.length} sessões`,
+                          metricLabel: 'Semana'
+                        });
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:opacity-95 text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-pink-600/25 flex items-center gap-1.5 active:scale-95 border border-white/10"
+                      title="Compartilhar evolução nos Stories do Instagram"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Stories
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShareInitialFormat('square');
                         setShareAchievementBadge({
                           title: 'Treino Concluído',
                           description: 'Foco total no plano de treinamento',
@@ -2503,7 +2578,7 @@ export default function Dashboard() {
                         });
                         setShowShareModal(true);
                       }}
-                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-pink-600/20 flex items-center gap-1.5 active:scale-95"
+                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-purple-600/20 flex items-center gap-1.5 active:scale-95"
                       title="Compartilhar evolução do treino nas redes sociais"
                     >
                       <Share2 className="w-3.5 h-3.5" />
@@ -4830,6 +4905,14 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal de Compartilhamento em Redes Sociais */}
+      <ShareProgressModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        initialFormat={shareInitialFormat}
+        achievementBadge={shareAchievementBadge}
+      />
 
       {/* Modal de Impressão e PDF do Treino para Academia */}
       <PrintWorkoutModal

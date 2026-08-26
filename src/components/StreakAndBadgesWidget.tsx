@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Flame, Trophy, Award, Star, Zap, Shield, Droplets, Dumbbell, 
   CheckCircle2, Lock, ChevronRight, Share2, Sparkles, Calendar,
-  TrendingUp, Info, Clock
+  TrendingUp, Info, Clock, Camera
 } from 'lucide-react';
 import { UserProfile, WorkoutPlan } from '../types';
 import { useUser } from '../store/userStore';
 
 interface StreakAndBadgesWidgetProps {
   onOpenShareModal?: (badgeTitle?: string) => void;
+  onOpenStoriesModal?: (badgeTitle?: string) => void;
   onOpenCalendar?: () => void;
 }
 
@@ -29,6 +30,7 @@ export interface AchievementBadge {
 
 export function StreakAndBadgesWidget({
   onOpenShareModal,
+  onOpenStoriesModal,
   onOpenCalendar
 }: StreakAndBadgesWidgetProps) {
   const { profile, plan, doCheckIn } = useUser();
@@ -379,6 +381,17 @@ export function StreakAndBadgesWidget({
                 >
                   <Calendar className="w-4 h-4 text-purple-400" />
                   Calendário
+                </button>
+              )}
+
+              {onOpenStoriesModal && (
+                <button
+                  onClick={() => onOpenStoriesModal()}
+                  className="bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:opacity-90 text-white font-black text-xs uppercase tracking-wider py-2.5 px-3.5 rounded-xl shadow-md shadow-pink-600/25 transition-all flex items-center justify-center gap-1.5 active:scale-95 border border-white/10"
+                  title="Compartilhar Conquistas nos Stories do Instagram"
+                >
+                  <Camera className="w-4 h-4 text-white" />
+                  Stories
                 </button>
               )}
 

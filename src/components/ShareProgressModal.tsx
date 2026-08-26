@@ -1,17 +1,27 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import html2canvas from 'html2canvas';
 import { 
   X, Share2, Download, Copy, Check, Sparkles, Flame, Trophy, 
   Droplets, Dumbbell, Award, ArrowUpRight, ShieldCheck, Heart,
-  Smartphone, Square, Layout
+  Smartphone, Square, Layout, Camera, Send, MessageCircle,
+  ExternalLink, Zap, CheckCircle2, Star, TrendingUp, Calendar
 } from 'lucide-react';
 import { UserProfile, WorkoutPlan } from '../types';
+import { useUser } from '../store/userStore';
 
-interface ShareProgressModalProps {
+export interface ShareProgressModalProps {
   isOpen: boolean;
   onClose: () => void;
-  profile: UserProfile | null;
-  plan: WorkoutPlan | null;
+  initialFormat?: 'story' | 'square' | 'card';
+  profile?: UserProfile | null;
+  plan?: WorkoutPlan | null;
+  achievementBadge?: {
+    title?: string;
+    description?: string;
+    metric?: string;
+    metricLabel?: string;
+  };
   customAchievement?: {
     title?: string;
     description?: string;
@@ -20,22 +30,31 @@ interface ShareProgressModalProps {
   };
 }
 
-type CardFormat = 'story' | 'square' | 'card';
-type CardTheme = 'cyber' | 'gold' | 'ocean' | 'stealth';
+export type CardFormat = 'story' | 'square' | 'card';
+export type CardTheme = 'sunset' | 'cyber' | 'gold' | 'emerald' | 'stealth';
 
 export function ShareProgressModal({
   isOpen,
   onClose,
-  profile,
-  plan,
-  customAchievement
+  initialFormat = 'story',
+  profile: propProfile,
+  plan: propPlan,
+  achievementBadge,
+  customAchievement: propCustomAchievement
 }: ShareProgressModalProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [format, setFormat] = useState<CardFormat>('story');
-  const [theme, setTheme] = useState<CardTheme>('cyber');
+  const { profile: storeProfile, plan: storePlan } = useUser();
+  const profile = propProfile || storeProfile;
+  const plan = propPlan || storePlan;
+  const customAchievement = achievementBadge || propCustomAchievement;
+
+  const captureCardRef = useRef<HTMLDivElement | null>(null);
+  const [format, setFormat] = useState<CardFormat>(initialFormat);
+  const [theme, setTheme] = useState<CardTheme>('sunset');
   const [isCopied, setIsCopied] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [showMobileShareDrawer, setShowMobileShareDrawer] = useState(false);
 
   // Derived metrics for summary card
   const streakDays = profile?.streak || (profile?.checkInDates?.length ? 1 : 0);
@@ -48,420 +67,166 @@ export function ShareProgressModal({
   const userPoints = profile?.points || 0;
   const weightCurrent = profile?.weight ? `${profile.weight} kg` : '--';
   const targetWeight = profile?.targetWeight ? `${profile.targetWeight} kg` : null;
+  const userName = (profile?.displayName || profile?.name || 'Atleta FitAI').split('@')[0];
 
-  // Render canvas whenever format, theme, or data changes
+  // Set format on open if specified
+  useEffect(() => {
+    if (isOpen) {
+      if (initialFormat) setFormat(initialFormat);
+    }
+  }, [isOpen, initialFormat]);
+
+  // Generate screenshot preview with html2canvas whenever format, theme, or data changes
   useEffect(() => {
     if (!isOpen) return;
-    renderCanvas();
+
+    const timer = setTimeout(() => {
+      generateCaptureCanvas(false);
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, [isOpen, format, theme, profile, plan, customAchievement]);
 
-  const getThemeColors = (selectedTheme: CardTheme) => {
-    switch (selectedTheme) {
-      case 'gold':
-        return {
-          bgGradStart: '#0f0f12',
-          bgGradEnd: '#1a1608',
-          accent: '#eab308',
-          accentGrad: ['#fbbf24', '#d97706'],
-          textPrimary: '#ffffff',
-          textSecondary: '#a1a1aa',
-          badgeBg: 'rgba(234, 179, 8, 0.15)',
-          badgeBorder: 'rgba(234, 179, 8, 0.4)',
-          cardBg: 'rgba(255, 255, 255, 0.05)',
-          cardBorder: 'rgba(234, 179, 8, 0.25)',
-          glow: 'rgba(234, 179, 8, 0.25)'
-        };
-      case 'ocean':
-        return {
-          bgGradStart: '#08141f',
-          bgGradEnd: '#06283d',
-          accent: '#06b6d4',
-          accentGrad: ['#22d3ee', '#0891b2'],
-          textPrimary: '#ffffff',
-          textSecondary: '#94a3b8',
-          badgeBg: 'rgba(6, 182, 212, 0.15)',
-          badgeBorder: 'rgba(6, 182, 212, 0.4)',
-          cardBg: 'rgba(255, 255, 255, 0.05)',
-          cardBorder: 'rgba(6, 182, 212, 0.25)',
-          glow: 'rgba(6, 182, 212, 0.25)'
-        };
-      case 'stealth':
-        return {
-          bgGradStart: '#090a0f',
-          bgGradEnd: '#18181b',
-          accent: '#f43f5e',
-          accentGrad: ['#fb7185', '#e11d48'],
-          textPrimary: '#ffffff',
-          textSecondary: '#a1a1aa',
-          badgeBg: 'rgba(244, 63, 94, 0.15)',
-          badgeBorder: 'rgba(244, 63, 94, 0.4)',
-          cardBg: 'rgba(255, 255, 255, 0.04)',
-          cardBorder: 'rgba(244, 63, 94, 0.25)',
-          glow: 'rgba(244, 63, 94, 0.25)'
-        };
-      case 'cyber':
-      default:
-        return {
-          bgGradStart: '#0b0817',
-          bgGradEnd: '#180e29',
-          accent: '#a855f7',
-          accentGrad: ['#c084fc', '#9333ea'],
-          textPrimary: '#ffffff',
-          textSecondary: '#a8a29e',
-          badgeBg: 'rgba(168, 85, 247, 0.15)',
-          badgeBorder: 'rgba(168, 85, 247, 0.4)',
-          cardBg: 'rgba(255, 255, 255, 0.05)',
-          cardBorder: 'rgba(168, 85, 247, 0.25)',
-          glow: 'rgba(168, 85, 247, 0.3)'
-        };
-    }
-  };
-
-  const renderCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let width = 1080;
-    let height = 1920; // 9:16 Story
-    if (format === 'square') {
-      width = 1080;
-      height = 1080; // 1:1 Feed
-    } else if (format === 'card') {
-      width = 1200;
-      height = 675; // 16:9
-    }
-
-    canvas.width = width;
-    canvas.height = height;
-
-    const colors = getThemeColors(theme);
-
-    // Background Gradient
-    const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-    bgGrad.addColorStop(0, colors.bgGradStart);
-    bgGrad.addColorStop(1, colors.bgGradEnd);
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
-
-    // Subtle background mesh/glow circle
-    const glowGrad = ctx.createRadialGradient(width * 0.5, height * 0.35, 50, width * 0.5, height * 0.35, width * 0.6);
-    glowGrad.addColorStop(0, colors.glow);
-    glowGrad.addColorStop(1, 'transparent');
-    ctx.fillStyle = glowGrad;
-    ctx.fillRect(0, 0, width, height);
-
-    // Grid pattern / decorative accents
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-    ctx.lineWidth = 1;
-    for (let x = 40; x < width; x += 80) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-
-    // Outer framing border
-    ctx.strokeStyle = colors.badgeBorder;
-    ctx.lineWidth = 3;
-    roundRect(ctx, 30, 30, width - 60, height - 60, 36);
-    ctx.stroke();
-
-    // HEADER SECTION
-    // Brand pill
-    const brandText = "FITAI PRO • PROGRESSO";
-    ctx.font = "900 24px 'Inter', sans-serif";
-    ctx.fillStyle = colors.accent;
-    ctx.textAlign = "left";
-    ctx.fillText("⚡ " + brandText, 70, 95);
-
-    // Date
-    const todayFormatted = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-    ctx.font = "600 22px 'Inter', sans-serif";
-    ctx.fillStyle = colors.textSecondary;
-    ctx.textAlign = "right";
-    ctx.fillText(todayFormatted.toUpperCase(), width - 70, 95);
-
-    // USER INFO BANNER
-    const userDisplayName = profile?.displayName || profile?.email?.split('@')[0] || 'Atleta';
-    ctx.textAlign = "left";
-    ctx.fillStyle = colors.textPrimary;
-    ctx.font = format === 'card' ? "900 48px 'Inter', sans-serif" : "900 58px 'Inter', sans-serif";
-    ctx.fillText(userDisplayName, 70, format === 'card' ? 175 : 210);
-
-    ctx.fillStyle = colors.accent;
-    ctx.font = "800 24px 'Inter', sans-serif";
-    const levelLabel = `NÍVEL ${userLevel} • ${userPoints} XP CONQUISTADOS`;
-    ctx.fillText(levelLabel, 70, format === 'card' ? 215 : 260);
-
-    // BIG HERO STREAK / BADGE HIGHLIGHT
-    if (format === 'story') {
-      // Large Hero Badge in Center
-      const heroY = 330;
-      const heroHeight = 360;
-      ctx.fillStyle = colors.cardBg;
-      ctx.strokeStyle = colors.cardBorder;
-      ctx.lineWidth = 2;
-      roundRect(ctx, 70, heroY, width - 140, heroHeight, 32);
-      ctx.fill();
-      ctx.stroke();
-
-      // Flame icon & Streak number
-      ctx.textAlign = "center";
-      ctx.font = "900 110px 'Inter', sans-serif";
-      ctx.fillStyle = colors.accent;
-      ctx.fillText(`🔥 ${streakDays}`, width / 2, heroY + 160);
-
-      ctx.font = "900 32px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textPrimary;
-      ctx.fillText("DIAS DE OFENSIVA SEGUIDOS", width / 2, heroY + 230);
-
-      ctx.font = "500 22px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textSecondary;
-      ctx.fillText("Consistência inabalável rumo ao objetivo", width / 2, heroY + 280);
-
-      // 4 Metric Grid in Story Format
-      const gridY = 730;
-      const boxW = (width - 140 - 30) / 2;
-      const boxH = 220;
-
-      // Metric 1: Treinos Concluídos
-      drawMetricBox(ctx, 70, gridY, boxW, boxH, "🏋️ TREINOS", `${completedWorkoutsCount}/${totalDays}`, "Concluídos no ciclo", colors);
-      // Metric 2: Hidratação
-      drawMetricBox(ctx, 70 + boxW + 30, gridY, boxW, boxH, "💧 HIDRATAÇÃO", `${waterPercent}%`, `${todayWaterTotal}ml / ${waterGoal}ml`, colors);
-      // Metric 3: Peso Atual
-      drawMetricBox(ctx, 70, gridY + boxH + 25, boxW, boxH, "⚖️ PESO ATUAL", weightCurrent, targetWeight ? `Meta: ${targetWeight}` : "Em evolução", colors);
-      // Metric 4: Foco & Disciplina
-      drawMetricBox(ctx, 70 + boxW + 30, gridY + boxH + 25, boxW, boxH, "🎯 DISCIPLINA", "100%", "Foco mantido hoje", colors);
-
-      // MOTIVATIONAL QUOTE CARD
-      const quoteY = 1250;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-      roundRect(ctx, 70, quoteY, width - 140, 240, 28);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.textAlign = "center";
-      ctx.font = "italic 700 28px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textPrimary;
-      ctx.fillText('"A dor é temporária, o orgulho de nunca desistir', width / 2, quoteY + 90);
-      ctx.fillText('é para sempre."', width / 2, quoteY + 135);
-
-      ctx.font = "800 20px 'Inter', sans-serif";
-      ctx.fillStyle = colors.accent;
-      ctx.fillText("— #FitAITransformation", width / 2, quoteY + 190);
-
-      // FOOTER BRANDING
-      const footY = 1780;
-      ctx.textAlign = "center";
-      ctx.font = "900 26px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textPrimary;
-      ctx.fillText("⚡ FITAI • TREINO & NUTRIÇÃO INTELIGENTE", width / 2, footY);
-      ctx.font = "500 18px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textSecondary;
-      ctx.fillText("Treine com metodologia personalizada por IA", width / 2, footY + 40);
-
-    } else if (format === 'square') {
-      // 1:1 Square Feed Format
-      // Hero Streak Box
-      const heroY = 300;
-      const heroHeight = 240;
-      ctx.fillStyle = colors.cardBg;
-      ctx.strokeStyle = colors.cardBorder;
-      ctx.lineWidth = 2;
-      roundRect(ctx, 70, heroY, width - 140, heroHeight, 28);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.textAlign = "center";
-      ctx.font = "900 84px 'Inter', sans-serif";
-      ctx.fillStyle = colors.accent;
-      ctx.fillText(`🔥 ${streakDays} DIAS`, width / 2, heroY + 115);
-
-      ctx.font = "800 24px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textPrimary;
-      ctx.fillText("OFENSIVA DE TREINO & FOCO ATIVA", width / 2, heroY + 175);
-
-      // 3 Stat Columns
-      const statsY = 575;
-      const colW = (width - 140 - 40) / 3;
-      const colH = 240;
-
-      drawMetricBox(ctx, 70, statsY, colW, colH, "🏋️ TREINOS", `${completedWorkoutsCount}`, "Realizados", colors);
-      drawMetricBox(ctx, 70 + colW + 20, statsY, colW, colH, "💧 ÁGUA", `${waterPercent}%`, `${todayWaterTotal}ml`, colors);
-      drawMetricBox(ctx, 70 + (colW + 20) * 2, statsY, colW, colH, "⭐ XP TOTAL", `${userPoints}`, `Nível ${userLevel}`, colors);
-
-      // Footer
-      const footY = 960;
-      ctx.textAlign = "center";
-      ctx.font = "900 22px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textPrimary;
-      ctx.fillText("⚡ FITAI • MEU PROGRESSO DIÁRIO", width / 2, footY);
-      ctx.font = "500 16px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textSecondary;
-      ctx.fillText("#FitAI #NoExcuses #FitnessTransformation", width / 2, footY + 32);
-
-    } else {
-      // 16:9 Card Format
-      const leftW = 440;
-      const rightX = 540;
-      const rightW = width - 540 - 70;
-
-      // Left Box: Streak Hero
-      const heroY = 260;
-      const heroHeight = 310;
-      ctx.fillStyle = colors.cardBg;
-      ctx.strokeStyle = colors.cardBorder;
-      ctx.lineWidth = 2;
-      roundRect(ctx, 70, heroY, leftW, heroHeight, 28);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.textAlign = "center";
-      ctx.font = "900 80px 'Inter', sans-serif";
-      ctx.fillStyle = colors.accent;
-      ctx.fillText(`🔥 ${streakDays}`, 70 + leftW / 2, heroY + 120);
-
-      ctx.font = "800 24px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textPrimary;
-      ctx.fillText("DIAS DE OFENSIVA", 70 + leftW / 2, heroY + 180);
-
-      ctx.font = "500 18px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textSecondary;
-      ctx.fillText("Consistência Imparável", 70 + leftW / 2, heroY + 225);
-
-      // Right: 2x2 mini grid
-      const gridW = (rightW - 20) / 2;
-      const gridH = 145;
-      drawMetricBox(ctx, rightX, heroY, gridW, gridH, "🏋️ TREINOS", `${completedWorkoutsCount}/${totalDays}`, "Concluídos", colors);
-      drawMetricBox(ctx, rightX + gridW + 20, heroY, gridW, gridH, "💧 ÁGUA", `${waterPercent}%`, `${todayWaterTotal}ml meta`, colors);
-      drawMetricBox(ctx, rightX, heroY + gridH + 20, gridW, gridH, "⚖️ PESO", weightCurrent, "Registrado", colors);
-      drawMetricBox(ctx, rightX + gridW + 20, heroY + gridH + 20, gridW, gridH, "⭐ XP", `${userPoints}`, `Nível ${userLevel}`, colors);
-
-      // Footer
-      const footY = 610;
-      ctx.textAlign = "left";
-      ctx.font = "900 18px 'Inter', sans-serif";
-      ctx.fillStyle = colors.textPrimary;
-      ctx.fillText("⚡ FITAI • TREINO & NUTRIÇÃO PERSONALIZADOS", 70, footY);
-
-      ctx.textAlign = "right";
-      ctx.font = "700 16px 'Inter', sans-serif";
-      ctx.fillStyle = colors.accent;
-      ctx.fillText("#FitAIPro #Consistência", width - 70, footY);
-    }
-  };
-
-  const drawMetricBox = (
-    ctx: CanvasRenderingContext2D, 
-    x: number, 
-    y: number, 
-    w: number, 
-    h: number, 
-    tag: string, 
-    val: string, 
-    sub: string, 
-    colors: any
-  ) => {
-    ctx.fillStyle = colors.cardBg;
-    ctx.strokeStyle = colors.cardBorder;
-    ctx.lineWidth = 1.5;
-    roundRect(ctx, x, y, w, h, 20);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.textAlign = "center";
-    ctx.font = "800 18px 'Inter', sans-serif";
-    ctx.fillStyle = colors.accent;
-    ctx.fillText(tag, x + w / 2, y + 42);
-
-    ctx.font = "900 42px 'Inter', sans-serif";
-    ctx.fillStyle = colors.textPrimary;
-    ctx.fillText(val, x + w / 2, y + 105);
-
-    ctx.font = "500 17px 'Inter', sans-serif";
-    ctx.fillStyle = colors.textSecondary;
-    ctx.fillText(sub, x + w / 2, y + 145);
-  };
-
-  const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  };
-
-  // Download image as PNG
-  const handleDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    setIsGenerating(true);
-
-    setTimeout(() => {
-      const link = document.createElement('a');
-      link.download = `fitai-conquista-${new Date().toISOString().split('T')[0]}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      setIsGenerating(false);
-      setShareSuccess('Imagem baixada com sucesso!');
-      setTimeout(() => setShareSuccess(null), 3000);
-    }, 150);
-  };
-
-  // Native Web Share API
-  const handleWebShare = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Core capture function using html2canvas
+  const generateCaptureCanvas = async (notify = false): Promise<Blob | null> => {
+    if (!captureCardRef.current) return null;
+    setIsCapturing(true);
 
     try {
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `fitai-conquista.png`, { type: 'image/png' });
-        
-        const shareText = `🔥 Minha ofensiva no FitAI: ${streakDays} dias seguidos! Nível ${userLevel} com ${userPoints} XP conquistados. #FitAI #Treino`;
+      const element = captureCardRef.current;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2, // Retina HD
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        logging: false,
+        imageTimeout: 5000
+      });
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: 'Minha Conquista no FitAI',
-            text: shareText,
-            files: [file]
-          });
-          setShareSuccess('Compartilhado com sucesso!');
-        } else if (navigator.share) {
-          await navigator.share({
-            title: 'Minha Conquista no FitAI',
-            text: shareText,
-            url: window.location.origin
-          });
-          setShareSuccess('Link compartilhado!');
-        } else {
-          // Fallback to copy text
-          handleCopyText();
-        }
+      const dataUrl = canvas.toDataURL('image/png');
+      setPreviewDataUrl(dataUrl);
+
+      return new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((blob) => {
+          setIsCapturing(false);
+          if (notify && blob) {
+            setShareSuccess('Card gerado em alta resolução!');
+            setTimeout(() => setShareSuccess(null), 3000);
+          }
+          resolve(blob);
+        }, 'image/png', 0.95);
       });
     } catch (err) {
-      console.warn("Share cancelled or failed:", err);
+      console.error('Error in html2canvas capture:', err);
+      setIsCapturing(false);
+      return null;
     }
   };
 
-  // Copy text formatted for Social Media Caption
-  const handleCopyText = () => {
+  // Download image
+  const handleDownload = async () => {
+    setIsCapturing(true);
+    const blob = await generateCaptureCanvas(false);
+    if (!blob) {
+      setIsCapturing(false);
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fitai-stories-${streakDays}dias-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setIsCapturing(false);
+
+    setShareSuccess('Imagem salva com sucesso! Pronta para postar.');
+    setTimeout(() => setShareSuccess(null), 3500);
+  };
+
+  // Native navigator.share for Android / iOS
+  const handleNativeShare = async () => {
+    setIsCapturing(true);
+    const blob = await generateCaptureCanvas(false);
+    setIsCapturing(false);
+
+    if (!blob) return;
+
+    const file = new File([blob], `fitai-stories-${streakDays}dias.png`, { type: 'image/png' });
+    const shareText = `🔥 Minha evolução no FitAI: ${streakDays} dias de ofensiva com foco total! Nível ${userLevel} • ${userPoints} XP. #FitAI #InstagramStories #Fitness`;
+
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Meu Progresso no FitAI',
+          text: shareText,
+          files: [file]
+        });
+        setShareSuccess('Compartilhado com sucesso!');
+        setShowMobileShareDrawer(false);
+      } else if (navigator.share) {
+        await navigator.share({
+          title: 'Meu Progresso no FitAI',
+          text: shareText,
+          url: window.location.origin
+        });
+        setShareSuccess('Link compartilhado!');
+        setShowMobileShareDrawer(false);
+      } else {
+        // Fallback for desktop browsers without file share API
+        setShowMobileShareDrawer(true);
+      }
+    } catch (err) {
+      if ((err as Error)?.name !== 'AbortError') {
+        setShowMobileShareDrawer(true);
+      }
+    }
+  };
+
+  // Direct Instagram Stories flow
+  const handleInstagramStories = async () => {
+    handleCopyCaption();
+    handleDownload();
+
+    try {
+      const blob = await generateCaptureCanvas(false);
+      if (blob) {
+        const file = new File([blob], `fitai-stories-${streakDays}dias.png`, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'Compartilhar nos Stories',
+            text: `🔥 ${streakDays} dias de foco no @FitAI! #FitAI #Stories`,
+            files: [file]
+          });
+          return;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
+    setShareSuccess('Card salvo na galeria e legenda copiada! Abra os Stories do Instagram para postar.');
+    setTimeout(() => {
+      window.open('https://www.instagram.com', '_blank');
+    }, 1000);
+  };
+
+  // Copy caption
+  const handleCopyCaption = () => {
     const caption = `🔥 OFENSIVA FITAI: ${streakDays} DIAS SEGUIDOS!\n\n` +
       `🏋️ Treinos concluídos: ${completedWorkoutsCount}/${totalDays}\n` +
-      `💧 Meta de hidratação: ${waterPercent}%\n` +
-      `⭐ Nível: ${userLevel} (${userPoints} XP)\n` +
+      `💧 Hidratação diária: ${waterPercent}%\n` +
+      `⭐ Nível ${userLevel} • ${userPoints} XP\n` +
       `⚖️ Peso atual: ${weightCurrent}\n\n` +
-      `"A consistência vence o talento todo dia!"\n\n` +
-      `Treinando com @FitAIPro 💪⚡`;
+      `"A disciplina constrói resultados consistentes todos os dias!" ⚡\n\n` +
+      `Treinando com @FitAIPro #FitAI #InstagramStories #Foco #Treino`;
 
     navigator.clipboard.writeText(caption);
     setIsCopied(true);
-    setShareSuccess('Texto copiado para a área de transferência!');
+    setShareSuccess('Legenda copiada para a área de transferência!');
     setTimeout(() => {
       setIsCopied(false);
       setShareSuccess(null);
@@ -471,49 +236,109 @@ export function ShareProgressModal({
   // Direct WhatsApp Share
   const handleWhatsAppShare = () => {
     const text = encodeURIComponent(
-      `🔥 Minha evolução no FitAI:\n` +
-      `• Ofensiva: ${streakDays} dias seguidos\n` +
-      `• Treinos: ${completedWorkoutsCount}/${totalDays} no plano\n` +
-      `• Hidratação: ${waterPercent}% da meta batida\n` +
-      `• Nível: ${userLevel} (${userPoints} XP)\n\n` +
-      `Bora treinar junto! 💪`
+      `🔥 *Minha evolução no FitAI*:\n` +
+      `• *Ofensiva*: ${streakDays} dias seguidos\n` +
+      `• *Treinos*: ${completedWorkoutsCount}/${totalDays} no plano\n` +
+      `• *Hidratação*: ${waterPercent}% da meta batida\n` +
+      `• *Nível*: ${userLevel} (${userPoints} XP)\n\n` +
+      `Treinando com Inteligência Artificial no FitAI! 💪⚡`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+  };
+
+  // Direct Telegram Share
+  const handleTelegramShare = () => {
+    const text = encodeURIComponent(
+      `🔥 ${streakDays} dias de ofensiva no FitAI! Nível ${userLevel} (${userPoints} XP). Bora evoluir junto! 💪⚡`
+    );
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`, '_blank');
   };
 
   // Direct Twitter / X Share
   const handleTwitterShare = () => {
     const text = encodeURIComponent(
-      `🔥 ${streakDays} dias de ofensiva no @FitAI! Nível ${userLevel} com ${userPoints} XP. Rumo à melhor versão! 💪⚡ #FitAI #FitnessJourney`
+      `🔥 ${streakDays} dias de ofensiva no @FitAI! Nível ${userLevel} com ${userPoints} XP conquistados. Rumo à meta! 💪⚡ #FitAI #Fitness`
     );
     window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+  };
+
+  // Helper theme classes for capturing element
+  const getThemeWrapperClass = () => {
+    switch (theme) {
+      case 'sunset':
+        return 'bg-gradient-to-b from-[#1a0520] via-[#2d0b27] to-[#0d0211] text-white border-pink-500/30';
+      case 'cyber':
+        return 'bg-gradient-to-b from-[#090014] via-[#160228] to-[#040008] text-white border-purple-500/30';
+      case 'gold':
+        return 'bg-gradient-to-b from-[#141005] via-[#241c09] to-[#0a0802] text-white border-yellow-500/30';
+      case 'emerald':
+        return 'bg-gradient-to-b from-[#02150f] via-[#05281c] to-[#010c08] text-white border-emerald-500/30';
+      case 'stealth':
+        return 'bg-gradient-to-b from-[#090a0f] via-[#13151f] to-[#050608] text-white border-rose-500/30';
+      default:
+        return 'bg-gradient-to-b from-[#1a0520] via-[#2d0b27] to-[#0d0211] text-white border-pink-500/30';
+    }
+  };
+
+  const getThemeAccentGradient = () => {
+    switch (theme) {
+      case 'sunset':
+        return 'from-pink-500 via-rose-500 to-amber-500';
+      case 'cyber':
+        return 'from-purple-500 via-indigo-500 to-pink-500';
+      case 'gold':
+        return 'from-amber-400 via-yellow-500 to-orange-500';
+      case 'emerald':
+        return 'from-emerald-400 via-teal-500 to-cyan-500';
+      case 'stealth':
+        return 'from-rose-500 via-red-500 to-orange-500';
+      default:
+        return 'from-pink-500 via-rose-500 to-amber-500';
+    }
+  };
+
+  const getThemeAccentColor = () => {
+    switch (theme) {
+      case 'sunset':
+        return 'text-pink-400';
+      case 'cyber':
+        return 'text-purple-400';
+      case 'gold':
+        return 'text-yellow-400';
+      case 'emerald':
+        return 'text-emerald-400';
+      case 'stealth':
+        return 'text-rose-400';
+      default:
+        return 'text-pink-400';
+    }
   };
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[220] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-[220] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-4xl max-h-[92vh] overflow-hidden shadow-2xl flex flex-col my-auto"
+          className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-4xl max-h-[94vh] overflow-hidden shadow-2xl flex flex-col my-auto relative"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-600/30">
-                <Share2 className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/60">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-600 via-purple-600 to-amber-500 flex items-center justify-center shadow-lg shadow-pink-600/30">
+                <Camera className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
-                  Compartilhar Progresso & Conquistas
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-bold border border-purple-500/30">
-                    HD Card
+                  Compartilhar nos Stories
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500/20 to-purple-500/20 text-pink-400 font-black border border-pink-500/30">
+                    Instagram 9:16
                   </span>
                 </h3>
-                <p className="text-xs text-zinc-400">Gere um card estilizado para Stories, Feed ou WhatsApp</p>
+                <p className="text-xs text-zinc-400">Template otimizado para Stories com captura em alta resolução</p>
               </div>
             </div>
             <button
@@ -524,180 +349,399 @@ export function ShareProgressModal({
             </button>
           </div>
 
-          {/* Body with 2-column layout */}
+          {/* Main Grid */}
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 sm:p-6 overflow-y-auto">
-            {/* Left: Preview Canvas */}
-            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-zinc-900/40 rounded-2xl p-4 border border-zinc-800/80">
-              <div className="relative max-h-[460px] w-full flex items-center justify-center overflow-hidden rounded-xl">
-                <canvas
-                  ref={canvasRef}
-                  className="max-h-[440px] max-w-full object-contain rounded-xl shadow-2xl border border-white/10"
-                />
+            {/* Left: Interactive Preview */}
+            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-zinc-900/40 rounded-3xl p-4 border border-zinc-800/80 relative">
+              <div className="relative max-h-[460px] w-full flex items-center justify-center overflow-hidden rounded-2xl">
+                {previewDataUrl ? (
+                  <img
+                    src={previewDataUrl}
+                    alt="Card Preview"
+                    className="max-h-[440px] max-w-full object-contain rounded-2xl shadow-2xl border border-white/10"
+                  />
+                ) : (
+                  <div className="w-64 h-96 bg-zinc-900 animate-pulse rounded-2xl flex items-center justify-center text-xs text-zinc-500">
+                    Renderizando Card com html2canvas...
+                  </div>
+                )}
               </div>
 
               {shareSuccess && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-3 px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2"
+                  className="mt-3 px-4 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2 text-center"
                 >
-                  <Check className="w-4 h-4" />
-                  {shareSuccess}
+                  <Check className="w-4 h-4 flex-shrink-0" />
+                  <span>{shareSuccess}</span>
                 </motion.div>
               )}
             </div>
 
-            {/* Right: Controls & Options */}
-            <div className="lg:col-span-5 flex flex-col justify-between space-y-5">
+            {/* Right: Controls & Actions */}
+            <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
               <div className="space-y-4">
-                {/* Format selection */}
+                {/* 1. Format Selection */}
                 <div>
                   <label className="text-xs font-black uppercase tracking-wider text-zinc-400 mb-2 block">
-                    1. Formato do Card
+                    1. Formato de Exportação
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => setFormat('story')}
                       className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-bold transition-all ${
                         format === 'story'
-                          ? 'bg-purple-600/20 border-purple-500 text-white shadow-lg shadow-purple-600/20'
+                          ? 'bg-gradient-to-br from-pink-600/30 to-purple-600/30 border-pink-500 text-white shadow-lg shadow-pink-600/20'
                           : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      <Smartphone className="w-5 h-5 mb-1" />
-                      Story (9:16)
+                      <Smartphone className="w-5 h-5 mb-1 text-pink-400" />
+                      Stories (9:16)
                     </button>
                     <button
                       onClick={() => setFormat('square')}
                       className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-bold transition-all ${
                         format === 'square'
-                          ? 'bg-purple-600/20 border-purple-500 text-white shadow-lg shadow-purple-600/20'
+                          ? 'bg-gradient-to-br from-pink-600/30 to-purple-600/30 border-pink-500 text-white shadow-lg shadow-pink-600/20'
                           : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      <Square className="w-5 h-5 mb-1" />
+                      <Square className="w-5 h-5 mb-1 text-pink-400" />
                       Feed (1:1)
                     </button>
                     <button
                       onClick={() => setFormat('card')}
                       className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-bold transition-all ${
                         format === 'card'
-                          ? 'bg-purple-600/20 border-purple-500 text-white shadow-lg shadow-purple-600/20'
+                          ? 'bg-gradient-to-br from-pink-600/30 to-purple-600/30 border-pink-500 text-white shadow-lg shadow-pink-600/20'
                           : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      <Layout className="w-5 h-5 mb-1" />
-                      Banner (16:9)
+                      <Layout className="w-5 h-5 mb-1 text-pink-400" />
+                      Card (16:9)
                     </button>
                   </div>
                 </div>
 
-                {/* Theme selection */}
+                {/* 2. Theme Selection */}
                 <div>
                   <label className="text-xs font-black uppercase tracking-wider text-zinc-400 mb-2 block">
-                    2. Tema Visual
+                    2. Tema do Fundo
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
+                      onClick={() => setTheme('sunset')}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        theme === 'sunset'
+                          ? 'bg-pink-600/20 border-pink-500 text-pink-300'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-pink-500 to-amber-500 shadow-sm" />
+                      Sunset Stories
+                    </button>
+                    <button
                       onClick={() => setTheme('cyber')}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-bold transition-all ${
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-bold transition-all ${
                         theme === 'cyber'
                           ? 'bg-purple-600/20 border-purple-500 text-purple-300'
                           : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      <div className="w-3.5 h-3.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500/50" />
-                      Cyber Purple
+                      <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 shadow-sm" />
+                      Cyber Neon
                     </button>
                     <button
                       onClick={() => setTheme('gold')}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-bold transition-all ${
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-bold transition-all ${
                         theme === 'gold'
                           ? 'bg-yellow-500/20 border-yellow-500 text-yellow-300'
                           : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      <div className="w-3.5 h-3.5 rounded-full bg-yellow-500 shadow-sm shadow-yellow-500/50" />
+                      <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 shadow-sm" />
                       Gold Champion
                     </button>
                     <button
-                      onClick={() => setTheme('ocean')}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-bold transition-all ${
-                        theme === 'ocean'
-                          ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300'
+                      onClick={() => setTheme('emerald')}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        theme === 'emerald'
+                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
                           : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      <div className="w-3.5 h-3.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50" />
-                      Ocean Cyan
-                    </button>
-                    <button
-                      onClick={() => setTheme('stealth')}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-bold transition-all ${
-                        theme === 'stealth'
-                          ? 'bg-rose-500/20 border-rose-500 text-rose-300'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <div className="w-3.5 h-3.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50" />
-                      Stealth Crimson
+                      <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 shadow-sm" />
+                      Emerald Energy
                     </button>
                   </div>
                 </div>
 
-                {/* Quick Social Media Buttons */}
+                {/* 3. Quick Share Row */}
                 <div>
                   <label className="text-xs font-black uppercase tracking-wider text-zinc-400 mb-2 block">
-                    3. Compartilhamento Rápido
+                    3. Compartilhar Direto
                   </label>
                   <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleInstagramStories}
+                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-600 via-purple-600 to-amber-500 hover:opacity-90 text-white border border-pink-500/40 text-xs font-black transition-all active:scale-95 shadow-md shadow-pink-600/20"
+                    >
+                      <Camera className="w-4 h-4 text-white" />
+                      Instagram Stories
+                    </button>
+
                     <button
                       onClick={handleWhatsAppShare}
                       className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all active:scale-95"
                     >
-                      <span className="text-sm">💬</span> WhatsApp
+                      <MessageCircle className="w-4 h-4 text-emerald-400" />
+                      WhatsApp
                     </button>
+
+                    <button
+                      onClick={handleTelegramShare}
+                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 text-xs font-bold transition-all active:scale-95"
+                    >
+                      <Send className="w-4 h-4 text-blue-400" />
+                      Telegram
+                    </button>
+
                     <button
                       onClick={handleTwitterShare}
                       className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/30 text-xs font-bold transition-all active:scale-95"
                     >
-                      <span className="text-sm">🐦</span> Twitter / X
+                      <span className="text-sm font-black">𝕏</span>
+                      Twitter / X
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Main Actions: Web Share & Download */}
-              <div className="space-y-2 pt-2 border-t border-zinc-800">
+              {/* Main Actions: Mobile Native Share Sheet & Download */}
+              <div className="space-y-2 pt-3 border-t border-zinc-800">
+                {/* Mobile-Native Share Trigger Button */}
                 <button
-                  onClick={handleWebShare}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black text-xs uppercase tracking-widest py-3.5 px-4 rounded-xl transition-all shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 active:scale-95"
+                  onClick={handleNativeShare}
+                  disabled={isCapturing}
+                  className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 hover:from-purple-500 hover:via-pink-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-widest py-3.5 px-4 rounded-xl transition-all shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2.5 active:scale-95 disabled:opacity-50"
                 >
-                  <Share2 className="w-4 h-4" />
-                  Compartilhar Imagem / Stories
+                  <Smartphone className="w-4 h-4 text-yellow-300" />
+                  {isCapturing ? 'Gerando Imagem...' : 'Abrir Menu de Compartilhar (Celular)'}
                 </button>
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={handleDownload}
-                    disabled={isGenerating}
+                    disabled={isCapturing}
                     className="bg-zinc-800 hover:bg-zinc-700 text-white font-black text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all flex items-center justify-center gap-2 border border-zinc-700"
                   >
-                    <Download className="w-4 h-4 text-purple-400" />
-                    Baixar PNG
+                    <Download className="w-4 h-4 text-pink-400" />
+                    Baixar PNG HD
                   </button>
 
                   <button
-                    onClick={handleCopyText}
+                    onClick={handleCopyCaption}
                     className="bg-zinc-800 hover:bg-zinc-700 text-white font-black text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all flex items-center justify-center gap-2 border border-zinc-700"
                   >
-                    {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-purple-400" />}
+                    {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-pink-400" />}
                     {isCopied ? 'Copiado!' : 'Copiar Legenda'}
                   </button>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Hidden DOM element specifically rendered and formatted for html2canvas capture */}
+          <div className="fixed -left-[9999px] -top-[9999px] opacity-0 pointer-events-none" aria-hidden="true">
+            <div
+              ref={captureCardRef}
+              style={{
+                width: format === 'story' ? '540px' : format === 'square' ? '540px' : '640px',
+                height: format === 'story' ? '960px' : format === 'square' ? '540px' : '360px',
+              }}
+              className={`p-8 rounded-3xl border flex flex-col justify-between relative overflow-hidden font-sans ${getThemeWrapperClass()}`}
+            >
+              {/* Background Glows and Decorative Elements */}
+              <div className="absolute -top-24 -right-24 w-80 h-80 bg-pink-500/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
+
+              {/* Top Branding & User Info */}
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-amber-500 flex items-center justify-center shadow-lg shadow-pink-500/30">
+                    <Zap className="w-7 h-7 text-white fill-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-1.5">
+                      FITAI <span className={`text-xs px-2 py-0.5 rounded-full bg-white/10 font-bold ${getThemeAccentColor()}`}>PRO</span>
+                    </h2>
+                    <p className="text-xs text-white/60 font-semibold tracking-wider uppercase">Relatório de Evolução</p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-base font-black text-white">{userName}</p>
+                  <p className={`text-xs font-black uppercase tracking-widest ${getThemeAccentColor()}`}>
+                    Nível {userLevel} • {userPoints} XP
+                  </p>
+                </div>
+              </div>
+
+              {/* Middle Section: Hero Metric / Badge */}
+              <div className="relative z-10 my-auto py-4 text-center space-y-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md shadow-xl">
+                  <Flame className="w-5 h-5 text-amber-400 fill-amber-400 animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-widest text-amber-300">
+                    {customAchievement?.title ? customAchievement.title.toUpperCase() : 'OFENSIVA ATIVA'}
+                  </span>
+                </div>
+
+                <div>
+                  <h1 className="text-6xl font-black text-white tracking-tighter leading-none mb-2">
+                    {customAchievement?.metric || `${streakDays} DIAS`}
+                  </h1>
+                  <p className="text-sm font-semibold text-white/80 max-w-sm mx-auto">
+                    {customAchievement?.description || 'Foco absoluto e consistência nos treinos com a FitAI.'}
+                  </p>
+                </div>
+
+                {/* 4 Core Metric Grid */}
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-md">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Treinos da Semana</p>
+                    <p className="text-2xl font-black text-white">{completedWorkoutsCount}/{totalDays}</p>
+                    <p className="text-[10px] text-white/60 font-medium">Sessões Concluídas</p>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-md">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Meta de Água</p>
+                    <p className="text-2xl font-black text-white">{waterPercent}%</p>
+                    <p className="text-[10px] text-white/60 font-medium">{todayWaterTotal} ml ingeridos</p>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-md">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Peso Atual</p>
+                    <p className="text-2xl font-black text-white">{weightCurrent}</p>
+                    <p className="text-[10px] text-white/60 font-medium">{targetWeight ? `Meta: ${targetWeight}` : 'Em monitoramento'}</p>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-md">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Classificação</p>
+                    <p className="text-2xl font-black text-amber-300">LV {userLevel}</p>
+                    <p className="text-[10px] text-white/60 font-medium">{userPoints} XP Acumulados</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Footer Call to Action */}
+              <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-white/50">
+                <div className="flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span className="font-bold text-white/80">#FitAI #FocoTotal</span>
+                </div>
+                <span className="font-medium">app.fitai.com.br</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Native-Style Mobile Share Sheet Drawer Overlay */}
+          <AnimatePresence>
+            {showMobileShareDrawer && (
+              <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-sm flex flex-col justify-end p-3 sm:p-6 animate-fadeIn">
+                <motion.div
+                  initial={{ y: '100%' }}
+                  animate={{ y: 0 }}
+                  exit={{ y: '100%' }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                  className="bg-zinc-900 border border-zinc-700 rounded-3xl p-5 shadow-2xl max-w-lg mx-auto w-full space-y-4"
+                >
+                  <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-1" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                        Menu de Compartilhamento
+                      </h4>
+                      <p className="text-xs text-zinc-400">Envie seu card diretamente para seus apps favoritos</p>
+                    </div>
+                    <button
+                      onClick={() => setShowMobileShareDrawer(false)}
+                      className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* App Grid */}
+                  <div className="grid grid-cols-4 gap-3 py-2">
+                    <button
+                      onClick={handleInstagramStories}
+                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 text-center transition-all group"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-yellow-500 via-pink-600 to-purple-600 flex items-center justify-center shadow-lg shadow-pink-600/30 group-hover:scale-105 transition-transform">
+                        <Camera className="w-6 h-6 text-white" />
+                      </div>
+                      <span className="text-[11px] font-bold text-zinc-300">Stories</span>
+                    </button>
+
+                    <button
+                      onClick={handleWhatsAppShare}
+                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 text-center transition-all group"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
+                        <MessageCircle className="w-6 h-6 text-white" />
+                      </div>
+                      <span className="text-[11px] font-bold text-zinc-300">WhatsApp</span>
+                    </button>
+
+                    <button
+                      onClick={handleTelegramShare}
+                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 text-center transition-all group"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center shadow-lg shadow-sky-500/30 group-hover:scale-105 transition-transform">
+                        <Send className="w-6 h-6 text-white" />
+                      </div>
+                      <span className="text-[11px] font-bold text-zinc-300">Telegram</span>
+                    </button>
+
+                    <button
+                      onClick={handleTwitterShare}
+                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 text-center transition-all group"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-zinc-700 flex items-center justify-center shadow-lg shadow-zinc-700/30 group-hover:scale-105 transition-transform">
+                        <span className="text-lg font-black text-white">𝕏</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-zinc-300">Twitter</span>
+                    </button>
+                  </div>
+
+                  {/* Direct Actions */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800">
+                    <button
+                      onClick={() => {
+                        handleDownload();
+                        setShowMobileShareDrawer(false);
+                      }}
+                      className="flex items-center justify-center gap-2 py-3 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition-colors"
+                    >
+                      <Download className="w-4 h-4 text-pink-400" />
+                      Salvar na Galeria
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleCopyCaption();
+                        setShowMobileShareDrawer(false);
+                      }}
+                      className="flex items-center justify-center gap-2 py-3 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition-colors"
+                    >
+                      <Copy className="w-4 h-4 text-pink-400" />
+                      Copiar Legenda
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
     </AnimatePresence>
