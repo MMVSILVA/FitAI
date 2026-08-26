@@ -1076,7 +1076,10 @@ export default function Dashboard() {
   };
 
   const handleResetSimulation = async () => {
-    if (!isAdmin || !user) return;
+    if (!isAdmin || !user) {
+      setToast({ show: true, message: '⚠️ Apenas administradores podem resetar o plano/simulação.', type: 'error' });
+      return;
+    }
     setAdminActionLoading(true);
     try {
       const res = await resetSimulation();

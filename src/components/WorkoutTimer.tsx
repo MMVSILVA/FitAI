@@ -59,6 +59,17 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
   const stopwatchIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
+  // Keyboard shortcut: ESC to close timer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onClose) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Play audio tones using Web Audio API (cross-browser, zero external files)
   const playTone = useCallback((freq = 880, duration = 0.2, type: OscillatorType = 'sine', count = 1) => {
     if (!soundEnabled) return;
@@ -218,13 +229,15 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
       <motion.div 
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="fixed bottom-6 right-6 z-50 bg-zinc-900/95 backdrop-blur-xl border border-purple-500/40 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 cursor-pointer hover:border-purple-500"
-        onClick={() => setIsMinimized(false)}
+        className="fixed bottom-6 right-6 z-50 bg-zinc-900/95 backdrop-blur-xl border border-purple-500/40 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 hover:border-purple-500"
       >
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isCountdownRunning || isStopwatchRunning ? 'bg-purple-600 animate-pulse text-white' : 'bg-zinc-800 text-zinc-400'}`}>
+        <div 
+          className={`w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer ${isCountdownRunning || isStopwatchRunning ? 'bg-purple-600 animate-pulse text-white' : 'bg-zinc-800 text-zinc-400'}`}
+          onClick={() => setIsMinimized(false)}
+        >
           {mode === 'countdown' ? <Timer className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
         </div>
-        <div>
+        <div className="cursor-pointer" onClick={() => setIsMinimized(false)}>
           <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
             {mode === 'countdown' ? 'Descanso' : 'Cronômetro'}
           </p>
@@ -232,12 +245,24 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
             {mode === 'countdown' ? formatCountdown(countdownTime) : formatStopwatch(stopwatchMs)}
           </p>
         </div>
-        <button 
-          onClick={(e) => { e.stopPropagation(); setIsMinimized(false); }}
-          className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white ml-2"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1 ml-2">
+          <button 
+            onClick={() => setIsMinimized(false)}
+            className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+            title="Expandir"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+          {onClose && (
+            <button 
+              onClick={onClose}
+              className="p-1.5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 rounded-lg transition-colors"
+              title="Fechar Cronômetro"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </motion.div>
     );
   }
@@ -518,13 +543,25 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
         </div>
       )}
 
-      {/* Audio Status Footnote */}
-      <div className="mt-4 pt-3 border-t border-zinc-800 flex items-center justify-between text-[10px] text-zinc-500">
-        <span className="flex items-center gap-1.5">
-          <BellRing className="w-3 h-3 text-purple-400" />
-          {soundEnabled ? 'Avisos sonoros ativados (3s finais + fim)' : 'Silencioso'}
-        </span>
-        <span className="font-mono">FitAI Pro Timer</span>
+      {/* Audio Status Footnote & Close Button */}
+      <div className="mt-4 pt-3 border-t border-zinc-800 flex flex-col gap-2">
+        <div className="flex items-center justify-between text-[10px] text-zinc-500">
+          <span className="flex items-center gap-1.5">
+            <BellRing className="w-3 h-3 text-purple-400" />
+            {soundEnabled ? 'Avisos sonoros ativados (3s finais + fim)' : 'Silencioso'}
+          </span>
+          <span className="font-mono">FitAI Pro Timer</span>
+        </div>
+
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="w-full mt-1 py-2.5 px-3 rounded-xl bg-zinc-800/80 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-zinc-700/50 hover:border-red-500/30 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+            Fechar / Ocultar Cronômetro
+          </button>
+        )}
       </div>
     </div>
   );
