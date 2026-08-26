@@ -37,6 +37,7 @@ interface UserState {
   calculateIMC: () => { value: string; category: string } | null;
   resetAccount: () => Promise<void>;
   resetSimulation: () => Promise<{ success: boolean; message: string }>;
+  saveWorkoutSession: (session: { exerciseName?: string; durationSeconds: number; mode: 'countdown' | 'stopwatch'; laps?: number[]; isPartial?: boolean; notes?: string }) => Promise<{ success: boolean; message: string }>;
   addExerciseProgress: (exerciseName: string, weight: number, reps: number) => Promise<void>;
   getExerciseProgress: (exerciseName: string) => Promise<import('../types').ExerciseProgress[]>;
   toggleMealCheck: (mealIndex: number) => Promise<void>;
@@ -715,6 +716,30 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetSimulation = async () => {
     if (!user) return { success: false, message: 'Usuário não autenticado' };
+
+    // Strict role: admin verification in UserProvider & Firestore
+    let hasAdminRole = role === 'admin' || isAdmin;
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      if (userSnap.exists()) {
+        const d = userSnap.data();
+        if (d.role === 'admin' || d.isAdmin === true) {
+          hasAdminRole = true;
+        }
+      }
+    } catch (err) {
+      console.warn("Error verifying Firestore admin role for plan reset:", err);
+    }
+
+    const isMasterAdmin = user.email === 'vinidoctor@gmail.com';
+    if (!hasAdminRole && !isMasterAdmin) {
+      return { 
+        success: false, 
+        message: 'Acesso negado: Apenas administradores com a permissão (role: admin) no Firestore podem resetar planos.' 
+      };
+    }
+
     try {
       const { doc, updateDoc } = await import('firebase/firestore');
       const docRef = doc(db, 'users', user.uid);
@@ -736,6 +761,46 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSubscriptionEndsAt(null);
       setTrialEndsAt(null);
       return { success: true, message: 'Simulação resetada localmente para o plano FREE.' };
+    }
+  };
+
+  const saveWorkoutSession = async (session: { exerciseName?: string; durationSeconds: number; mode: 'countdown' | 'stopwatch'; laps?: number[]; isPartial?: boolean; notes?: string }) => {
+    if (!user) return { success: false, message: 'Usuário não autenticado' };
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      const sessionData: any = {
+        userId: user.uid,
+        exerciseName: session.exerciseName || 'Sessão de Treino',
+        durationSeconds: Math.max(1, Math.round(session.durationSeconds)),
+        mode: session.mode,
+        laps: session.laps || [],
+        isPartial: session.isPartial !== false,
+        completedAt: new Date().toISOString(),
+        notes: session.notes || ''
+      };
+
+      // 1. Record in workout_sessions Firestore collection
+      const sessionsRef = collection(db, 'workout_sessions');
+      await addDoc(sessionsRef, sessionData);
+
+      // 2. Append to profile workoutSessions state & persistence
+      const newSessionLog: import('../types').WorkoutSessionLog = {
+        id: Math.random().toString(36).substring(2, 9),
+        ...sessionData
+      };
+
+      const currentSessions = profile?.workoutSessions || [];
+      const updatedSessions = [newSessionLog, ...currentSessions];
+      setProfileState(prev => prev ? { ...prev, workoutSessions: updatedSessions } : prev);
+
+      saveToFirestore({
+        workoutSessions: updatedSessions
+      });
+
+      return { success: true, message: 'Sessão e dados parciais registrados com sucesso no seu histórico!' };
+    } catch (error) {
+      console.error("Error saving workout session:", error);
+      return { success: false, message: 'Erro ao registrar sessão de treino' };
     }
   };
 
@@ -1073,7 +1138,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       favorites, theme,
       setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, updatePlanForUser, 
       toggleFavorite, toggleTheme,
-      linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount, resetSimulation,
+      linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount, resetSimulation, saveWorkoutSession,
       addExerciseProgress, getExerciseProgress,
       toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
       addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn,

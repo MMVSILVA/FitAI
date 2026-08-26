@@ -56,6 +56,7 @@ export interface UserProfile {
   weightHistory?: WeightEntry[];
   hydration?: HydrationData;
   workoutReminder?: WorkoutReminderConfig;
+  workoutSessions?: WorkoutSessionLog[];
   // Professional fields
   bio?: string;
   specialty?: string;
@@ -209,4 +210,17 @@ export interface DailyCheckinEntry {
   notes?: string;
   createdAt: string;
 }
+
+export interface WorkoutSessionLog {
+  id: string;
+  userId?: string;
+  exerciseName?: string;
+  durationSeconds: number;
+  mode: 'countdown' | 'stopwatch';
+  laps?: number[];
+  isPartial?: boolean;
+  completedAt: string;
+  notes?: string;
+}
+
 

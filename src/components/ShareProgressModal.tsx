@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import html2canvas from 'html2canvas';
 import { 
   X, Share2, Download, Copy, Check, Sparkles, Flame, Trophy, 
   Droplets, Dumbbell, Award, ArrowUpRight, ShieldCheck, Heart,
@@ -59,12 +60,12 @@ export function ShareProgressModal({
   const customAchievement = achievementBadge || propCustomAchievement;
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cardContainerRef = useRef<HTMLDivElement | null>(null);
   const [format, setFormat] = useState<CardFormat>(initialFormat);
   const [theme, setTheme] = useState<CardTheme>('sunset');
   const [isCopied, setIsCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
-  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [showMobileShareDrawer, setShowMobileShareDrawer] = useState(false);
 
   // Derived metrics for summary card
@@ -82,8 +83,8 @@ export function ShareProgressModal({
 
   // Set format on open if specified
   useEffect(() => {
-    if (isOpen) {
-      if (initialFormat) setFormat(initialFormat);
+    if (isOpen && initialFormat) {
+      setFormat(initialFormat);
     }
   }, [isOpen, initialFormat]);
 
@@ -524,67 +525,82 @@ export function ShareProgressModal({
     ctx.fillStyle = colors.accentLight;
     ctx.font = "800 16px system-ui, -apple-system, sans-serif";
     ctx.fillText('#FitAI #InstagramStories #FocoTotal #TreinoDiario', width / 2, height - 60);
-
-    // Update preview DataURL
-    try {
-      const dataUrl = canvas.toDataURL('image/png', 0.95);
-      setPreviewDataUrl(dataUrl);
-    } catch (e) {
-      console.warn("Could not export preview dataUrl:", e);
-    }
   }, [format, theme, streakDays, completedWorkoutsCount, totalDays, waterPercent, todayWaterTotal, userLevel, userPoints, weightCurrent, targetWeight, userName, customAchievement]);
 
-  // Re-render canvas whenever dependencies change or modal opens
+  // Clean single effect triggered on modal state change or mode change (guaranteed no infinite loop)
   useEffect(() => {
     if (!isOpen) return;
-    // Call immediately and also via rAF to ensure canvas ref is attached
     renderCanvas();
     const frameId = requestAnimationFrame(() => {
       renderCanvas();
     });
-    const timerId = setTimeout(() => {
-      renderCanvas();
-    }, 50);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      clearTimeout(timerId);
-    };
+    return () => cancelAnimationFrame(frameId);
   }, [isOpen, renderCanvas]);
 
-  // Synchronously obtain File from Canvas for Web Share
-  const getCanvasFile = (): File | null => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    try {
-      const dataUrl = canvas.toDataURL('image/png', 0.95);
-      const blob = dataURItoBlob(dataUrl);
-      return new File([blob], `fitai-stories-${streakDays}dias.png`, { type: 'image/png' });
-    } catch (err) {
-      console.error("Error generating canvas file:", err);
-      return null;
+  // Generate Image Blob with html2canvas (or canvas fallback) ensuring promise completes before sharing
+  const generateImageBlob = async (): Promise<Blob | null> => {
+    // 1. Try html2canvas on the card container DOM if available
+    const targetElement = cardContainerRef.current;
+    if (targetElement) {
+      try {
+        const capturedCanvas = await html2canvas(targetElement, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+          logging: false
+        });
+        const blob = await new Promise<Blob | null>((resolve) => {
+          capturedCanvas.toBlob((b) => resolve(b), 'image/png', 0.95);
+        });
+        if (blob) return blob;
+      } catch (err) {
+        console.warn("html2canvas DOM capture warning, using canvas directly:", err);
+      }
     }
+
+    // 2. Direct high-DPI Canvas fallback
+    const canvas = canvasRef.current;
+    if (canvas) {
+      return new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => {
+          if (b) {
+            resolve(b);
+          } else {
+            // Fallback via dataURL
+            try {
+              const dataUrl = canvas.toDataURL('image/png', 0.95);
+              resolve(dataURItoBlob(dataUrl));
+            } catch {
+              resolve(null);
+            }
+          }
+        }, 'image/png', 0.95);
+      });
+    }
+
+    return null;
   };
 
   // Download image as PNG
-  const handleDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const handleDownload = async () => {
     setIsGenerating(true);
-
     try {
-      const dataUrl = canvas.toDataURL('image/png', 0.95);
+      const blob = await generateImageBlob();
+      if (!blob) throw new Error('Não foi possível gerar a imagem.');
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.download = `fitai-stories-${streakDays}dias-${new Date().toISOString().split('T')[0]}.png`;
-      link.href = dataUrl;
+      link.href = url;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setIsGenerating(false);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       setShareSuccess('Imagem salva na sua galeria/downloads com sucesso!');
       setTimeout(() => setShareSuccess(null), 4000);
     } catch (err) {
-      console.error("Error downloading canvas:", err);
+      console.error("Error downloading image:", err);
+    } finally {
       setIsGenerating(false);
     }
   };
@@ -621,15 +637,23 @@ export function ShareProgressModal({
     }
   };
 
-  // Native navigator.share for Android / iOS
+  // Native navigator.share for Android / iOS - Awaiting blob generation BEFORE calling native share API
   const handleNativeShare = async () => {
-    const shareText = `🔥 Minha evolução no FitAI: ${streakDays} dias de ofensiva com foco total! Nível ${userLevel} • ${userPoints} XP. #FitAI #InstagramStories #Fitness`;
+    if (isGenerating) return;
+    setIsGenerating(true);
 
     try {
-      const file = getCanvasFile();
+      // 1. Ensure html2canvas / canvas generates the blob completely BEFORE invoking navigator.share
+      const blob = await generateImageBlob();
+      if (!blob) {
+        throw new Error('Falha ao processar o blob da imagem');
+      }
 
-      // Check if browser supports sharing files
-      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      const file = new File([blob], `fitai-stories-${streakDays}dias.png`, { type: 'image/png' });
+      const shareText = `🔥 Minha evolução no FitAI: ${streakDays} dias de ofensiva com foco total! Nível ${userLevel} • ${userPoints} XP. #FitAI #InstagramStories #Fitness`;
+
+      // 2. Check if browser supports sharing files natively
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: 'Meu Progresso no FitAI',
           text: shareText,
@@ -640,7 +664,7 @@ export function ShareProgressModal({
         return;
       }
 
-      // If file sharing is not supported by device, try standard text/url share
+      // 3. Fallback to native text/url share if file sharing is not supported by device
       if (navigator.share) {
         await navigator.share({
           title: 'Meu Progresso no FitAI',
@@ -652,31 +676,36 @@ export function ShareProgressModal({
         return;
       }
 
-      // If Web Share is not available (or iframe restrictions), open our native drawer
+      // 4. Open fallback quick share drawer if Web Share API is not available
       setShowMobileShareDrawer(true);
-    } catch (err) {
-      // User cancelled share or browser restricted iframe sharing
-      if ((err as Error)?.name !== 'AbortError') {
+    } catch (err: any) {
+      // If user cancelled, don't show error; otherwise show drawer fallback
+      if (err?.name !== 'AbortError') {
         console.warn("navigator.share fallback:", err);
         setShowMobileShareDrawer(true);
       }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   // Direct Instagram Stories flow
   const handleInstagramStories = async () => {
     handleCopyCaption();
-    handleDownload();
+    await handleDownload();
 
     try {
-      const file = getCanvasFile();
-      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: 'Compartilhar nos Stories',
-          text: `🔥 ${streakDays} dias de foco no @FitAI! #FitAI #Stories`,
-          files: [file]
-        });
-        return;
+      const blob = await generateImageBlob();
+      if (blob) {
+        const file = new File([blob], `fitai-stories-${streakDays}dias.png`, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'Compartilhar nos Stories',
+            text: `🔥 ${streakDays} dias de foco no @FitAI! #FitAI #Stories`,
+            files: [file]
+          });
+          return;
+        }
       }
     } catch (e) {
       console.warn("Instagram Stories direct share fallback:", e);
@@ -756,9 +785,12 @@ export function ShareProgressModal({
 
           {/* Main Grid */}
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 p-4 sm:p-6 overflow-y-auto">
-            {/* Left: Live Canvas / Image Preview */}
+            {/* Left: Live Canvas / Image Preview with cardContainerRef for html2canvas */}
             <div className="lg:col-span-7 flex flex-col items-center justify-center bg-zinc-900/50 rounded-3xl p-3 sm:p-4 border border-zinc-800 relative min-h-[300px]">
-              <div className="relative max-h-[440px] w-full flex items-center justify-center overflow-hidden rounded-2xl">
+              <div 
+                ref={cardContainerRef}
+                className="relative max-h-[440px] w-full flex items-center justify-center overflow-hidden rounded-2xl"
+              >
                 {/* Real Canvas element */}
                 <canvas
                   ref={canvasRef}
@@ -951,103 +983,38 @@ export function ShareProgressModal({
             </div>
           </div>
 
-          {/* Native-Style Mobile Share Sheet Drawer Overlay */}
-          <AnimatePresence>
-            {showMobileShareDrawer && (
-              <div className="absolute inset-0 z-30 bg-black/85 backdrop-blur-md flex flex-col justify-end p-3 sm:p-6 animate-fadeIn">
-                <motion.div
-                  initial={{ y: '100%' }}
-                  animate={{ y: 0 }}
-                  exit={{ y: '100%' }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                  className="bg-zinc-900 border border-zinc-700 rounded-3xl p-5 shadow-2xl max-w-lg mx-auto w-full space-y-4"
-                >
-                  <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-1" />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-black text-white uppercase tracking-wider">
-                        Menu de Compartilhamento
-                      </h4>
-                      <p className="text-xs text-zinc-400">Escolha como deseja postar sua evolução</p>
-                    </div>
-                    <button
-                      onClick={() => setShowMobileShareDrawer(false)}
-                      className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* App Grid */}
-                  <div className="grid grid-cols-4 gap-3 py-2">
-                    <button
-                      onClick={handleInstagramStories}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 text-center transition-all group cursor-pointer"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-yellow-500 via-pink-600 to-purple-600 flex items-center justify-center shadow-lg shadow-pink-600/30 group-hover:scale-105 transition-transform">
-                        <Camera className="w-6 h-6 text-white" />
-                      </div>
-                      <span className="text-[11px] font-bold text-zinc-300">Stories</span>
-                    </button>
-
-                    <button
-                      onClick={handleWhatsAppShare}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 text-center transition-all group cursor-pointer"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-                        <MessageCircle className="w-6 h-6 text-white" />
-                      </div>
-                      <span className="text-[11px] font-bold text-zinc-300">WhatsApp</span>
-                    </button>
-
-                    <button
-                      onClick={handleTelegramShare}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 text-center transition-all group cursor-pointer"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center shadow-lg shadow-sky-500/30 group-hover:scale-105 transition-transform">
-                        <Send className="w-6 h-6 text-white" />
-                      </div>
-                      <span className="text-[11px] font-bold text-zinc-300">Telegram</span>
-                    </button>
-
-                    <button
-                      onClick={handleTwitterShare}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-zinc-800/80 hover:bg-zinc-800 text-center transition-all group cursor-pointer"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-zinc-700 flex items-center justify-center shadow-lg shadow-zinc-700/30 group-hover:scale-105 transition-transform">
-                        <span className="text-lg font-black text-white">𝕏</span>
-                      </div>
-                      <span className="text-[11px] font-bold text-zinc-300">Twitter</span>
-                    </button>
-                  </div>
-
-                  {/* Direct Actions */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800">
-                    <button
-                      onClick={() => {
-                        handleDownload();
-                        setShowMobileShareDrawer(false);
-                      }}
-                      className="flex items-center justify-center gap-2 py-3 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition-colors cursor-pointer"
-                    >
-                      <Download className="w-4 h-4 text-pink-400" />
-                      Salvar na Galeria
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleCopyCaption();
-                        setShowMobileShareDrawer(false);
-                      }}
-                      className="flex items-center justify-center gap-2 py-3 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition-colors cursor-pointer"
-                    >
-                      <Copy className="w-4 h-4 text-pink-400" />
-                      Copiar Legenda
-                    </button>
-                  </div>
-                </motion.div>
+          {/* Quick Fallback Drawer for direct social links if native share is blocked */}
+          {showMobileShareDrawer && (
+            <div className="px-5 py-4 bg-zinc-900 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center gap-2 text-xs text-zinc-300">
+                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span>Escolha o app para compartilhar agora:</span>
               </div>
-            )}
-          </AnimatePresence>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  onClick={handleWhatsAppShare}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  WhatsApp
+                </button>
+                <button
+                  onClick={handleTelegramShare}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-bold flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Telegram
+                </button>
+                <button
+                  onClick={handleDownload}
+                  className="px-3 py-1.5 rounded-lg bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Baixar Imagem
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
     </AnimatePresence>

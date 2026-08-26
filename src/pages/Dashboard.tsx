@@ -371,10 +371,16 @@ export default function Dashboard() {
   const plan = isViewingAs ? (viewedPlan || (viewedProfile as any)?.plan) : myPlan;
 
   const isFree = planType === 'FREE';
-  const isTrialExpired = isFree && trialEndsAt && new Date() >= new Date(trialEndsAt);
+  const effectiveTrialEnd = trialEndsAt 
+    ? new Date(trialEndsAt) 
+    : (profile?.createdAt ? new Date(new Date(profile.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+  const isTrialActive = isFree && new Date() < effectiveTrialEnd;
+  const isTrialExpired = isFree && new Date() >= effectiveTrialEnd;
   const isSubscriptionExpired = (planType === 'PRO' || planType === 'PREMIUM' || planType === 'PROFISSIONAL') && subscriptionEndsAt && new Date() >= new Date(subscriptionEndsAt);
   const isBlocked = isTrialExpired || isSubscriptionExpired;
-  const isPremiumUser = planType !== 'FREE';
+  const isPremiumUser = planType !== 'FREE' || isTrialActive;
+  const hasProfessionalAccess = isAdmin || role === 'trainer' || planType === 'PREMIUM' || planType === 'PROFISSIONAL' || !!linkedTrainerId;
+  const hasNutriAccess = isAdmin || role === 'nutritionist' || planType === 'PREMIUM' || planType === 'PROFISSIONAL' || !!linkedNutritionistId;
 
   const [activeTab, setActiveTab] = useState<'workout' | 'diet' | 'evolution' | 'routine' | 'calendar' | 'personal' | 'nutrition' | 'library' | 'chat' | 'admin' | 'ranking' | 'gyms' | 'professionals'>(initialTab);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -1734,7 +1740,7 @@ export default function Dashboard() {
         </div>
 
         {/* Trial Info Banner */}
-        {isFree && trialEndsAt && !isTrialExpired && (
+        {isFree && isTrialActive && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1747,18 +1753,16 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                    <div className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest leading-none">Free Trial</div>
-                   <p className="text-xs text-orange-600 dark:text-orange-400 font-black uppercase tracking-widest">Teste Gratuito Ativo</p>
+                   <p className="text-xs text-orange-600 dark:text-orange-400 font-black uppercase tracking-widest">Acesso de Teste Completo Liberado</p>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-black dark:text-white">Dê o próximo passo na sua evolução!</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-black dark:text-white">Aproveite todos os painéis e recursos liberados!</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xl font-medium">
-                  Seu acesso começou em <span className="font-bold text-black dark:text-white">
-                    {new Date(new Date(trialEndsAt).getTime() - (7 * 24 * 60 * 60 * 1000)).toLocaleDateString('pt-BR')}
-                  </span> e termina em <span className="font-bold text-black dark:text-white">
-                    {new Date(trialEndsAt).toLocaleDateString('pt-BR')}
-                  </span>.
+                  Seu período de teste está ativo até <span className="font-bold text-black dark:text-white">
+                    {effectiveTrialEnd.toLocaleDateString('pt-BR')}
+                  </span>. Rotina, Treinos, Dieta Completa, Calendário, Biblioteca, Desafios e Comunidade estão 100% disponíveis.
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-500 font-bold italic mt-2">
-                  * Garanta sua evolução contínua e não perca o acesso aos seus planos exclusivos.
+                  * Apenas a consultoria 1:1 com Personal e Nutricionista requer plano Premium ou Profissional.
                 </p>
               </div>
 
@@ -1766,7 +1770,7 @@ export default function Dashboard() {
                 <div className="text-center bg-white dark:bg-black/40 border border-orange-500/20 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl shadow-xl min-w-[100px] sm:min-w-[120px]">
                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Faltam apenas</p>
                    <p className="text-4xl font-black text-black dark:text-white leading-none">
-                     {Math.ceil((new Date(trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} 
+                     {Math.max(1, Math.ceil((effectiveTrialEnd.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))} 
                      <span className="text-sm ml-1">dias</span>
                    </p>
                 </div>
@@ -1854,36 +1858,32 @@ export default function Dashboard() {
           </button>
           
           {/* Personal Tab */}
-          {(isAdmin || role === 'trainer' || linkedTrainerId) && (
-            <button 
-              onClick={() => handleTabChange('personal')}
-              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-                activeTab === 'personal' 
-                  ? (isPremiumUser ? 'bg-purple-900 border border-purple-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
-                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
-              }`}
-            >
-              <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
-              {isAdmin || role === 'trainer' ? 'Gestão Trainer' : 'Personal'}
-              {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
-            </button>
-          )}
+          <button 
+            onClick={() => handleTabChange('personal')}
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+              activeTab === 'personal' 
+                ? (hasProfessionalAccess ? 'bg-purple-900 border border-purple-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
+                : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${hasProfessionalAccess ? '' : 'text-gray-600'}`} />
+            {isAdmin || role === 'trainer' ? 'Gestão Trainer' : 'Personal'}
+            {!hasProfessionalAccess && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
+          </button>
 
           {/* Nutritionist Tab */}
-          {(isAdmin || role === 'nutritionist' || linkedNutritionistId) && (
-            <button 
-              onClick={() => handleTabChange('nutrition')}
-              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-                activeTab === 'nutrition' 
-                ? (isPremiumUser ? 'bg-green-900 border border-green-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
-                : 'bg-white/5 text-gray-400 hover:bg-white/10'
-              }`}
-            >
-              <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${isPremiumUser ? '' : 'text-gray-600'}`} />
-              {isAdmin || role === 'nutritionist' ? 'Gestão Nutri' : 'Nutri'}
-              {!isPremiumUser && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
-            </button>
-          )}
+          <button 
+            onClick={() => handleTabChange('nutrition')}
+            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
+              activeTab === 'nutrition' 
+              ? (hasNutriAccess ? 'bg-green-900 border border-green-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
+              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${hasNutriAccess ? '' : 'text-gray-600'}`} />
+            {isAdmin || role === 'nutritionist' ? 'Gestão Nutri' : 'Nutri'}
+            {!hasNutriAccess && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
+          </button>
           <button 
             onClick={() => handleTabChange('chat')}
             className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
@@ -1946,7 +1946,7 @@ export default function Dashboard() {
             <div className="space-y-8 relative">
               {isBlocked ? (
                 <Paywall feature="Rotina Diária" type="expired" />
-              ) : isFree ? (
+              ) : (isFree && !isTrialActive) ? (
                 <Paywall feature="Rotina Diária" type="pro" />
               ) : null}
 
@@ -2432,7 +2432,7 @@ export default function Dashboard() {
             <div className="space-y-8 relative">
               {isBlocked ? (
                 <Paywall feature="Calendário de Treinos" type="expired" />
-              ) : isFree ? (
+              ) : (isFree && !isTrialActive) ? (
                 <Paywall feature="Calendário de Treinos" type="pro" />
               ) : null}
 
@@ -2466,63 +2466,75 @@ export default function Dashboard() {
 
           {activeTab === 'chat' && (
             <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden flex flex-col md:flex-row h-[80vh]">
-              {/* Professionals List */}
+              {/* Professionals & Community List */}
               <div className="w-full md:w-80 bg-white dark:bg-black/20 border-r border-gray-200 dark:border-white/10 flex flex-col">
                 <div className="p-6 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
                   <h3 className="font-black text-xl flex items-center gap-2 italic tracking-tighter">
                     <MessageSquare className="w-6 h-6 text-emerald-500" /> CONVERSAS
                   </h3>
                 </div>
-                <div className="space-y-1 p-2 flex-1 overflow-y-auto">
-                  {professionals.map(pro => (
-                    <button 
-                      key={pro.id}
-                      onClick={() => setSelectedProfessional(pro)}
-                      className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${
-                        selectedProfessional?.id === pro.id ? 'bg-emerald-500/10 border border-emerald-500/20' : 'hover:bg-gray-100 dark:hover:bg-white/5 border border-transparent'
-                      }`}
-                    >
-                      <div className="relative">
-                        <div className="w-14 h-14 bg-gray-200 dark:bg-zinc-800 rounded-full overflow-hidden shrink-0 border-2 border-white dark:border-zinc-700 shadow-sm">
-                          <img src={pro.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${pro.name}`} alt="avatar" className="w-full h-full object-cover" />
-                        </div>
-                        <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-white dark:border-zinc-900 rounded-full ${isOnline(pro.lastSeen) ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <div className="space-y-2 p-3 flex-1 overflow-y-auto">
+                  {/* Community Chat item - available for everyone */}
+                  <button 
+                    onClick={() => setSelectedProfessional(null)}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left ${
+                      !selectedProfessional 
+                        ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-950 dark:text-emerald-300 shadow-sm' 
+                        : 'hover:bg-gray-100 dark:hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <div className="relative shrink-0">
+                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-700 shadow-md text-white">
+                        <Users className="w-7 h-7" />
                       </div>
-                      <div className="text-left flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-bold text-sm truncate">{pro.name}</p>
-                          <span className="text-[9px] text-gray-400 font-bold">12:30</span>
-                        </div>
-                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black opacity-60">
-                          {pro.role === 'trainer' ? 'Personal Coach' : 'Nutricionista'}
-                        </p>
+                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-white dark:border-zinc-900 rounded-full bg-green-500 ring-2 ring-emerald-500/20" />
+                    </div>
+                    <div className="text-left flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <p className="font-black text-sm truncate text-black dark:text-white">Comunidade FitAI</p>
+                        <span className="text-[9px] bg-emerald-500 text-white font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Geral</span>
                       </div>
-                    </button>
-                  ))}
-                  {professionals.length === 0 && (
-                    <div className="py-12 px-6 text-center">
-                      <Ghost className="w-12 h-12 text-gray-200 dark:text-zinc-800 mx-auto mb-4" />
-                      <p className="text-gray-500 italic text-sm font-medium">Nenhum profissional vinculado para conversar.</p>
+                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+                        Chat Aberto • Todos os Usuários
+                      </p>
+                    </div>
+                  </button>
+
+                  {professionals.length > 0 && (
+                    <div className="pt-3 border-t border-gray-100 dark:border-white/5">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 mb-2">Profissionais Vinculados</p>
+                      {professionals.map(pro => (
+                        <button 
+                          key={pro.id}
+                          onClick={() => setSelectedProfessional(pro)}
+                          className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${
+                            selectedProfessional?.id === pro.id ? 'bg-emerald-500/10 border border-emerald-500/20' : 'hover:bg-gray-100 dark:hover:bg-white/5 border border-transparent'
+                          }`}
+                        >
+                          <div className="relative shrink-0">
+                            <div className="w-14 h-14 bg-gray-200 dark:bg-zinc-800 rounded-full overflow-hidden shrink-0 border-2 border-white dark:border-zinc-700 shadow-sm">
+                              <img src={pro.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${pro.name}`} alt="avatar" className="w-full h-full object-cover" />
+                            </div>
+                            <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-white dark:border-zinc-900 rounded-full ${isOnline(pro.lastSeen) ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          </div>
+                          <div className="text-left flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-bold text-sm truncate">{pro.name}</p>
+                            </div>
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black opacity-60">
+                              {pro.role === 'trainer' ? 'Personal Coach' : 'Nutricionista'}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Chat Window */}
+              {/* Chat Window: Renders Community Chat when selectedProfessional is null, or direct chat */}
               <div className="flex-1 flex flex-col bg-white dark:bg-transparent">
-                {selectedProfessional ? (
-                  <ChatView selectedProfessional={selectedProfessional} />
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-[#f0f2f5] dark:bg-black/20">
-                    <div className="w-24 h-24 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center mb-8 shadow-xl">
-                       <MessageCircle className="w-12 h-12 text-gray-300 dark:text-gray-600" />
-                    </div>
-                    <h3 className="text-3xl font-black mb-4 tracking-tighter italic">FitAI Messenger</h3>
-                    <p className="text-gray-500 max-w-md font-medium leading-relaxed">
-                      Selecione um profissional para iniciar seu acompanhamento em tempo real, enviar fotos de pratos ou dúvidas sobre execução.
-                    </p>
-                  </div>
-                )}
+                <ChatView selectedProfessional={selectedProfessional} />
               </div>
             </div>
           )}
@@ -2900,7 +2912,7 @@ export default function Dashboard() {
                     Progressão de Carga
                   </h3>
                   
-                  {isFree ? (
+                  {(isFree && !isTrialActive) ? (
                     <Paywall feature="Progressão de Carga Automática" />
                   ) : (
                     <div className="space-y-4">
@@ -2992,7 +3004,7 @@ export default function Dashboard() {
               <div id="diet-meals" className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8 min-h-[500px] scroll-mt-24">
                 <h3 className="text-xl font-bold mb-6">Plano Alimentar Completo</h3>
                 
-                {isFree ? (
+                {(isFree && !isTrialActive) ? (
                   <Paywall feature="Refeições Detalhadas" />
                 ) : (
                   <div className="grid gap-4">
@@ -3088,7 +3100,7 @@ export default function Dashboard() {
             <div className="space-y-8 pb-32 relative">
               {isBlocked ? (
                 <Paywall feature="Personal Trainer" type="expired" />
-              ) : planType === 'PRO' || isFree ? (
+              ) : (planType === 'FREE' || planType === 'PRO') && !isAdmin && role !== 'trainer' ? (
                 <Paywall feature="Personal Trainer" type="premium" />
               ) : null}
 
@@ -3457,7 +3469,7 @@ export default function Dashboard() {
             <div className="space-y-8 pb-32 relative">
               {isBlocked ? (
                 <Paywall feature="Nutricionista" type="expired" />
-              ) : planType === 'PRO' || isFree ? (
+              ) : (planType === 'FREE' || planType === 'PRO') && !isAdmin && role !== 'nutritionist' ? (
                 <Paywall feature="Nutricionista" type="premium" />
               ) : null}
               

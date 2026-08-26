@@ -16,8 +16,12 @@ import {
   Minimize2, 
   Sparkles,
   Zap,
-  BellRing
+  BellRing,
+  LogOut,
+  CheckCircle2,
+  Save
 } from 'lucide-react';
+import { useUser } from '../store/userStore';
 
 interface WorkoutTimerProps {
   initialSeconds?: number;
@@ -38,6 +42,7 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
   isFloating = false,
   className = ''
 }) => {
+  const { saveWorkoutSession } = useUser();
   const [mode, setMode] = useState<'countdown' | 'stopwatch'>(initialMode);
   
   // Countdown State
@@ -52,8 +57,10 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
   const [laps, setLaps] = useState<number[]>([]);
   
-  // UI State
+  // UI & Feedback State
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [exitFeedback, setExitFeedback] = useState<string | null>(null);
 
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const stopwatchIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -214,6 +221,7 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
   };
 
   const progressRatio = targetSeconds > 0 ? (targetSeconds - countdownTime) / targetSeconds : 0;
+  // Preset times
   const presets = [
     { label: '30s', value: 30, desc: 'Isometria' },
     { label: '45s', value: 45, desc: 'Padrão' },
@@ -222,6 +230,46 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
     { label: '120s', value: 120, desc: 'Força' },
     { label: '180s', value: 180, desc: 'Potência' },
   ];
+
+  // Gracefully close session and save partial workout data to history
+  const handleExitAndSaveSession = async () => {
+    setIsSaving(true);
+    let elapsedSeconds = 0;
+
+    if (mode === 'stopwatch') {
+      elapsedSeconds = Math.round(stopwatchMs / 1000);
+    } else {
+      elapsedSeconds = Math.max(1, targetSeconds - countdownTime);
+    }
+
+    // If there is elapsed progress or laps, persist to user's workoutSessions
+    if (elapsedSeconds > 0 || laps.length > 0) {
+      try {
+        await saveWorkoutSession({
+          exerciseName: exerciseName || 'Sessão com Cronômetro',
+          durationSeconds: Math.max(1, elapsedSeconds),
+          mode: mode,
+          laps: laps.length > 0 ? laps : undefined,
+          isPartial: true,
+          notes: mode === 'stopwatch' 
+            ? `Sessão encerrada com ${formatStopwatch(stopwatchMs)} e ${laps.length} séries marcadas`
+            : `Descanso/intervalo de ${elapsedSeconds}s executado`
+        });
+        setExitFeedback('Dados parciais salvos com sucesso!');
+      } catch (err) {
+        console.warn("Could not save partial workout session:", err);
+      }
+    }
+
+    // Stop all running intervals
+    setIsCountdownRunning(false);
+    setIsStopwatchRunning(false);
+
+    setTimeout(() => {
+      setIsSaving(false);
+      if (onClose) onClose();
+    }, 450);
+  };
 
   // Minimized view
   if (isMinimized && isFloating) {
@@ -255,11 +303,12 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
           </button>
           {onClose && (
             <button 
-              onClick={onClose}
-              className="p-1.5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 rounded-lg transition-colors"
-              title="Fechar Cronômetro"
+              onClick={handleExitAndSaveSession}
+              disabled={isSaving}
+              className="p-1.5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 rounded-lg transition-colors cursor-pointer"
+              title="Fechar e Salvar Sessão"
             >
-              <X className="w-4 h-4" />
+              <LogOut className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -302,7 +351,7 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`p-2 rounded-xl transition-all ${
+            className={`p-2 rounded-xl transition-all cursor-pointer ${
               soundEnabled ? 'text-purple-400 bg-purple-500/10 hover:bg-purple-500/20' : 'text-zinc-500 bg-zinc-800 hover:text-zinc-300'
             }`}
             title={soundEnabled ? 'Alerta Sonoro Ativado (Bip nos 3s finais)' : 'Alerta Sonoro Silenciado'}
@@ -313,7 +362,7 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
           {isFloating && (
             <button
               onClick={() => setIsMinimized(true)}
-              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all"
+              className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all cursor-pointer"
               title="Minimizar"
             >
               <Minimize2 className="w-4 h-4" />
@@ -322,9 +371,10 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
 
           {onClose && (
             <button
-              onClick={onClose}
-              className="p-2 rounded-xl bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 text-zinc-400 transition-all"
-              title="Fechar"
+              onClick={handleExitAndSaveSession}
+              disabled={isSaving}
+              className="p-2 rounded-xl bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 text-zinc-400 transition-all cursor-pointer"
+              title="Fechar e Salvar Dados"
             >
               <X className="w-4 h-4" />
             </button>
@@ -543,8 +593,15 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
         </div>
       )}
 
-      {/* Audio Status Footnote & Close Button */}
+      {/* Audio Status Footnote & Action Buttons */}
       <div className="mt-4 pt-3 border-t border-zinc-800 flex flex-col gap-2">
+        {exitFeedback && (
+          <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 animate-fadeIn">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>{exitFeedback}</span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-[10px] text-zinc-500">
           <span className="flex items-center gap-1.5">
             <BellRing className="w-3 h-3 text-purple-400" />
@@ -554,13 +611,30 @@ export const WorkoutTimer: React.FC<WorkoutTimerProps> = ({
         </div>
 
         {onClose && (
-          <button
-            onClick={onClose}
-            className="w-full mt-1 py-2.5 px-3 rounded-xl bg-zinc-800/80 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-zinc-700/50 hover:border-red-500/30 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-            Fechar / Ocultar Cronômetro
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+            <button
+              onClick={handleExitAndSaveSession}
+              disabled={isSaving}
+              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-600/80 to-rose-600/80 hover:from-red-600 hover:to-rose-600 text-white border border-red-500/40 text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-md shadow-red-600/20 disabled:opacity-50"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              {isSaving ? 'Salvando...' : 'Fechar / Sair'}
+            </button>
+
+            <button
+              onClick={() => {
+                if (isFloating) {
+                  setIsMinimized(true);
+                } else if (onClose) {
+                  onClose();
+                }
+              }}
+              className="py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700/60 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              {isFloating ? 'Minimizar' : 'Ocultar'}
+            </button>
+          </div>
         )}
       </div>
     </div>
