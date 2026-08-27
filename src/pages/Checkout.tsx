@@ -29,16 +29,17 @@ export default function Checkout() {
   };
   const price = priceMap[plan] || priceMap['PRO'];
 
-  // Link direto de pagamento configurado
+  // Link direto de pagamento configurado (VITE_STRIPE_LINK_PRO)
+  const defaultProLink = 'https://buy.stripe.com/aFa9AS11ufU5fFL5R94wM03';
   const rawStripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO || '';
-  const stripeLinkPro = (rawStripeLinkPro && !rawStripeLinkPro.includes('your_pro_link'))
-    ? rawStripeLinkPro
-    : 'https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02';
+  const stripeLinkPro = (rawStripeLinkPro && !rawStripeLinkPro.includes('your_pro_link') && !rawStripeLinkPro.includes('3cIbJ0aC423f65b6Vd4wM02'))
+    ? rawStripeLinkPro.trim()
+    : defaultProLink;
 
   const isValidUrl = (url: string) => {
     if (!url || typeof url !== 'string') return false;
     const trimmed = url.trim();
-    return trimmed.startsWith('https://') || trimmed.startsWith('http://');
+    return (trimmed.startsWith('https://') || trimmed.startsWith('http://')) && !trimmed.includes('3cIbJ0aC423f65b6Vd4wM02');
   };
 
   const getManualLink = () => {
@@ -47,12 +48,11 @@ export default function Checkout() {
     if (!isValidUrl(base)) return null;
     
     const separator = base.includes('?') ? '&' : '?';
-    // Adiciona o UID do usuário e email para vincular o pagamento à conta
     return `${base}${user?.uid ? separator + 'client_reference_id=' + encodeURIComponent(user.uid) : ''}${user?.email ? (user?.uid ? '&' : '?') + 'prefilled_email=' + encodeURIComponent(user.email) : ''}`;
   };
 
   const hasValidDirectLink = isValidUrl(stripeLinkPro);
-  const finalPaymentUrl = getManualLink() || 'https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02';
+  const finalPaymentUrl = getManualLink();
 
   const handleProceedToPayment = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -61,8 +61,25 @@ export default function Checkout() {
     setLoading(true);
     setErrorMessage(null);
 
+    // Se o link direto estiver configurado, redireciona diretamente e de forma instantânea
+    const targetUrl = finalPaymentUrl;
+    if (targetUrl && isValidUrl(targetUrl)) {
+      if (window.self !== window.top) {
+        try {
+          window.top!.location.href = targetUrl;
+          return;
+        } catch {
+          window.location.href = targetUrl;
+          return;
+        }
+      } else {
+        window.location.href = targetUrl;
+        return;
+      }
+    }
+
     try {
-      // Attempt to create a direct checkout session via API
+      // Cria a sessão dinâmica do Stripe Checkout com o Price ID configurado
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -75,38 +92,34 @@ export default function Checkout() {
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data?.url) {
-          if (window.self !== window.top) {
-            try {
-              window.top!.location.href = data.url;
-              return;
-            } catch {
-              window.location.href = data.url;
-              return;
-            }
-          } else {
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.url && isValidUrl(data.url)) {
+        if (window.self !== window.top) {
+          try {
+            window.top!.location.href = data.url;
+            return;
+          } catch {
             window.location.href = data.url;
             return;
           }
+        } else {
+          window.location.href = data.url;
+          return;
         }
       }
-    } catch (err: any) {
-      console.warn("API checkout session redirect fallback:", err);
-    }
 
-    // Fallback to direct payment link
-    if (window.self !== window.top) {
-      try {
-        window.top!.location.href = finalPaymentUrl;
-        return;
-      } catch {
-        window.location.href = finalPaymentUrl;
-        return;
+      // Se a API retornou erro específico
+      if (data?.error) {
+        setErrorMessage(data.error);
+      } else {
+        setErrorMessage("Erro ao iniciar sessão de pagamento. Tente novamente.");
       }
-    } else {
-      window.location.href = finalPaymentUrl;
+    } catch (err: any) {
+      console.warn("API checkout session redirect error:", err);
+      setErrorMessage("Não foi possível conectar ao servidor de pagamento.");
+    } finally {
+      setLoading(false);
     }
   };
 
