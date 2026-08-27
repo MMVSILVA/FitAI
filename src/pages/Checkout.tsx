@@ -30,16 +30,16 @@ export default function Checkout() {
   const price = priceMap[plan] || priceMap['PRO'];
 
   // Link direto de pagamento configurado (VITE_STRIPE_LINK_PRO)
-  const defaultProLink = 'https://buy.stripe.com/aFa9AS11ufU5fFL5R94wM03';
+  const defaultProLink = 'https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02';
   const rawStripeLinkPro = import.meta.env.VITE_STRIPE_LINK_PRO || '';
-  const stripeLinkPro = (rawStripeLinkPro && !rawStripeLinkPro.includes('your_pro_link') && !rawStripeLinkPro.includes('3cIbJ0aC423f65b6Vd4wM02'))
+  const stripeLinkPro = (rawStripeLinkPro && !rawStripeLinkPro.includes('your_pro_link'))
     ? rawStripeLinkPro.trim()
     : defaultProLink;
 
   const isValidUrl = (url: string) => {
     if (!url || typeof url !== 'string') return false;
     const trimmed = url.trim();
-    return (trimmed.startsWith('https://') || trimmed.startsWith('http://')) && !trimmed.includes('3cIbJ0aC423f65b6Vd4wM02');
+    return (trimmed.startsWith('https://') || trimmed.startsWith('http://')) && !trimmed.includes('your_pro_link');
   };
 
   const getManualLink = () => {
@@ -148,14 +148,14 @@ export default function Checkout() {
                 </span>
               ) : (
                 <span className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 text-[10px] font-black uppercase tracking-widest py-1 px-3 rounded-full flex items-center gap-1.5">
-                  <Tag className="w-3 h-3" /> Desconto Especial
+                  <Sparkles className="w-3 h-3" /> Mais Popular
                 </span>
               )}
             </div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
               {isComingSoon 
                 ? "Este plano está sendo preparado para o próximo lançamento." 
-                : "Desbloqueie todo o potencial da IA com treinos e dietas ilimitados com condição promocional exclusiva."}
+                : "Desbloqueie todo o potencial da IA com treinos e dietas personalizados e ilimitados."}
             </p>
           </div>
 
@@ -187,7 +187,7 @@ export default function Checkout() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold text-gray-800 dark:text-gray-200">Mensalidade</span>
-                  <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">Promoção</span>
+                  <span className="bg-purple-500/20 text-purple-600 dark:text-purple-400 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">Recorrente</span>
                 </div>
                 <p className="text-xs text-gray-500">Renovação a cada 30 dias • Cancele quando quiser</p>
               </div>

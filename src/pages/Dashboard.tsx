@@ -10,7 +10,7 @@ import {
   Play, Pause, X, TrendingUp, CheckCircle2, Calendar, Users, MessageCircle,
   Download, Loader2, Heart, Sparkles, Moon, Sun, Plus, Camera, Upload, Send, UserPlus, ArrowLeft,
   History, Weight, Trophy, MapPin, Smile, Ghost, Star, Image as ImageIcon, Paperclip, MoreVertical, Heart as HeartIcon, MessageSquare, Save, Copy, Flame, Award, Target, LayoutDashboard, Trash2, Printer, FileDown, FileText,
-  RotateCcw, RefreshCw, Share2
+  RotateCcw, RefreshCw, Share2, Settings, Monitor, Bell, Volume2
 } from 'lucide-react';
 import { useSubscriptionSync } from '../hooks/useSubscriptionSync';
 import { logoutFirebase } from '../firebase';
@@ -26,6 +26,7 @@ import { ProgressComparison } from '../components/ProgressComparison';
 import { WeightHistoryTracker } from '../components/WeightHistoryTracker';
 import { HydrationTracker } from '../components/HydrationTracker';
 import { WorkoutReminderWidget } from '../components/WorkoutReminderWidget';
+import { WorkoutCheckInVolumeWidget } from '../components/WorkoutCheckInVolumeWidget';
 import { Toast, ToastType } from '../components/Toast';
 import { ProfessionalProfileView } from '../components/ProfessionalProfileView';
 import { Ranking } from '../components/Ranking';
@@ -280,7 +281,7 @@ export default function Dashboard() {
   const { 
     user, profile: myProfile, plan: myPlan, planType, role, clients, linkedTrainerId, linkedNutritionistId, trialEndsAt, subscriptionEndsAt, isAdmin, authLoading,
     logout, calculateIMC, updateExerciseWeight, resetAccount, resetSimulation, setPlan, setRole, linkClient, linkNutritionist, updatePlanForUser, setRoleForUser, setPlanTypeForUser,
-    toggleTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
+    toggleTheme, setTheme, theme, toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
     addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn, addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge, leaveChallenge
   } = useUser();
 
@@ -1512,7 +1513,40 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Quick Theme Toggle (Light / Dark) */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 flex items-center justify-center transition-all active:scale-95 shadow-sm"
+              title={`Alternar tema atual (${theme === 'dark' ? 'Modo Escuro' : theme === 'light' ? 'Modo Claro' : 'Automático'}). Clique para alternar.`}
+            >
+              {theme === 'dark' ? (
+                <Moon className="w-4 h-4 text-purple-400" />
+              ) : theme === 'light' ? (
+                <Sun className="w-4 h-4 text-amber-500" />
+              ) : (
+                <Monitor className="w-4 h-4 text-blue-400" />
+              )}
+            </button>
+
+            {/* Quick Settings Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setEditProfileForm({
+                  displayName: user?.displayName || '',
+                  phone: profile?.phone || '',
+                  photoURL: user?.photoURL || ''
+                });
+                setShowEditProfileModal(true);
+              }}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10 flex items-center justify-center transition-all active:scale-95 shadow-sm"
+              title="Configurações & Perfil"
+            >
+              <Settings className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            </button>
+
             <div className="hidden xs:flex flex-col items-end">
               <p className="text-[11px] sm:text-xs font-black text-black dark:text-white uppercase tracking-wider truncate max-w-[120px] leading-tight">
                 {user?.displayName || 'Usuário'}
@@ -1963,6 +1997,19 @@ export default function Dashboard() {
                 onOpenCalendar={() => handleTabChange('calendar')}
               />
 
+              {/* Check-in de Treino & Volume de Carga Semanal */}
+              <WorkoutCheckInVolumeWidget
+                onOpenShareStories={(badge) => {
+                  handleOpenStoriesShare(badge);
+                }}
+                onOpenShareModal={(badge) => {
+                  setShareInitialFormat('square');
+                  setShareAchievementBadge(badge);
+                  setShowShareModal(true);
+                }}
+                onNavigateTab={(tab) => handleTabChange(tab as any)}
+              />
+
               {/* Today's Training Choice */}
               <div className="bg-gradient-to-br from-purple-600/10 to-indigo-600/10 border border-purple-500/20 rounded-3xl p-6 sm:p-8">
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -2295,8 +2342,21 @@ export default function Dashboard() {
             </div>
           )}
 
-          {activeTab === 'evolution' && (
+          {(activeTab === 'evolution' || activeTab === 'ranking') && (
             <div className="space-y-8">
+              {/* Widget Principal de Gamificação: Ofensiva & Medalhas por Marcos */}
+              <StreakAndBadgesWidget 
+                onOpenShareModal={(badgeTitle) => {
+                  setShareInitialFormat('square');
+                  setShareAchievementBadge(badgeTitle ? { title: badgeTitle, description: 'Conquista desbloqueada no FitAI' } : undefined);
+                  setShowShareModal(true);
+                }}
+                onOpenStoriesModal={(badgeTitle) => {
+                  handleOpenStoriesShare(badgeTitle ? { title: badgeTitle, description: 'Conquista desbloqueada no FitAI' } : undefined);
+                }}
+                onOpenCalendar={() => handleTabChange('calendar')}
+              />
+
               <div className="space-y-8">
                   {/* Gamification Banner */}
                   <motion.div 
@@ -2439,8 +2499,12 @@ export default function Dashboard() {
               {/* Widget de Ofensiva e Medalhas */}
               <StreakAndBadgesWidget 
                 onOpenShareModal={(badgeTitle) => {
+                  setShareInitialFormat('square');
                   setShareAchievementBadge(badgeTitle ? { title: badgeTitle, description: 'Conquista desbloqueada no FitAI' } : undefined);
                   setShowShareModal(true);
+                }}
+                onOpenStoriesModal={(badgeTitle) => {
+                  handleOpenStoriesShare(badgeTitle ? { title: badgeTitle, description: 'Conquista desbloqueada no FitAI' } : undefined);
                 }}
                 onOpenCalendar={() => handleTabChange('calendar')}
               />
@@ -2560,6 +2624,23 @@ export default function Dashboard() {
           {activeTab === 'workout' && (
             <div className="space-y-6 sm:space-y-8 relative w-full overflow-x-hidden">
               {isBlocked && <Paywall feature="Treinos" type="expired" />}
+              
+              {/* Lembretes Automáticos de Treino (Push Notifications) */}
+              <WorkoutReminderWidget workoutTitle={plan.days?.[0]?.focus || plan.title} />
+
+              {/* Check-in de Treino & Monitoramento de Volume de Carga */}
+              <WorkoutCheckInVolumeWidget
+                onOpenShareStories={(badge) => {
+                  handleOpenStoriesShare(badge);
+                }}
+                onOpenShareModal={(badge) => {
+                  setShareInitialFormat('square');
+                  setShareAchievementBadge(badge);
+                  setShowShareModal(true);
+                }}
+                onNavigateTab={(tab) => handleTabChange(tab as any)}
+              />
+
               <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-3 sm:p-8 overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6 px-1">
                   <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
@@ -4349,6 +4430,60 @@ export default function Dashboard() {
                         />
                       </div>
                     </label>
+                  </div>
+                </div>
+
+                {/* Theme Mode Selection (Dark / Light / System) */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Aparência do Aplicativo (Tema)</label>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setTheme('light')}
+                      className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 text-center ${
+                        theme === 'light'
+                          ? 'bg-amber-500/10 border-amber-500 text-black dark:text-white ring-2 ring-amber-500/20 font-black'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                      }`}
+                    >
+                      <Sun className={`w-5 h-5 ${theme === 'light' ? 'text-amber-500' : 'text-gray-400'}`} />
+                      <div>
+                        <p className="text-xs font-bold">Modo Claro</p>
+                        <p className="text-[9px] text-gray-500">Light</p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTheme('dark')}
+                      className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 text-center ${
+                        theme === 'dark'
+                          ? 'bg-purple-600/15 border-purple-500 text-black dark:text-white ring-2 ring-purple-500/20 font-black'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                      }`}
+                    >
+                      <Moon className={`w-5 h-5 ${theme === 'dark' ? 'text-purple-400' : 'text-gray-400'}`} />
+                      <div>
+                        <p className="text-xs font-bold">Modo Escuro</p>
+                        <p className="text-[9px] text-gray-500">Dark</p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTheme('system')}
+                      className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 text-center ${
+                        theme === 'system'
+                          ? 'bg-blue-600/15 border-blue-500 text-black dark:text-white ring-2 ring-blue-500/20 font-black'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                      }`}
+                    >
+                      <Monitor className={`w-5 h-5 ${theme === 'system' ? 'text-blue-400' : 'text-gray-400'}`} />
+                      <div>
+                        <p className="text-xs font-bold">Automático</p>
+                        <p className="text-[9px] text-gray-500">Sistema</p>
+                      </div>
+                    </button>
                   </div>
                 </div>
 

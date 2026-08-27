@@ -33,7 +33,7 @@ function getStripe(): Stripe {
   return stripeClient;
 }
 
-const DEFAULT_PRO_DIRECT_LINK = "https://buy.stripe.com/aFa9AS11ufU5fFL5R94wM03";
+const DEFAULT_PRO_DIRECT_LINK = "https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02";
 
 function getFallbackPaymentLink(plan: string, userId?: string, userEmail?: string): string | null {
   const normalizedPlan = (plan === "PROFESSIONAL" || plan === "PROFISSIONAL") ? "PROFISSIONAL" : plan;
@@ -47,7 +47,7 @@ function getFallbackPaymentLink(plan: string, userId?: string, userEmail?: strin
   }
 
   link = link.trim();
-  if (!link || link.includes("your_") || link.includes("example") || link.includes("test_14A8w") || link.includes("3cIbJ0aC423f65b6Vd4wM02") || (!link.startsWith('http://') && !link.startsWith('https://'))) {
+  if (!link || link.includes("your_") || link.includes("example") || (!link.startsWith('http://') && !link.startsWith('https://'))) {
     return null;
   }
 
@@ -92,15 +92,15 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
         return res.json({ url: fallbackUrl, fallback: true });
       }
       return res.status(400).json({ 
-        error: `A chave secreta do Stripe (STRIPE_SECRET_KEY) precisa ser informada no menu Settings do app para ativar o checkout com o preço com desconto especial (${process.env.STRIPE_PRICE_ID_PRO || "price_1U97lyCVEgijuso4ecRGzcr0"}), ou defina um link direto em VITE_STRIPE_LINK_PRO.`,
+        error: `A chave secreta do Stripe (STRIPE_SECRET_KEY) precisa ser informada no menu Settings do app para ativar o checkout dinâmico (${process.env.STRIPE_PRICE_ID_PRO || "price_1TGqxLCerzmt0lUIK5KJOUIE"}), ou defina um link direto em VITE_STRIPE_LINK_PRO.`,
         isKeyError: true,
-        priceId: process.env.STRIPE_PRICE_ID_PRO || "price_1U97lyCVEgijuso4ecRGzcr0"
+        priceId: process.env.STRIPE_PRICE_ID_PRO || "price_1TGqxLCerzmt0lUIK5KJOUIE"
       });
     }
 
     const stripe = getStripe();
 
-    let rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1U97lyCVEgijuso4ecRGzcr0";
+    let rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1TGqxLCerzmt0lUIK5KJOUIE";
     let envVarName = "STRIPE_PRICE_ID_PRO";
 
     const priceId = cleanPriceId(rawPriceId);

@@ -35,7 +35,8 @@ export function StreakAndBadgesWidget({
 }: StreakAndBadgesWidgetProps) {
   const { profile, plan, doCheckIn } = useUser();
   const [selectedBadge, setSelectedBadge] = useState<AchievementBadge | null>(null);
-  const [activeCategory, setActiveCategory] = useState<'all' | 'streak' | 'workout' | 'hydration'>('all');
+  const [activeCategory, setActiveCategory] = useState<'all' | 'streak' | 'workout' | 'hydration' | 'evolution' | 'mastery'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'unlocked' | 'locked'>('all');
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkinMessage, setCheckinMessage] = useState<string | null>(null);
 
@@ -53,9 +54,11 @@ export function StreakAndBadgesWidget({
   const completedWorkouts = plan?.days?.filter(d => d.isCompleted).length || 0;
   const hydrationStreak = profile?.hydration?.streakDays || (profile?.hydration?.logs?.length ? 1 : 0);
   const weightEntriesCount = profile?.weightHistory?.length || (profile?.weight ? 1 : 0);
+  const joinedChallengesCount = profile?.joinedChallenges?.length || 0;
 
   // Generate badges dynamically based on user state
   const badges: AchievementBadge[] = [
+    // Streak Badges
     {
       id: 'streak_1',
       name: 'Primeira Faísca',
@@ -64,7 +67,7 @@ export function StreakAndBadgesWidget({
       icon: '⚡',
       xpReward: 50,
       unlocked: streak >= 1 || checkInDates.length >= 1,
-      progress: Math.min(1, checkInDates.length),
+      progress: Math.min(1, checkInDates.length > 0 ? 1 : 0),
       maxProgress: 1,
       rarity: 'Comum'
     },
@@ -94,7 +97,7 @@ export function StreakAndBadgesWidget({
     },
     {
       id: 'streak_14',
-      name: 'Guerreiro Imparável',
+      name: 'Quinzena de Aço',
       category: 'streak',
       description: 'Atinja 14 dias de disciplina blindada.',
       icon: '⚔️',
@@ -116,6 +119,20 @@ export function StreakAndBadgesWidget({
       maxProgress: 30,
       rarity: 'Lendário'
     },
+    {
+      id: 'streak_60',
+      name: 'Mestre da Constância',
+      category: 'streak',
+      description: 'Mantenha 60 dias de foco inabalável.',
+      icon: '💎',
+      xpReward: 3000,
+      unlocked: streak >= 60,
+      progress: Math.min(60, streak),
+      maxProgress: 60,
+      rarity: 'Lendário'
+    },
+
+    // Workout Milestones
     {
       id: 'workout_1',
       name: 'Primeiro Passo',
@@ -153,6 +170,32 @@ export function StreakAndBadgesWidget({
       rarity: 'Raro'
     },
     {
+      id: 'workout_25',
+      name: 'Veterano dos Ferros',
+      category: 'workout',
+      description: 'Alcance o marco de 25 sessões concluídas.',
+      icon: '🥊',
+      xpReward: 1250,
+      unlocked: completedWorkouts >= 25,
+      progress: Math.min(25, completedWorkouts),
+      maxProgress: 25,
+      rarity: 'Épico'
+    },
+    {
+      id: 'workout_50',
+      name: 'Centurião Fitness',
+      category: 'workout',
+      description: 'Conquiste a incrível marca de 50 treinos finalizados.',
+      icon: '🥇',
+      xpReward: 2500,
+      unlocked: completedWorkouts >= 50,
+      progress: Math.min(50, completedWorkouts),
+      maxProgress: 50,
+      rarity: 'Lendário'
+    },
+
+    // Hydration Milestones
+    {
       id: 'hydra_1',
       name: 'Gota de Ouro',
       category: 'hydration',
@@ -177,6 +220,32 @@ export function StreakAndBadgesWidget({
       rarity: 'Raro'
     },
     {
+      id: 'hydra_7',
+      name: 'Hidratação Blindada',
+      category: 'hydration',
+      description: 'Mantenha 7 dias consecutivos com a meta de água atingida.',
+      icon: '🧊',
+      xpReward: 500,
+      unlocked: hydrationStreak >= 7,
+      progress: Math.min(7, hydrationStreak),
+      maxProgress: 7,
+      rarity: 'Épico'
+    },
+
+    // Evolution & Body Milestones
+    {
+      id: 'evol_1',
+      name: 'Ponto de Partida',
+      category: 'evolution',
+      description: 'Registre suas primeiras métricas corporais no diário de evolução.',
+      icon: '🎯',
+      xpReward: 75,
+      unlocked: weightEntriesCount >= 1,
+      progress: Math.min(1, weightEntriesCount),
+      maxProgress: 1,
+      rarity: 'Comum'
+    },
+    {
       id: 'evol_3',
       name: 'Diário de Ferro',
       category: 'evolution',
@@ -189,6 +258,44 @@ export function StreakAndBadgesWidget({
       rarity: 'Raro'
     },
     {
+      id: 'evol_5',
+      name: 'Metamorfose',
+      category: 'evolution',
+      description: 'Acompanhe 5 atualizações completas de medidas e evolução.',
+      icon: '📊',
+      xpReward: 350,
+      unlocked: weightEntriesCount >= 5,
+      progress: Math.min(5, weightEntriesCount),
+      maxProgress: 5,
+      rarity: 'Épico'
+    },
+
+    // Mastery & Level Milestones
+    {
+      id: 'master_challenge',
+      name: 'Desafiante Nato',
+      category: 'mastery',
+      description: 'Participe de pelo menos 1 desafio comunitário.',
+      icon: '🚩',
+      xpReward: 150,
+      unlocked: joinedChallengesCount >= 1,
+      progress: Math.min(1, joinedChallengesCount),
+      maxProgress: 1,
+      rarity: 'Comum'
+    },
+    {
+      id: 'level_2',
+      name: 'Rumo ao Topo',
+      category: 'mastery',
+      description: 'Alcance o Nível 2 de experiência e pontuação.',
+      icon: '✨',
+      xpReward: 150,
+      unlocked: level >= 2,
+      progress: Math.min(2, level),
+      maxProgress: 2,
+      rarity: 'Comum'
+    },
+    {
       id: 'level_5',
       name: 'Elite FitAI',
       category: 'mastery',
@@ -199,14 +306,34 @@ export function StreakAndBadgesWidget({
       progress: Math.min(5, level),
       maxProgress: 5,
       rarity: 'Épico'
+    },
+    {
+      id: 'level_10',
+      name: 'Soberano FitAI',
+      category: 'mastery',
+      description: 'Alcance o Nível 10 de maestria máxima no app.',
+      icon: '👑',
+      xpReward: 3000,
+      unlocked: level >= 10,
+      progress: Math.min(10, level),
+      maxProgress: 10,
+      rarity: 'Lendário'
     }
   ];
 
   const unlockedCount = badges.filter(b => b.unlocked).length;
 
   const filteredBadges = badges.filter(b => {
-    if (activeCategory === 'all') return true;
-    return b.category === activeCategory;
+    if (activeCategory !== 'all' && b.category !== activeCategory) {
+      return false;
+    }
+    if (filterStatus === 'unlocked' && !b.unlocked) {
+      return false;
+    }
+    if (filterStatus === 'locked' && b.unlocked) {
+      return false;
+    }
+    return true;
   });
 
   // Calculate past 7 days checkin dots (Monday to Sunday of current week)
@@ -435,13 +562,15 @@ export function StreakAndBadgesWidget({
             <p className="text-xs text-zinc-400">Complete desafios diários para desbloquear insígnias e subir de nível</p>
           </div>
 
-          {/* Category Filter Pills */}
+          {/* Category & Status Filter Pills */}
           <div className="flex flex-wrap items-center gap-1.5">
             {[
               { id: 'all', label: 'Todas' },
               { id: 'streak', label: '🔥 Ofensiva' },
               { id: 'workout', label: '🏋️ Treino' },
-              { id: 'hydration', label: '💧 Água' }
+              { id: 'hydration', label: '💧 Água' },
+              { id: 'evolution', label: '📈 Evolução' },
+              { id: 'mastery', label: '👑 Maestria' }
             ].map(cat => (
               <button
                 key={cat.id}
@@ -455,6 +584,29 @@ export function StreakAndBadgesWidget({
                 {cat.label}
               </button>
             ))}
+
+            <div className="h-4 w-px bg-zinc-800 mx-1 hidden sm:block" />
+
+            <div className="flex items-center gap-1 bg-zinc-900/80 p-0.5 rounded-xl border border-zinc-800">
+              <button
+                onClick={() => setFilterStatus('all')}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${filterStatus === 'all' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'}`}
+              >
+                Todas
+              </button>
+              <button
+                onClick={() => setFilterStatus('unlocked')}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${filterStatus === 'unlocked' ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+              >
+                Conquistadas
+              </button>
+              <button
+                onClick={() => setFilterStatus('locked')}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${filterStatus === 'locked' ? 'bg-amber-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+              >
+                A Conquistar
+              </button>
+            </div>
           </div>
         </div>
 

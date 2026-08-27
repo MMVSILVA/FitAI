@@ -1,11 +1,24 @@
 import { WorkoutReminderConfig } from '../types';
 
 /**
- * Service to manage browser notifications and local scheduling for daily workout reminders.
+ * Service to manage browser notifications, service worker push notifications,
+ * and background scheduling for daily workout reminders.
  */
 
 export const isNotificationSupported = (): boolean => {
   return typeof window !== 'undefined' && 'Notification' in window;
+};
+
+export const registerServiceWorker = async () => {
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      return registration;
+    } catch (err) {
+      console.warn('Service Worker registration skipped/failed:', err);
+    }
+  }
+  return null;
 };
 
 export const getNotificationPermission = (): NotificationPermission => {
@@ -95,11 +108,26 @@ export const sendWorkoutNotification = (
   }
 
   try {
+    // If Service Worker is ready, try triggering notification via Service Worker registration
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(title, {
+          body: body || 'Hora de manter a consistência! Seu treino de hoje está pronto no FitAI.',
+          icon: '/favicon.svg',
+          badge: '/favicon.svg',
+          tag,
+          data: { url: '/dashboard' }
+        });
+      }).catch(() => {
+        // Fallback to standard Notification
+      });
+    }
+
     const notification = new Notification(title, {
       body: body || 'Hora de manter a consistência! Seu treino de hoje está pronto no FitAI.',
-      icon: '/icon.png',
+      icon: '/favicon.svg',
       tag,
-      badge: '/icon.png',
+      badge: '/favicon.svg',
       requireInteraction: false,
     });
 
@@ -114,6 +142,42 @@ export const sendWorkoutNotification = (
     console.error('Failed to trigger web notification:', error);
     return null;
   }
+};
+
+/**
+ * Calculates the next upcoming scheduled notification time description.
+ */
+export const getNextReminderText = (config: WorkoutReminderConfig): string => {
+  if (!config.enabled || !config.daysOfWeek || config.daysOfWeek.length === 0) {
+    return 'Lembretes desativados';
+  }
+
+  const now = new Date();
+  const currentDay = now.getDay();
+  const [targetH, targetM] = config.time.split(':').map(Number);
+  
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const targetMinutes = (targetH || 0) * 60 + (targetM || 0);
+
+  const dayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+  // Check if today is an active day and time is yet to pass
+  if (config.daysOfWeek.includes(currentDay) && currentMinutes < targetMinutes) {
+    return `Hoje às ${config.time}`;
+  }
+
+  // Find next day in the cycle
+  for (let offset = 1; offset <= 7; offset++) {
+    const checkDay = (currentDay + offset) % 7;
+    if (config.daysOfWeek.includes(checkDay)) {
+      if (offset === 1) {
+        return `Amanhã às ${config.time}`;
+      }
+      return `${dayNames[checkDay]} às ${config.time}`;
+    }
+  }
+
+  return `Agendado às ${config.time}`;
 };
 
 /**

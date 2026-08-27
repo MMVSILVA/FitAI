@@ -16,11 +16,13 @@ import Checkout from './pages/Checkout';
 import { UpdateNotification } from './components/UpdateNotification';
 import { IOSInstallPrompt } from './components/IOSInstallPrompt';
 import { CookieConsent } from './components/CookieConsent';
+import { GlobalWorkoutReminderScheduler } from './components/GlobalWorkoutReminderScheduler';
 
 export default function App() {
   return (
     <ErrorBoundary>
       <UserProvider>
+        <GlobalWorkoutReminderScheduler />
         <UpdateNotification />
         <IOSInstallPrompt />
         <CookieConsent />

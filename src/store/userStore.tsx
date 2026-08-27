@@ -28,6 +28,7 @@ interface UserState {
   updateExerciseWeight: (dayIndex: number, exerciseIndex: number, weight: string) => void;
   toggleFavorite: (exerciseId: string) => void;
   toggleTheme: () => void;
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
   updatePlanForUser: (targetUid: string, newPlan: WorkoutPlan) => Promise<void>;
   linkClient: (email: string) => Promise<{ success: boolean; message: string }>;
   linkNutritionist: (email: string) => Promise<{ success: boolean; message: string }>;
@@ -520,14 +521,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile({ favorites: newFavorites });
   };
 
+  const setTheme = (newTheme: 'light' | 'dark' | 'system') => {
+    setThemeState(newTheme);
+    updateDocumentTheme(newTheme);
+    setProfile({ theme: newTheme });
+  };
+
   const toggleTheme = () => {
     const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
     const currentIndex = themes.indexOf(theme);
     const newTheme = themes[(currentIndex + 1) % themes.length];
     
-    setThemeState(newTheme);
-    updateDocumentTheme(newTheme);
-    setProfile({ theme: newTheme });
+    setTheme(newTheme);
   };
 
   useEffect(() => {
@@ -1129,7 +1134,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       linkedTrainerId, linkedNutritionistId, isAdmin,
       favorites, theme,
       setProfile, setPlan, upgradePlan, startTrial, updateExerciseWeight, updatePlanForUser, 
-      toggleFavorite, toggleTheme,
+      toggleFavorite, toggleTheme, setTheme,
       linkClient, linkNutritionist, setRole, setRoleForUser, setPlanTypeForUser, logout, calculateIMC, resetAccount, resetSimulation, saveWorkoutSession,
       addExerciseProgress, getExerciseProgress,
       toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
