@@ -103,7 +103,7 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
 
     const stripe = getStripe();
 
-    let rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1TGqxLCerzmt0lUIK5KJOUIE";
+    let rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1U97lyCVEgijuso4ecRGzcr0";
     let envVarName = "STRIPE_PRICE_ID_PRO";
 
     const priceId = cleanPriceId(rawPriceId);

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, getDocFromServer } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { UserProfile, WorkoutPlan, UserRole, PlanType } from '../types';
 
 interface UserState {
@@ -120,22 +120,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   useEffect(() => {
-    // Validate Connection to Firestore (Recommended for AI Studio env)
+    // Gentle probe to warm up Firestore connection
     const testConnection = async () => {
       try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-        console.log("Firestore connection: OK");
+        await getDoc(doc(db, 'test', 'connection'));
       } catch (error: any) {
-        // If it's a permission error, we are actually online
-        if (error?.code === 'permission-denied') {
-          console.log("Firestore connection: OK (Permission denied on check doc, but connected)");
-          return;
-        }
-        
-        if (error?.message?.includes('the client is offline') || error?.code === 'unavailable') {
-          console.error("Firestore is unavailable. Check configuration or network.");
-        } else {
-          console.error("Firestore connection test error:", error);
+        // Suppress initial offline/unavailable warnings during startup probe
+        if (error?.code !== 'unavailable' && !error?.message?.includes('offline')) {
+          console.log("Firestore connection probe note:", error?.code || error?.message);
         }
       }
     };

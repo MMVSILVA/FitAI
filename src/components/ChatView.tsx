@@ -43,6 +43,8 @@ export function ChatView({ selectedProfessional: _unused }: { selectedProfession
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
       }, 100);
+    }, (error) => {
+      console.warn("Community messages snapshot listener:", error.message);
     });
 
     return () => unsubscribe();

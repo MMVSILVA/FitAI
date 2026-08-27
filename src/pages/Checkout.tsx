@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useUser } from '../store/userStore';
-import { CheckCircle2, ShieldCheck, ArrowLeft, ExternalLink, AlertCircle, Sparkles, Check } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, ArrowLeft, ExternalLink, AlertCircle, Sparkles, Check, Loader2, Tag } from 'lucide-react';
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
@@ -10,6 +10,8 @@ export default function Checkout() {
   const plan = rawPlan.toUpperCase() as 'PRO' | 'PREMIUM' | 'PROFISSIONAL';
   const navigate = useNavigate();
   const { user, authLoading } = useUser();
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isComingSoon = plan === 'PREMIUM' || plan === 'PROFISSIONAL';
 
@@ -52,15 +54,59 @@ export default function Checkout() {
   const hasValidDirectLink = isValidUrl(stripeLinkPro);
   const finalPaymentUrl = getManualLink() || 'https://buy.stripe.com/3cIbJ0aC423f65b6Vd4wM02';
 
-  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // If inside an iframe on mobile, attempt top level navigation
+  const handleProceedToPayment = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isComingSoon || loading) return;
+
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      // Attempt to create a direct checkout session via API
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          plan: 'PRO',
+          userId: user?.uid,
+          userEmail: user?.email,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.url) {
+          if (window.self !== window.top) {
+            try {
+              window.top!.location.href = data.url;
+              return;
+            } catch {
+              window.location.href = data.url;
+              return;
+            }
+          } else {
+            window.location.href = data.url;
+            return;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn("API checkout session redirect fallback:", err);
+    }
+
+    // Fallback to direct payment link
     if (window.self !== window.top) {
       try {
         window.top!.location.href = finalPaymentUrl;
-        e.preventDefault();
+        return;
       } catch {
-        // Fallback to standard link behavior
+        window.location.href = finalPaymentUrl;
+        return;
       }
+    } else {
+      window.location.href = finalPaymentUrl;
     }
   };
 
@@ -83,16 +129,20 @@ export default function Checkout() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h2 className="text-3xl font-black tracking-tight">Assinar FitAI {plan}</h2>
-              {isComingSoon && (
+              {isComingSoon ? (
                 <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-black uppercase tracking-widest py-1 px-3 rounded-full">
                   Em Breve
+                </span>
+              ) : (
+                <span className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 text-[10px] font-black uppercase tracking-widest py-1 px-3 rounded-full flex items-center gap-1.5">
+                  <Tag className="w-3 h-3" /> Desconto Especial
                 </span>
               )}
             </div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
               {isComingSoon 
                 ? "Este plano está sendo preparado para o próximo lançamento." 
-                : "Desbloqueie todo o potencial da IA com treinos e dietas ilimitados."}
+                : "Desbloqueie todo o potencial da IA com treinos e dietas ilimitados com condição promocional exclusiva."}
             </p>
           </div>
 
@@ -122,8 +172,11 @@ export default function Checkout() {
           <div className="bg-gray-100 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-6 shadow-xl">
             <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-200 dark:border-white/10">
               <div>
-                <span className="text-lg font-bold text-gray-800 dark:text-gray-200">Mensalidade</span>
-                <p className="text-xs text-gray-500">Renovação a cada 30 dias</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-gray-800 dark:text-gray-200">Mensalidade</span>
+                  <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">Promoção</span>
+                </div>
+                <p className="text-xs text-gray-500">Renovação a cada 30 dias • Cancele quando quiser</p>
               </div>
               <div className="text-right">
                 <span className="text-3xl font-black text-purple-600 dark:text-purple-400">R$ {price}</span>
@@ -171,13 +224,19 @@ export default function Checkout() {
 
             <h3 className="text-2xl font-black mb-3 text-black dark:text-white">Pagamento Seguro</h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm max-w-sm mx-auto leading-relaxed">
-              Você será redirecionado para o ambiente seguro e criptografado do Stripe para concluir a assinatura com cartão ou boleto.
+              Você será redirecionado para o checkout oficial do Stripe para concluir a assinatura com cartão, boleto ou Pix.
             </p>
 
             {/* Validação de link direto ativa */}
             {hasValidDirectLink && (
               <div className="mb-6 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                 <Check className="w-3.5 h-3.5" /> Link oficial de pagamento validado
+              </div>
+            )}
+
+            {errorMessage && (
+              <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
+                {errorMessage}
               </div>
             )}
           </div>
@@ -191,16 +250,24 @@ export default function Checkout() {
                 Plano Em Breve (Indisponível)
               </button>
             ) : (
-              <a
-                href={finalPaymentUrl}
-                target="_top"
-                rel="noopener noreferrer"
-                onClick={handleLinkClick}
-                className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-lg transition-all shadow-xl uppercase tracking-wider bg-green-600 hover:bg-green-500 text-white shadow-green-600/20 active:scale-[0.98] text-center no-underline cursor-pointer"
+              <button
+                type="button"
+                onClick={handleProceedToPayment}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-lg transition-all shadow-xl uppercase tracking-wider bg-green-600 hover:bg-green-500 disabled:bg-green-700/60 text-white shadow-green-600/20 active:scale-[0.98] text-center cursor-pointer"
               >
-                Ir para o Pagamento
-                <ExternalLink className="w-5 h-5" />
-              </a>
+                {loading ? (
+                  <>
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    Iniciando Checkout...
+                  </>
+                ) : (
+                  <>
+                    Ir para o Pagamento
+                    <ExternalLink className="w-5 h-5" />
+                  </>
+                )}
+              </button>
             )}
 
             <div className="pt-4 flex flex-col items-center justify-center gap-2">
