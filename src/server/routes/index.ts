@@ -3,10 +3,24 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as paymentController from '../controllers/paymentController.ts';
 import { isAdminEmail } from '../config/admins.ts';
 import { authMiddleware, AuthRequest } from '../middleware/auth.ts';
+import { APP_VERSION, BUILD_DATE } from '../../constants.ts';
 
 const router = express.Router({
   caseSensitive: false,
   mergeParams: true
+});
+
+// App Version and Health sync route
+router.get('/version', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.json({
+    version: APP_VERSION,
+    buildDate: BUILD_DATE,
+    timestamp: new Date().toISOString(),
+    name: 'FitAI'
+  });
 });
 
 // Initialize Gemini
@@ -30,7 +44,7 @@ router.post('/exercises/generate-details', authMiddleware, async (req: AuthReque
     console.log(`Generating details for exercise: ${exerciseName}`);
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.7-flash",
       contents: `Gere detalhes técnicos profissionais para o exercício: ${exerciseName}.
       O retorno deve ser em português e focado em um personal trainer de alto nível.`,
       config: {
@@ -69,6 +83,177 @@ router.post('/exercises/generate-details', authMiddleware, async (req: AuthReque
   } catch (error: any) {
     console.error("Gemini Generation Error:", error);
     res.status(500).json({ error: 'Erro ao gerar detalhes com IA', details: error.message });
+  }
+});
+
+// AI Recipe Generation Route based on User Macronutrient Goals
+router.post('/recipes/generate', async (req, res) => {
+  try {
+    const { 
+      mealType = "Almoço",
+      targetCalories,
+      targetProtein,
+      targetCarbs,
+      targetFat,
+      dietaryPreference = "Equilibrada",
+      availableIngredients = "",
+      prepTimeMax = "30",
+      userGoal = "Hipertrofia"
+    } = req.body;
+
+    console.log(`[Recipe Gen] Generating recipe for ${mealType} | Targets: ${targetCalories}kcal, ${targetProtein}g P, ${targetCarbs}g C, ${targetFat}g F | Pref: ${dietaryPreference}`);
+
+    const prompt = `Você é um nutricionista esportivo e chef profissional de alta performance da FitAI.
+Crie uma receita saudável, prática, saborosa e de alto valor biológico com base nas seguintes metas e restrições:
+- Tipo de Refeição: ${mealType}
+- Objetivo do Usuário: ${userGoal}
+- Meta Calórica da Refeição: Aproximadamente ${targetCalories || '450'} kcal
+- Meta de Proteínas: Aproximadamente ${targetProtein || '35'}g
+- Meta de Carboidratos: Aproximadamente ${targetCarbs || '40'}g
+- Meta de Gorduras: Aproximadamente ${targetFat || '15'}g
+- Preferência/Restrição Alimentar: ${dietaryPreference}
+- Ingredientes disponíveis / Destaques: ${availableIngredients ? availableIngredients : 'Ingredientes comuns e acessíveis no Brasil'}
+- Tempo máximo de preparo: ${prepTimeMax} minutos
+
+A receita DEVE conter ingredientes reais com quantidades precisas (gramas/colheres/xícaras), modo de preparo passo a passo detalhado, tabela de macronutrientes calculada e uma dica do chef para otimização da absorção e sabor.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          required: [
+            "title", 
+            "description", 
+            "mealType", 
+            "prepTimeMinutes", 
+            "cookTimeMinutes", 
+            "servings", 
+            "difficulty", 
+            "macros", 
+            "ingredients", 
+            "instructions", 
+            "chefTip",
+            "tags"
+          ],
+          properties: {
+            title: {
+              type: Type.STRING,
+              description: "Nome atraente da receita (ex: Bowl Fit de Frango com Batata Doce e Abacate).",
+            },
+            description: {
+              type: Type.STRING,
+              description: "Breve explicação sobre os benefícios nutricionais e por que atende as metas de macros.",
+            },
+            mealType: {
+              type: Type.STRING,
+              description: "Tipo de refeição (ex: Café da Manhã, Almoço, Jantar, Pós-treino).",
+            },
+            prepTimeMinutes: {
+              type: Type.NUMBER,
+              description: "Tempo de preparo em minutos.",
+            },
+            cookTimeMinutes: {
+              type: Type.NUMBER,
+              description: "Tempo de cozimento em minutos.",
+            },
+            servings: {
+              type: Type.NUMBER,
+              description: "Número de porções geradas.",
+            },
+            difficulty: {
+              type: Type.STRING,
+              description: "Fácil, Médio ou Avançado.",
+            },
+            macros: {
+              type: Type.OBJECT,
+              required: ["calories", "protein", "carbs", "fats", "fiber"],
+              properties: {
+                calories: { type: Type.NUMBER, description: "Calorias totais por porção (kcal)" },
+                protein: { type: Type.NUMBER, description: "Gramas de proteína por porção" },
+                carbs: { type: Type.NUMBER, description: "Gramas de carboidrato por porção" },
+                fats: { type: Type.NUMBER, description: "Gramas de gordura por porção" },
+                fiber: { type: Type.NUMBER, description: "Gramas de fibra alimentar por porção" },
+              }
+            },
+            ingredients: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                required: ["item", "amount", "category"],
+                properties: {
+                  item: { type: Type.STRING, description: "Nome do ingrediente" },
+                  amount: { type: Type.STRING, description: "Quantidade e unidade de medida (ex: 150g, 2 colheres de sopa, 1 unidade)" },
+                  category: { type: Type.STRING, description: "Proteína, Carboidrato, Gordura Boa, Vegetal ou Tempero" }
+                }
+              }
+            },
+            instructions: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "Passos ordenados do modo de preparo."
+            },
+            chefTip: {
+              type: Type.STRING,
+              description: "Dica secreta do Chef Nutricionista para sabor, digestibilidade ou preparo em marmita."
+            },
+            tags: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "Tags rápidas (ex: ['Hiperproteico', 'Rápido', 'Sem Lactose', 'Gluten Free'])"
+            }
+          }
+        }
+      }
+    });
+
+    const recipeData = JSON.parse(response.text || '{}');
+    res.json({ success: true, recipe: recipeData });
+  } catch (error: any) {
+    console.error("Gemini Recipe Generation Error:", error);
+    
+    // Fallback inteligente caso a API falhe ou a chave não esteja disponível
+    const fallbackCalories = Number(req.body.targetCalories) || 480;
+    const fallbackProtein = Number(req.body.targetProtein) || 38;
+    const fallbackCarbs = Number(req.body.targetCarbs) || 45;
+    const fallbackFat = Number(req.body.targetFat) || 14;
+
+    const fallbackRecipe = {
+      title: req.body.mealType === 'Café da Manhã' ? 'Omelete Proteico com Aveia e Queijo Branco' : 'Bowl Anabólico de Frango Grelhado com Arroz Integral e Brócolis',
+      description: 'Uma refeição perfeitamente balanceada para apoiar sua recuperação muscular e energia diária com base nos seus macros.',
+      mealType: req.body.mealType || 'Almoço',
+      prepTimeMinutes: 15,
+      cookTimeMinutes: 15,
+      servings: 1,
+      difficulty: 'Fácil',
+      macros: {
+        calories: fallbackCalories,
+        protein: fallbackProtein,
+        carbs: fallbackCarbs,
+        fats: fallbackFat,
+        fiber: 6
+      },
+      ingredients: [
+        { item: 'Peito de frango em cubos', amount: `${Math.round(fallbackProtein * 3.5)}g`, category: 'Proteína' },
+        { item: 'Arroz integral cozido ou batata doce', amount: `${Math.round(fallbackCarbs * 2.8)}g`, category: 'Carboidrato' },
+        { item: 'Brócolis e legumes no vapor', amount: '100g', category: 'Vegetal' },
+        { item: 'Azeite de oliva extravirgem', amount: '1 colher de sopa (10ml)', category: 'Gordura Boa' },
+        { item: 'Cúrcuma, alho, orégano e sal a gosto', amount: '1 pitada', category: 'Tempero' }
+      ],
+      instructions: [
+        'Tempere o peito de frango com alho, cúrcuma, sal e pimenta.',
+        'Aqueça uma frigideira antiaderente com um fio de azeite e doure o frango por 6 a 8 minutos até ficar suculento.',
+        'Cozinhe o brócolis no vapor por 4 minutos para manter a cor e os micronutrientes.',
+        'Monte o prato com o arroz integral, o frango grelhado e o brócolis.',
+        'Finalize regando o azeite de oliva e polvilhando sementes de gergelim ou orégano.'
+      ],
+      chefTip: 'Para frango sempre suculento, sele em fogo médio-alto e deixe descansar por 2 minutos antes de cortar.',
+      tags: ['Hiperproteico', 'Fácil', 'Equilibrado', 'Meal Prep']
+    };
+
+    res.json({ success: true, recipe: fallbackRecipe, isFallback: true });
   }
 });
 

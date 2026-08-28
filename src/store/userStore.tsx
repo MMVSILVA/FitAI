@@ -303,9 +303,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setThemeState(data.theme);
                 document.documentElement.classList.toggle('dark', data.theme === 'dark');
               }
-              if (data.planType) setPlanType(data.planType as PlanType);
-              if (data.trialEndsAt) setTrialEndsAt(data.trialEndsAt);
-              if (data.subscriptionEndsAt) setSubscriptionEndsAt(data.subscriptionEndsAt);
+              setPlanType((data.planType as PlanType) || 'FREE');
+              setTrialEndsAt(data.trialEndsAt || null);
+              setSubscriptionEndsAt(data.subscriptionEndsAt || null);
               
               if (isFirstUpdate) {
                 setAuthLoading(false);
@@ -714,14 +714,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetSimulation = async () => {
     if (!user) return { success: false, message: 'Usuário não autenticado' };
 
-    // Strict role: admin verification in UserProvider & Firestore
-    let hasAdminRole = role === 'admin' || isAdmin;
+    const userEmail = user.email?.toLowerCase().trim() || '';
+    const masterAdmins = ['vinidoctor@gmail.com'];
+    const isMasterAdmin = masterAdmins.includes(userEmail);
+    let hasAdminRole = role === 'admin' || isAdmin || isMasterAdmin;
+
     try {
       const { doc, getDoc } = await import('firebase/firestore');
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       if (userSnap.exists()) {
         const d = userSnap.data();
-        if (d.role === 'admin' || d.isAdmin === true) {
+        if (d.role === 'admin' || d.isAdmin === true || d.email?.toLowerCase().trim() === 'vinidoctor@gmail.com') {
           hasAdminRole = true;
         }
       }
@@ -729,12 +732,42 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn("Error verifying Firestore admin role for plan reset:", err);
     }
 
-    const isMasterAdmin = user.email === 'vinidoctor@gmail.com';
-    if (!hasAdminRole && !isMasterAdmin) {
+    if (!hasAdminRole && !isMasterAdmin && !isAdmin) {
       return { 
         success: false, 
-        message: 'Acesso negado: Apenas administradores com a permissão (role: admin) no Firestore podem resetar planos.' 
+        message: 'Acesso negado: Apenas administradores podem resetar o plano/simulação.' 
       };
+    }
+
+    // Immediate optimistic local updates
+    setPlanType('FREE');
+    setSubscriptionEndsAt(null);
+    setTrialEndsAt(null);
+    setProfileState(prev => prev ? { 
+      ...prev, 
+      planType: 'FREE', 
+      isPremium: false, 
+      subscriptionEndsAt: undefined, 
+      trialEndsAt: undefined 
+    } : prev);
+
+    // Clean all local storage caches
+    try {
+      localStorage.setItem('fitai_plan_type', 'FREE');
+      localStorage.removeItem('fitai_trial_ends');
+      localStorage.removeItem('fitai_subscription_ends');
+      
+      const cachedProf = localStorage.getItem(`fitai_profile_${user.uid}`);
+      if (cachedProf) {
+        const parsed = JSON.parse(cachedProf);
+        parsed.planType = 'FREE';
+        parsed.isPremium = false;
+        delete parsed.subscriptionEndsAt;
+        delete parsed.trialEndsAt;
+        localStorage.setItem(`fitai_profile_${user.uid}`, JSON.stringify(parsed));
+      }
+    } catch (e) {
+      console.warn("Error clearing localStorage on reset simulation:", e);
     }
 
     try {
@@ -747,16 +780,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         trialEndsAt: null,
         updatedAt: new Date().toISOString()
       });
-      setPlanType('FREE');
-      setSubscriptionEndsAt(null);
-      setTrialEndsAt(null);
       return { success: true, message: 'Simulação resetada com sucesso! Você agora está no plano FREE.' };
     } catch (error: any) {
       console.error("Error resetting simulation in Firestore:", error);
-      // Update local state even if Firestore rules or offline prevents remote write
-      setPlanType('FREE');
-      setSubscriptionEndsAt(null);
-      setTrialEndsAt(null);
       return { success: true, message: 'Simulação resetada localmente para o plano FREE.' };
     }
   };

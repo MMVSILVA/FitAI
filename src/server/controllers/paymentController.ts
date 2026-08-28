@@ -84,23 +84,16 @@ export const createCheckoutSession = async (req: express.Request, res: express.R
     const envKey = process.env.STRIPE_SECRET_KEY;
     const hasValidKey = envKey && isValidStripeKey(envKey);
 
-    // Se a chave da API não estiver ativa mas houver link direto configurado, use o link direto perfeitamente
+    // Se a chave da API não estiver ativa ou falhar, use o link direto oficial perfeitamente
     if (!hasValidKey) {
-      const fallbackUrl = getFallbackPaymentLink(normalizedPlan, userId, userEmail);
-      if (fallbackUrl) {
-        console.log(`[Payment] Redirecionando para Link de Pagamento Direto do Stripe: ${fallbackUrl}`);
-        return res.json({ url: fallbackUrl, fallback: true });
-      }
-      return res.status(400).json({ 
-        error: `A chave secreta do Stripe (STRIPE_SECRET_KEY) precisa ser informada no menu Settings do app para ativar o checkout dinâmico (${process.env.STRIPE_PRICE_ID_PRO || "price_1TGqxLCerzmt0lUIK5KJOUIE"}), ou defina um link direto em VITE_STRIPE_LINK_PRO.`,
-        isKeyError: true,
-        priceId: process.env.STRIPE_PRICE_ID_PRO || "price_1TGqxLCerzmt0lUIK5KJOUIE"
-      });
+      const fallbackUrl = getFallbackPaymentLink(normalizedPlan, userId, userEmail) || DEFAULT_PRO_DIRECT_LINK;
+      console.log(`[Payment] Redirecionando para Link de Pagamento Direto do Stripe: ${fallbackUrl}`);
+      return res.json({ url: fallbackUrl, fallback: true });
     }
 
     const stripe = getStripe();
 
-    let rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1TGqxLCerzmt0lUIK5KJOUIE";
+    let rawPriceId = process.env.STRIPE_PRICE_ID_PRO || "price_1TOm2UCVEgijuso4yuRkIuoC";
     let envVarName = "STRIPE_PRICE_ID_PRO";
 
     const priceId = cleanPriceId(rawPriceId);

@@ -46,6 +46,11 @@ import { DailyCheckinForm } from '../components/DailyCheckinForm';
 import { ShareProgressModal } from '../components/ShareProgressModal';
 import { StreakAndBadgesWidget } from '../components/StreakAndBadgesWidget';
 import { WorkoutCalendar } from '../components/WorkoutCalendar';
+import { MacroCalculator } from '../components/MacroCalculator';
+import { WorkoutHistoryTracker } from '../components/WorkoutHistoryTracker';
+import { WeightProgressChart } from '../components/WeightProgressChart';
+import { WorkoutPostureCarousel } from '../components/WorkoutPostureCarousel';
+import { AiRecipeGenerator } from '../components/AiRecipeGenerator';
 
 function ExerciseRow({ 
   exercise, 
@@ -309,7 +314,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (paymentSuccess) {
-      setToast({ show: true, message: '🎉 PAGAMENTO CONFIRMADO! Bem-vindo à elite do FitAI.', type: 'success' });
+      showToast('🎉 PAGAMENTO CONFIRMADO! Bem-vindo à elite do FitAI.', 'success');
       // Remove the success param from URL without refreshing
       searchParams.delete('success');
       setSearchParams(searchParams, { replace: true });
@@ -887,9 +892,9 @@ export default function Dashboard() {
       try {
         const q = query(collection(db, 'users'), where('uid', 'in', linkedIds));
         const snap = await getDocs(q);
-        const data = snap.docs.map(d => ({
-          id: d.data().uid,
-          name: d.data().displayName || d.data().email,
+        const data = snap.docs.map((d, index) => ({
+          id: d.data().uid || d.id || `pro-${index}`,
+          name: d.data().displayName || d.data().email || 'Profissional',
           role: d.data().role,
           photoURL: d.data().photoURL,
           lastSeen: d.data().lastSeen
@@ -1071,11 +1076,11 @@ export default function Dashboard() {
 
       await updateDoc(doc(db, 'users', user.uid), updates);
       setAdminFeedback({ type: 'success', msg: `Plano alterado para ${newPlan}` });
-      setToast({ show: true, message: `Plano alterado para ${newPlan}`, type: 'success' });
+      showToast(`Plano alterado para ${newPlan}`, 'success');
     } catch (error) {
       console.error("Error updating admin plan:", error);
       setAdminFeedback({ type: 'error', msg: 'Erro ao atualizar plano' });
-      setToast({ show: true, message: 'Erro ao atualizar plano', type: 'error' });
+      showToast('Erro ao atualizar plano', 'error');
     } finally {
       setAdminActionLoading(false);
       setTimeout(() => setAdminFeedback({ type: '', msg: '' }), 3000);
@@ -1084,18 +1089,18 @@ export default function Dashboard() {
 
   const handleResetSimulation = async () => {
     if (!isAdmin || !user) {
-      setToast({ show: true, message: '⚠️ Apenas administradores podem resetar o plano/simulação.', type: 'error' });
+      showToast('⚠️ Apenas administradores podem resetar o plano/simulação.', 'error');
       return;
     }
     setAdminActionLoading(true);
     try {
       const res = await resetSimulation();
       setAdminFeedback({ type: 'success', msg: res.message || 'Simulação resetada para o plano FREE' });
-      setToast({ show: true, message: '🔄 Simulação resetada! Você voltou ao plano FREE com sucesso.', type: 'success' });
+      showToast('🔄 Simulação resetada! Você voltou ao plano FREE com sucesso.', 'success');
     } catch (error: any) {
       console.error("Error resetting simulation:", error);
       setAdminFeedback({ type: 'error', msg: 'Erro ao resetar simulação' });
-      setToast({ show: true, message: 'Erro ao resetar simulação', type: 'error' });
+      showToast('Erro ao resetar simulação', 'error');
     } finally {
       setAdminActionLoading(false);
       setTimeout(() => setAdminFeedback({ type: '', msg: '' }), 3500);
@@ -2215,6 +2220,9 @@ export default function Dashboard() {
                 )}
               </div>
 
+              {/* Gráfico de Evolução de Peso Corporal */}
+              <WeightProgressChart targetUserId={profile?.uid} />
+
               {/* Seção de Medalhas e Desafios (Estilo Wellhub requested) */}
               <div className="space-y-10 pt-10">
                 <section>
@@ -2407,6 +2415,19 @@ export default function Dashboard() {
                     }}
                   />
 
+                  {/* Gráfico Interativo de Progresso do Peso Corporal (Recharts) */}
+                  <WeightProgressChart targetUserId={profile?.uid} />
+
+                  {/* Histórico Completo de Treinos Concluídos (Linha do tempo & Calendário) */}
+                  <WorkoutHistoryTracker 
+                    targetUserId={profile?.uid}
+                    onOpenShareModal={(badge) => {
+                      setShareInitialFormat('square');
+                      setShareAchievementBadge(badge ? { title: badge, description: 'Treino registrado no FitAI' } : undefined);
+                      setShowShareModal(true);
+                    }}
+                  />
+
                   {/* Gráfico de Tendências de 30 Dias (Peso & Calorias) */}
                   <Trends30DaysChart userId={profile?.uid} />
 
@@ -2462,7 +2483,7 @@ export default function Dashboard() {
                               <button
                                 onClick={() => {
                                   joinChallenge(challenge.id);
-                                  setToast({ show: true, message: `🚀 Você entrou no desafio: ${challenge.title}!`, type: 'success' });
+                                  showToast(`🚀 Você entrou no desafio: ${challenge.title}!`, 'success');
                                 }}
                                 disabled={isJoined}
                                 className={`w-full mt-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
@@ -2519,6 +2540,16 @@ export default function Dashboard() {
                   setShowShareModal(true);
                 }}
               />
+
+              {/* Histórico Cronológico e Registro Detalhado de Treinos */}
+              <WorkoutHistoryTracker 
+                targetUserId={profile?.uid}
+                onOpenShareModal={(badge) => {
+                  setShareInitialFormat('square');
+                  setShareAchievementBadge(badge ? { title: badge, description: 'Treino registrado no FitAI' } : undefined);
+                  setShowShareModal(true);
+                }}
+              />
             </div>
           )}
 
@@ -2567,9 +2598,9 @@ export default function Dashboard() {
                   {professionals.length > 0 && (
                     <div className="pt-3 border-t border-gray-100 dark:border-white/5">
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 mb-2">Profissionais Vinculados</p>
-                      {professionals.map(pro => (
+                      {professionals.map((pro, pIdx) => (
                         <button 
-                          key={pro.id}
+                          key={pro.id ? `pro-${pro.id}` : `pro-idx-${pIdx}`}
                           onClick={() => setSelectedProfessional(pro)}
                           className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${
                             selectedProfessional?.id === pro.id ? 'bg-emerald-500/10 border border-emerald-500/20' : 'hover:bg-gray-100 dark:hover:bg-white/5 border border-transparent'
@@ -2639,6 +2670,17 @@ export default function Dashboard() {
                   setShowShareModal(true);
                 }}
                 onNavigateTab={(tab) => handleTabChange(tab as any)}
+              />
+
+              {/* Carrossel de Dicas de Execução & Postura Correta */}
+              <WorkoutPostureCarousel 
+                onSelectExercise={(exerciseName) => {
+                  setToast({ 
+                    isVisible: true, 
+                    message: `Exercício "${exerciseName}" selecionado! Dica salva para seu treino.`, 
+                    type: 'success' 
+                  });
+                }}
               />
 
               <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 rounded-3xl p-3 sm:p-8 overflow-hidden">
@@ -3054,6 +3096,16 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
+
+              {/* Histórico e Linha do Tempo dos Treinos Concluídos */}
+              <WorkoutHistoryTracker 
+                targetUserId={profile?.uid}
+                onOpenShareModal={(badge) => {
+                  setShareInitialFormat('square');
+                  setShareAchievementBadge(badge ? { title: badge, description: 'Treino registrado no FitAI' } : undefined);
+                  setShowShareModal(true);
+                }}
+              />
             </div>
           )}
 
@@ -3080,6 +3132,21 @@ export default function Dashboard() {
                   <p className="text-3xl font-black text-yellow-600 dark:text-yellow-400">{(plan?.diet?.macros?.fat || '0').toString().replace(/g/g, '')}g</p>
                 </div>
               </div>
+
+              {/* Ferramenta de Cálculo e Ajuste de Macronutrientes */}
+              <MacroCalculator 
+                onSaved={() => {
+                  setToast({ isVisible: true, message: 'Metas de calorias e macros atualizadas com sucesso!', type: 'success' });
+                }}
+              />
+
+              {/* Gerador de Receitas com IA Gemini Baseado em Macronutrientes */}
+              <AiRecipeGenerator 
+                initialCalories={typeof plan?.diet?.calories === 'number' ? plan.diet.calories : parseInt((plan?.diet?.calories || '2000').toString().replace(/\D/g, '')) || 2000}
+                initialProtein={typeof plan?.diet?.macros?.protein === 'number' ? plan.diet.macros.protein : parseInt((plan?.diet?.macros?.protein || '150').toString().replace(/\D/g, '')) || 150}
+                initialCarbs={typeof plan?.diet?.macros?.carbs === 'number' ? plan.diet.macros.carbs : parseInt((plan?.diet?.macros?.carbs || '200').toString().replace(/\D/g, '')) || 200}
+                initialFat={typeof plan?.diet?.macros?.fat === 'number' ? plan.diet.macros.fat : parseInt((plan?.diet?.macros?.fat || '60').toString().replace(/\D/g, '')) || 60}
+              />
 
               {/* Meals Section */}
               <div id="diet-meals" className="relative overflow-hidden rounded-3xl bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-white/10 p-8 min-h-[500px] scroll-mt-24">
@@ -3655,6 +3722,14 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
+
+                <div className="mt-8">
+                  <MacroCalculator 
+                    onSaved={() => {
+                      setToast({ isVisible: true, message: 'Metas nutricionais atualizadas!', type: 'success' });
+                    }}
+                  />
+                </div>
               </div>
             )}
             </div>
@@ -3808,8 +3883,8 @@ export default function Dashboard() {
                                    <p className="font-bold text-gray-500 italic">Sincronizando com a base de dados...</p>
                                 </td>
                              </tr>
-                          ) : allUsers.map((u) => (
-                             <tr key={u.id} className="group hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                          ) : allUsers.map((u, uIdx) => (
+                             <tr key={u.id ? `user-row-${u.id}` : `user-row-idx-${uIdx}`} className="group hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                                 <td className="py-6">
                                    <div 
                                      className="flex items-center gap-3 cursor-pointer"
@@ -3888,11 +3963,11 @@ export default function Dashboard() {
                                             const { deleteDoc, doc } = await import('firebase/firestore');
                                             const { db } = await import('../firebase');
                                             await deleteDoc(doc(db, 'users', u.id));
-                                            setToast({ show: true, message: 'Usuário removido com sucesso.', type: 'success' });
+                                            showToast('Usuário removido com sucesso.', 'success');
                                             fetchAdminStats();
                                           } catch (err) {
                                             console.error("Error deleting user:", err);
-                                            setToast({ show: true, message: 'Erro ao remover usuário.', type: 'error' });
+                                            showToast('Erro ao remover usuário.', 'error');
                                           }
                                         }
                                       }}
@@ -4050,8 +4125,8 @@ export default function Dashboard() {
                           <div className="bg-green-600/5 border border-green-500/10 p-5 rounded-2xl">
                              <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-3">Adesão Alimentar</p>
                              <div className="space-y-3">
-                                {viewingUserHistory.plan?.diet?.meals?.map((m: any, mi: number) => m.realMealNotes && (
-                                   <div key={mi} className="border-l-2 border-green-500/30 pl-3">
+                                {viewingUserHistory.plan?.diet?.meals?.filter((m: any) => Boolean(m.realMealNotes)).map((m: any, mi: number) => (
+                                   <div key={`meal-note-${mi}-${m.name || ''}`} className="border-l-2 border-green-500/30 pl-3">
                                       <p className="text-[9px] font-black text-gray-500 uppercase">{m.name}</p>
                                       <p className="text-sm text-gray-400 italic">"{m.realMealNotes}"</p>
                                    </div>
@@ -4066,8 +4141,8 @@ export default function Dashboard() {
                           <div className="bg-purple-600/5 border border-purple-500/10 p-5 rounded-2xl">
                              <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest mb-3">Relatos de Treino</p>
                              <div className="space-y-3">
-                                {viewingUserHistory.plan?.days?.map((d: any, di: number) => d.realWorkoutNotes && (
-                                   <div key={di} className="border-l-2 border-purple-500/30 pl-3">
+                                {viewingUserHistory.plan?.days?.filter((d: any) => Boolean(d.realWorkoutNotes)).map((d: any, di: number) => (
+                                   <div key={`workout-note-${di}-${d.day || ''}`} className="border-l-2 border-purple-500/30 pl-3">
                                       <p className="text-[9px] font-black text-gray-500 uppercase">{d.day} - {d.focus}</p>
                                       <p className="text-sm text-gray-400 italic">"{d.realWorkoutNotes}"</p>
                                    </div>
@@ -4630,7 +4705,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {['FREE', 'PRO', 'PREMIUM', 'PROFISSIONAL'].map((p) => (
                       <button
-                        key={p}
+                        key={`admin-quick-plan-${p}`}
                         onClick={() => handleAdminPlanChange(p as PlanType)}
                         disabled={adminActionLoading}
                         className={`py-3 rounded-xl font-bold text-sm transition-all border ${

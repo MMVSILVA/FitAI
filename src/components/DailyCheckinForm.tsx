@@ -125,24 +125,41 @@ export const DailyCheckinForm: React.FC<DailyCheckinFormProps> = ({ className = 
     setIsSubmitting(true);
 
     try {
-      const numericWeight = weight ? parseFloat(weight.replace(',', '.')) : undefined;
-      const numericSleep = sleepHours ? parseFloat(sleepHours.replace(',', '.')) : undefined;
-      const numericWater = waterIntakeMl ? parseInt(waterIntakeMl) : undefined;
-      const numericCalories = caloriesConsumed ? parseInt(caloriesConsumed) : undefined;
+      const numericWeight = weight ? parseFloat(weight.replace(',', '.')) : null;
+      const numericSleep = sleepHours ? parseFloat(sleepHours.replace(',', '.')) : null;
+      const numericWater = waterIntakeMl ? parseInt(waterIntakeMl) : null;
+      const numericCalories = caloriesConsumed ? parseInt(caloriesConsumed) : null;
 
-      const checkinData: Omit<DailyCheckinEntry, 'id'> = {
+      const checkinData: Record<string, any> = {
         userId: user.uid,
         date,
-        weight: numericWeight,
-        sleepHours: numericSleep,
-        sleepQuality,
-        energyLevel,
-        stressLevel,
-        waterIntakeMl: numericWater,
-        caloriesConsumed: numericCalories,
-        notes: notes.trim(),
+        sleepQuality: Number(sleepQuality) || 3,
+        energyLevel: Number(energyLevel) || 3,
+        stressLevel: Number(stressLevel) || 3,
+        notes: (notes || '').trim(),
+        updatedAt: new Date().toISOString(),
         createdAt: new Date().toISOString()
       };
+
+      if (numericWeight !== null && !isNaN(numericWeight)) {
+        checkinData.weight = numericWeight;
+      }
+      if (numericSleep !== null && !isNaN(numericSleep)) {
+        checkinData.sleepHours = numericSleep;
+      }
+      if (numericWater !== null && !isNaN(numericWater)) {
+        checkinData.waterIntakeMl = numericWater;
+      }
+      if (numericCalories !== null && !isNaN(numericCalories)) {
+        checkinData.caloriesConsumed = numericCalories;
+      }
+
+      // Strip any undefined keys as Firestore rejects undefined
+      Object.keys(checkinData).forEach(key => {
+        if (checkinData[key] === undefined) {
+          delete checkinData[key];
+        }
+      });
 
       // 1. Save or update checkin in Firestore
       const docId = `${user.uid}_${date}`;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCw, X, Sparkles, Bell, Download } from 'lucide-react';
 // @ts-ignore - Virtual module handled by vite-plugin-pwa
@@ -8,8 +8,9 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { APP_VERSION } from '../constants';
 
 export function UpdateNotification() {
-  const [firestoreUpdate, setFirestoreUpdate] = useState<{ version: string; message: string } | null>(null);
+  const [detectedUpdate, setDetectedUpdate] = useState<{ version: string; message: string; source: 'server' | 'firestore' | 'pwa' } | null>(null);
   const [show, setShow] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Lógica de PWA (Service Worker) com proteção contra erros de runtime
   const swResult = useRegisterSW({
@@ -29,36 +30,73 @@ export function UpdateNotification() {
   const [needUpdate, setNeedUpdate] = needUpdateState;
   const updateServiceWorker = swResult && swResult.updateServiceWorker ? swResult.updateServiceWorker : (reload?: boolean) => Promise.resolve();
 
-  // Solicitar permissão de notificação nativa ao montar
+  // Função para checar versão diretamente no servidor via API REST
+  const checkServerVersion = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/version?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.version && data.version !== APP_VERSION) {
+          const dismissedForVersion = sessionStorage.getItem(`update_dismissed_${data.version}`);
+          if (dismissedForVersion !== 'true') {
+            console.log(`[UpdateSync] Nova versão detectada no servidor: ${data.version} (Atual: ${APP_VERSION})`);
+            setDetectedUpdate({
+              version: data.version,
+              message: `Nova versão ${data.version} disponível com melhorias e sincronização automática.`,
+              source: 'server'
+            });
+            setShow(true);
+          }
+        }
+      }
+    } catch (err) {
+      // Falha silenciosa de rede
+    }
+  }, []);
+
+  // Solicitar permissão de notificação nativa e iniciar polling periódico
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
-    // Verificação imediata e periódica de atualização do Service Worker
-    const checkUpdates = () => {
-      if (swResult.updateServiceWorker) {
-        console.log("PWA: Checking for updates...");
+    // Verificação inicial
+    checkServerVersion();
+
+    // Verificação periódica frequente a cada 20 segundos para sincronização real e automática
+    const interval = setInterval(() => {
+      checkServerVersion();
+      if (swResult?.updateServiceWorker) {
         swResult.updateServiceWorker(false);
       }
+    }, 20 * 1000);
+
+    // Verificação ao focar na janela / voltar à aba
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkServerVersion();
+      }
     };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
 
-    // Verifica logo ao abrir
-    checkUpdates();
-
-    // E periodicamente
-    const interval = setInterval(checkUpdates, 30 * 60 * 1000); // A cada 30 min para ser mais ágil
-
-    return () => clearInterval(interval);
-  }, [swResult]);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [checkServerVersion, swResult]);
 
   // Disparar notificação nativa automática no celular quando houver atualização
   useEffect(() => {
-    if ((needUpdate || firestoreUpdate) && 'Notification' in window && Notification.permission === 'granted') {
+    if ((needUpdate || detectedUpdate) && 'Notification' in window && Notification.permission === 'granted') {
       try {
-        const newVersion = firestoreUpdate?.version || 'Nova versão';
+        const newVersion = detectedUpdate?.version || 'Nova versão';
         const n = new Notification(`🚀 FitAI v${newVersion}`, {
-          body: `Nova atualização disponível! Clique para instalar as melhorias agora.`,
+          body: `Nova atualização disponível! Clique para sincronizar as melhorias agora.`,
           icon: '/favicon.svg',
           badge: '/favicon.svg',
           tag: 'fitai-update', 
@@ -75,8 +113,9 @@ export function UpdateNotification() {
         console.warn("Erro ao disparar notificação nativa:", e);
       }
     }
-  }, [needUpdate, firestoreUpdate]);
-  // Listener do Firestore (Backup para atualizações forçadas via DB)
+  }, [needUpdate, detectedUpdate]);
+
+  // Listener em tempo real do Firestore (para atualizações broadcastadas pelo Admin)
   useEffect(() => {
     let unsubscribe: () => void = () => {};
     
@@ -87,18 +126,16 @@ export function UpdateNotification() {
           const dismissedForVersion = sessionStorage.getItem(`update_dismissed_${data.latestVersion}`);
           
           if (data.latestVersion && data.latestVersion !== APP_VERSION && dismissedForVersion !== 'true') {
-            setFirestoreUpdate({
+            setDetectedUpdate({
               version: data.latestVersion,
-              message: data.updateMessage || 'Uma nova versão do FitAI está disponível com melhorias e correções.'
+              message: data.updateMessage || 'Uma nova versão do FitAI está disponível com melhorias e correções.',
+              source: 'firestore'
             });
             setShow(true);
           }
         }
       }, (error: any) => {
-        // Silenciar erro de permissão se as regras ainda estiverem propagando
-        if (error.code === 'permission-denied') {
-          console.warn("UpdateNotification: Acesso ao sistema ainda não disponível (regras propagando ou vácuo de permissão).");
-        } else {
+        if (error.code !== 'permission-denied') {
           console.error("UpdateNotification snapshot error:", error);
         }
       });
@@ -109,21 +146,40 @@ export function UpdateNotification() {
     return () => unsubscribe();
   }, []);
 
-  const handleUpdate = () => {
-    if (firestoreUpdate) {
-      sessionStorage.setItem(`update_dismissed_${firestoreUpdate.version}`, 'true');
+  const handleUpdate = async () => {
+    setIsUpdating(true);
+    if (detectedUpdate) {
+      sessionStorage.setItem(`update_dismissed_${detectedUpdate.version}`, 'true');
     }
     
-    if (needUpdate) {
-      updateServiceWorker(true);
-    } else {
-      window.location.reload();
+    try {
+      // 1. Limpar caches do browser (Service Worker Cache API) para garantir arquivos mais recentes
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(k => caches.delete(k)));
+      }
+
+      // 2. Atualizar Service Worker se presente
+      if (needUpdate) {
+        await updateServiceWorker(true);
+      } else if (navigator.serviceWorker) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const r of registrations) {
+          await r.update().catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("Cache clean error on update:", e);
     }
+
+    // 3. Forçar recarregamento limpo com timestamp
+    const separator = window.location.href.includes('?') ? '&' : '?';
+    window.location.href = window.location.href.split('#')[0] + separator + `_v=${Date.now()}`;
   };
 
   const handleDismiss = () => {
-    if (firestoreUpdate) {
-      sessionStorage.setItem(`update_dismissed_${firestoreUpdate.version}`, 'true');
+    if (detectedUpdate) {
+      sessionStorage.setItem(`update_dismissed_${detectedUpdate.version}`, 'true');
     }
     setShow(false);
     setOfflineReady(false);
@@ -143,7 +199,7 @@ export function UpdateNotification() {
         >
           <div className="bg-zinc-950 border border-purple-500/50 rounded-3xl p-6 shadow-[0_20px_50px_rgba(168,85,247,0.3)] backdrop-blur-xl relative overflow-hidden group">
             {/* Animación de brillo en el fondo */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-600/5 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-transparent pointer-events-none" />
             
             <div className="absolute top-4 right-4">
               <button 
@@ -157,30 +213,37 @@ export function UpdateNotification() {
 
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-purple-600/20 flex items-center justify-center shrink-0 border border-purple-500/30">
-                {needUpdate || firestoreUpdate ? (
-                  <RefreshCw className="w-6 h-6 text-purple-400 animate-spin-slow" />
+                {needUpdate || detectedUpdate ? (
+                  <RefreshCw className={`w-6 h-6 text-purple-400 ${isUpdating ? 'animate-spin' : 'animate-spin-slow'}`} />
                 ) : (
                   <Sparkles className="w-6 h-6 text-green-400" />
                 )}
               </div>
               
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-white mb-1">
-                  {needUpdate || firestoreUpdate ? 'Nova Atualização!' : 'Pronto para Uso Offline'}
-                </h3>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-bold text-white">
+                    {needUpdate || detectedUpdate ? 'Nova Atualização!' : 'Pronto para Uso Offline'}
+                  </h3>
+                  <span className="text-[10px] bg-purple-500/20 text-purple-300 font-bold px-2 py-0.5 rounded-full border border-purple-500/30 uppercase tracking-widest">
+                    Real-time
+                  </span>
+                </div>
+
                 <p className="text-sm text-gray-400 leading-relaxed mb-4">
-                  {needUpdate || firestoreUpdate 
-                    ? (firestoreUpdate?.message || 'Uma nova versão do FitAI está disponível com melhorias e correções de performance.')
+                  {needUpdate || detectedUpdate 
+                    ? (detectedUpdate?.message || 'Uma nova versão do FitAI está disponível com melhorias e correções de performance.')
                     : 'O FitAI foi salvo no seu dispositivo e agora funciona mesmo sem internet.'}
                 </p>
                 
-                {(needUpdate || firestoreUpdate) ? (
+                {(needUpdate || detectedUpdate) ? (
                   <button
                     onClick={handleUpdate}
-                    className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 active:scale-95"
+                    disabled={isUpdating}
+                    className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 active:scale-95 disabled:opacity-50"
                   >
-                    <Download className="w-5 h-5" />
-                    Atualizar Agora
+                    <Download className={`w-5 h-5 ${isUpdating ? 'animate-bounce' : ''}`} />
+                    {isUpdating ? 'Sincronizando Atualização...' : 'Atualizar Agora'}
                   </button>
                 ) : (
                   <button
@@ -191,9 +254,9 @@ export function UpdateNotification() {
                   </button>
                 )}
                 
-                {(needUpdate || firestoreUpdate) && (
-                  <p className="text-[9px] text-gray-600 mt-4 text-center uppercase tracking-[0.2em] font-black">
-                    Versão Atual: {APP_VERSION} {firestoreUpdate ? `→ ${firestoreUpdate.version}` : ''}
+                {(needUpdate || detectedUpdate) && (
+                  <p className="text-[9px] text-gray-500 mt-4 text-center uppercase tracking-[0.2em] font-black">
+                    Versão Instalada: {APP_VERSION} {detectedUpdate ? `→ v${detectedUpdate.version}` : ''}
                   </p>
                 )}
               </div>
@@ -204,3 +267,4 @@ export function UpdateNotification() {
     </AnimatePresence>
   );
 }
+

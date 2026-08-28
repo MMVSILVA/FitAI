@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, WorkoutPlan, Exercise } from '../types';
 import { RestIntervalTimer } from '../components/RestIntervalTimer';
+import { ChatView } from '../components/ChatView';
 
 export default function TrainerDashboard() {
   const { 
@@ -591,55 +592,12 @@ export default function TrainerDashboard() {
             {/* Chat Window */}
             <div className="flex-1 bg-zinc-950 border border-white/10 rounded-3xl flex flex-col overflow-hidden">
               {selectedChatClient ? (
-                <>
-                  <div className="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-white/10 rounded-full overflow-hidden">
-                        <img src={selectedChatClient.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedChatClient.email}`} alt="avatar" />
-                      </div>
-                      <span className="font-bold text-sm">{selectedChatClient.displayName || selectedChatClient.email}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {chatMessages.map(msg => (
-                      <div key={msg.id} className={`flex ${msg.fromId === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[70%] p-3 rounded-2xl text-sm ${msg.fromId === user?.uid ? 'bg-green-600 text-white' : 'bg-white/10 text-gray-200'}`}>
-                          {msg.text}
-                          <p className="text-[8px] mt-1 opacity-50">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {chatMessages.length === 0 && (
-                      <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                        <MessageCircle className="w-12 h-12 text-gray-700 mb-4" />
-                        <p className="text-gray-500 italic text-sm">Nenhuma mensagem ainda com este aluno.</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-white/5 flex gap-2">
-                    <input 
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Sua mensagem..."
-                      className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:ring-1 focus:ring-green-500"
-                    />
-                    <button 
-                      type="submit"
-                      disabled={isSending || !newMessage.trim()}
-                      className="bg-green-500 text-black p-2 rounded-xl hover:bg-green-400 disabled:opacity-50 transition-all"
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
-                  </form>
-                </>
+                <ChatView selectedProfessional={selectedChatClient} />
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
                   <MessageCircle className="w-16 h-16 text-gray-800 mb-6" />
                   <h3 className="text-xl font-bold mb-2">Selecione uma conversa</h3>
-                  <p className="text-gray-500 max-w-xs">Escolha um aluno na lista ao lado para ver o histórico e enviar novas mensagens.</p>
+                  <p className="text-gray-500 max-w-xs">Escolha um aluno na lista ao lado para ver o histórico e enviar novas mensagens com emojis, fotos e documentos.</p>
                 </div>
               )}
             </div>

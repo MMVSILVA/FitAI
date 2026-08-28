@@ -86,7 +86,7 @@ service cloud.firestore {
     function isValidMessage(data) {
       return data.fromId == request.auth.uid &&
              data.toId is string && data.toId.size() <= 128 &&
-             data.text is string && data.text.size() <= 2000;
+             data.text is string && data.text.size() <= 5000;
     }
 
     function isValidExerciseProgress(data) {
@@ -172,12 +172,13 @@ service cloud.firestore {
     // Community Messages (Moderated)
     match /community_messages/{messageId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && incoming().text.size() <= 1000 && incoming().fromId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().fromId == request.auth.uid;
       allow update: if isSignedIn() && (
-        // Only allow adding reactions
+        isAdmin() ||
+        (resource.data.fromId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'isEdited', 'editedAt', 'reactions'])) ||
         incoming().diff(existing()).affectedKeys().hasOnly(['reactions'])
       );
-      allow delete: if isAdmin();
+      allow delete: if isSignedIn() && (resource.data.fromId == request.auth.uid || isAdmin());
     }
 
     // Reports (System Security)
@@ -227,7 +228,7 @@ service cloud.firestore {
                       incoming().diff(existing()).affectedKeys().hasOnly(['weight', 'bodyFat', 'photos', 'date', 'measurements']);
     }
 
-    // Messages
+    // Messages (Direct 1-on-1 Chat)
     match /messages/{messageId} {
       allow read: if isSignedIn() && (
         resource.data.fromId == request.auth.uid || 
@@ -235,6 +236,12 @@ service cloud.firestore {
         isAdmin()
       );
       allow create: if isOwner(incoming().fromId) && isValidMessage(incoming());
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (resource.data.fromId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'isEdited', 'editedAt', 'reactions'])) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['reactions'])
+      );
+      allow delete: if isSignedIn() && (resource.data.fromId == request.auth.uid || isAdmin());
     }
 
     // Weight History

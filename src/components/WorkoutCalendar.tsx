@@ -254,7 +254,7 @@ export function WorkoutCalendar({
             {daysInMonth.map((dayObj, idx) => {
               if (dayObj.isPadding) {
                 return (
-                  <div key={idx} className="h-16 sm:h-22 rounded-2xl bg-zinc-900/10 border border-transparent" />
+                  <div key={`cal-pad-${idx}`} className="h-16 sm:h-22 rounded-2xl bg-zinc-900/10 border border-transparent" />
                 );
               }
 
@@ -262,7 +262,7 @@ export function WorkoutCalendar({
 
               return (
                 <motion.button
-                  key={idx}
+                  key={`cal-day-${dayObj.dateStr || idx}`}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleDateClick(dayObj)}

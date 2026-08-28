@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useUser } from '../store/userStore';
-import { CheckCircle2, ShieldCheck, ArrowLeft, ExternalLink, AlertCircle, Sparkles, Check, Loader2, Tag } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, ArrowLeft, ExternalLink, AlertCircle, Sparkles, Check, Tag } from 'lucide-react';
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
@@ -10,8 +10,7 @@ export default function Checkout() {
   const plan = rawPlan.toUpperCase() as 'PRO' | 'PREMIUM' | 'PROFISSIONAL';
   const navigate = useNavigate();
   const { user, authLoading } = useUser();
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage] = useState<string | null>(null);
 
   const isComingSoon = plan === 'PREMIUM' || plan === 'PROFISSIONAL';
 
@@ -43,85 +42,16 @@ export default function Checkout() {
   };
 
   const getManualLink = () => {
-    if (isComingSoon) return null;
-    const base = stripeLinkPro.trim();
-    if (!isValidUrl(base)) return null;
+    if (isComingSoon) return defaultProLink;
+    const base = stripeLinkPro.trim() || defaultProLink;
+    if (!isValidUrl(base)) return defaultProLink;
     
     const separator = base.includes('?') ? '&' : '?';
     return `${base}${user?.uid ? separator + 'client_reference_id=' + encodeURIComponent(user.uid) : ''}${user?.email ? (user?.uid ? '&' : '?') + 'prefilled_email=' + encodeURIComponent(user.email) : ''}`;
   };
 
   const hasValidDirectLink = isValidUrl(stripeLinkPro);
-  const finalPaymentUrl = getManualLink();
-
-  const handleProceedToPayment = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (isComingSoon || loading) return;
-
-    setLoading(true);
-    setErrorMessage(null);
-
-    // Se o link direto estiver configurado, redireciona diretamente e de forma instantânea
-    const targetUrl = finalPaymentUrl;
-    if (targetUrl && isValidUrl(targetUrl)) {
-      if (window.self !== window.top) {
-        try {
-          window.top!.location.href = targetUrl;
-          return;
-        } catch {
-          window.location.href = targetUrl;
-          return;
-        }
-      } else {
-        window.location.href = targetUrl;
-        return;
-      }
-    }
-
-    try {
-      // Cria a sessão dinâmica do Stripe Checkout com o Price ID configurado
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          plan: 'PRO',
-          userId: user?.uid,
-          userEmail: user?.email,
-        }),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (response.ok && data?.url && isValidUrl(data.url)) {
-        if (window.self !== window.top) {
-          try {
-            window.top!.location.href = data.url;
-            return;
-          } catch {
-            window.location.href = data.url;
-            return;
-          }
-        } else {
-          window.location.href = data.url;
-          return;
-        }
-      }
-
-      // Se a API retornou erro específico
-      if (data?.error) {
-        setErrorMessage(data.error);
-      } else {
-        setErrorMessage("Erro ao iniciar sessão de pagamento. Tente novamente.");
-      }
-    } catch (err: any) {
-      console.warn("API checkout session redirect error:", err);
-      setErrorMessage("Não foi possível conectar ao servidor de pagamento.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const finalPaymentUrl = getManualLink() || defaultProLink;
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white p-6 flex flex-col items-center justify-center relative overflow-hidden transition-colors duration-300">
@@ -263,24 +193,17 @@ export default function Checkout() {
                 Plano Em Breve (Indisponível)
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={handleProceedToPayment}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-lg transition-all shadow-xl uppercase tracking-wider bg-green-600 hover:bg-green-500 disabled:bg-green-700/60 text-white shadow-green-600/20 active:scale-[0.98] text-center cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    Iniciando Checkout...
-                  </>
-                ) : (
-                  <>
-                    Ir para o Pagamento
-                    <ExternalLink className="w-5 h-5" />
-                  </>
-                )}
-              </button>
+              <div className="space-y-3">
+                <a
+                  href={finalPaymentUrl || defaultProLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl font-black text-lg transition-all shadow-xl uppercase tracking-wider bg-green-600 hover:bg-green-500 text-white shadow-green-600/20 active:scale-[0.98] text-center cursor-pointer block"
+                >
+                  Ir para o Pagamento
+                  <ExternalLink className="w-5 h-5" />
+                </a>
+              </div>
             )}
 
             <div className="pt-4 flex flex-col items-center justify-center gap-2">

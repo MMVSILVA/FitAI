@@ -1,2 +1,4 @@
-export const APP_VERSION = '1.0.3';
-export const LAST_UPDATE = '2024-04-24T13:46:00Z';
+import { APP_VERSION, BUILD_DATE } from './constants';
+
+export { APP_VERSION, BUILD_DATE };
+export const LAST_UPDATE = '2026-08-28T05:40:00Z';

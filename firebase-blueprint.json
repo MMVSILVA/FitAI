@@ -75,12 +75,22 @@
     },
     "Message": {
       "title": "Message",
-      "description": "Chat message data",
+      "description": "Chat message data for community and direct messages",
       "type": "object",
       "properties": {
         "fromId": { "type": "string" },
         "toId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "senderRole": { "type": "string" },
         "text": { "type": "string" },
+        "isEdited": { "type": "boolean" },
+        "editedAt": { "type": "string", "format": "date-time" },
+        "reactions": { "type": "object" },
+        "fileUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileType": { "type": "string" },
+        "fileSize": { "type": "number" },
         "timestamp": { "type": "string", "format": "date-time" }
       }
     },
