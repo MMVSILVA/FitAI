@@ -88,7 +88,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [linkedNutritionistId, setLinkedNutritionistId] = useState<string | undefined>();
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>('system');
+  const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>(() => {
+    try {
+      const saved = localStorage.getItem('fitai_theme');
+      if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+    } catch (e) {}
+    return 'dark';
+  });
 
   useEffect(() => {
     if (user?.email) {
@@ -299,9 +305,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (data.linkedTrainerId) setLinkedTrainerId(data.linkedTrainerId);
               if (data.linkedNutritionistId) setLinkedNutritionistId(data.linkedNutritionistId);
               if (data.favorites) setFavorites(data.favorites);
-              if (data.theme) {
-                setThemeState(data.theme);
-                document.documentElement.classList.toggle('dark', data.theme === 'dark');
+              const savedTheme = data.theme || (data.profile && data.profile.theme);
+              if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+                setThemeState(savedTheme);
+                updateDocumentTheme(savedTheme);
+                try {
+                  localStorage.setItem('fitai_theme', savedTheme);
+                } catch (e) {}
               }
               setPlanType((data.planType as PlanType) || 'FREE');
               setTrialEndsAt(data.trialEndsAt || null);
@@ -463,21 +473,29 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateDocumentTheme = (themeValue: 'light' | 'dark' | 'system') => {
-    if (themeValue === 'system') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.toggle('dark', isDark);
+    if (typeof document === 'undefined') return;
+    const isDark = themeValue === 'system'
+      ? (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? true)
+      : themeValue === 'dark';
+    
+    if (isDark) {
+      document.documentElement.classList.add('dark');
     } else {
-      document.documentElement.classList.toggle('dark', themeValue === 'dark');
+      document.documentElement.classList.remove('dark');
     }
   };
 
   useEffect(() => {
     updateDocumentTheme(theme);
     
-    if (theme === 'system') {
+    if (theme === 'system' && typeof window !== 'undefined' && window.matchMedia) {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = (e: MediaQueryListEvent) => {
-        document.documentElement.classList.toggle('dark', e.matches);
+        if (e.matches) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       };
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
@@ -491,6 +509,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (newProfile.theme) {
       setThemeState(newProfile.theme);
       updateDocumentTheme(newProfile.theme);
+      try {
+        localStorage.setItem('fitai_theme', newProfile.theme);
+      } catch (e) {}
     }
   };
 
@@ -509,6 +530,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     endDate.setDate(endDate.getDate() + 7);
     const dateString = endDate.toISOString();
     setTrialEndsAt(dateString);
+    try {
+      localStorage.setItem('fitai_trial_ends', dateString);
+      if (user) {
+        const cachedProf = localStorage.getItem(`fitai_profile_${user.uid}`);
+        if (cachedProf) {
+          const parsed = JSON.parse(cachedProf);
+          parsed.trialEndsAt = dateString;
+          localStorage.setItem(`fitai_profile_${user.uid}`, JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {
+      console.warn("Error saving trial to localStorage:", e);
+    }
+    setProfileState(prev => prev ? { ...prev, trialEndsAt: dateString } : prev);
     saveToFirestore({ trialEndsAt: dateString });
   };
 
@@ -524,29 +559,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setTheme = (newTheme: 'light' | 'dark' | 'system') => {
     setThemeState(newTheme);
     updateDocumentTheme(newTheme);
+    try {
+      localStorage.setItem('fitai_theme', newTheme);
+    } catch (e) {}
     setProfile({ theme: newTheme });
+    saveToFirestore({ theme: newTheme });
   };
 
   const toggleTheme = () => {
-    const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
-    const currentIndex = themes.indexOf(theme);
-    const newTheme = themes[(currentIndex + 1) % themes.length];
-    
+    const isCurrentlyDark = theme === 'dark' || (theme === 'system' && (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)')?.matches));
+    const newTheme: 'light' | 'dark' = isCurrentlyDark ? 'light' : 'dark';
     setTheme(newTheme);
   };
-
-  useEffect(() => {
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = (e: MediaQueryListEvent) => {
-        document.documentElement.classList.toggle('dark', e.matches);
-      };
-      
-      document.documentElement.classList.toggle('dark', mediaQuery.matches);
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
-  }, [theme]);
 
   const updateExerciseWeight = (dayIndex: number, exerciseIndex: number, weight: string) => {
     if (!plan) return;
@@ -739,22 +763,24 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
+    const newTrialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
     // Immediate optimistic local updates
     setPlanType('FREE');
     setSubscriptionEndsAt(null);
-    setTrialEndsAt(null);
+    setTrialEndsAt(newTrialEnd);
     setProfileState(prev => prev ? { 
       ...prev, 
       planType: 'FREE', 
       isPremium: false, 
       subscriptionEndsAt: undefined, 
-      trialEndsAt: undefined 
+      trialEndsAt: newTrialEnd 
     } : prev);
 
-    // Clean all local storage caches
+    // Clean and update local storage caches
     try {
       localStorage.setItem('fitai_plan_type', 'FREE');
-      localStorage.removeItem('fitai_trial_ends');
+      localStorage.setItem('fitai_trial_ends', newTrialEnd);
       localStorage.removeItem('fitai_subscription_ends');
       
       const cachedProf = localStorage.getItem(`fitai_profile_${user.uid}`);
@@ -763,11 +789,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         parsed.planType = 'FREE';
         parsed.isPremium = false;
         delete parsed.subscriptionEndsAt;
-        delete parsed.trialEndsAt;
+        parsed.trialEndsAt = newTrialEnd;
         localStorage.setItem(`fitai_profile_${user.uid}`, JSON.stringify(parsed));
       }
     } catch (e) {
-      console.warn("Error clearing localStorage on reset simulation:", e);
+      console.warn("Error updating localStorage on reset simulation:", e);
     }
 
     try {
@@ -777,13 +803,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         planType: 'FREE',
         isPremium: false,
         subscriptionEndsAt: null,
-        trialEndsAt: null,
+        trialEndsAt: newTrialEnd,
         updatedAt: new Date().toISOString()
       });
-      return { success: true, message: 'Simulação resetada com sucesso! Você agora está no plano FREE.' };
+      return { success: true, message: 'Simulação resetada! Período de teste de 7 dias renovado com sucesso.' };
     } catch (error: any) {
       console.error("Error resetting simulation in Firestore:", error);
-      return { success: true, message: 'Simulação resetada localmente para o plano FREE.' };
+      return { success: true, message: 'Simulação resetada localmente com 7 dias de teste.' };
     }
   };
 

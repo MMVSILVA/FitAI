@@ -12,6 +12,16 @@
     <link rel="mask-icon" href="/favicon.svg" color="#a855f7" />
     <link rel="manifest" href="/manifest.json" />
     <title>FitAI - Uma saúde compatível </title>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('fitai_theme');
+          var isDark = saved === 'dark' || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        } catch(e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root">Carregando FitAI...</div>

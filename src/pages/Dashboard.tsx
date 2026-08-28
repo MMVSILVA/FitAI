@@ -1052,7 +1052,8 @@ export default function Dashboard() {
   }, [showAdminModal, activeTab]);
 
   const handleAdminPlanChange = async (newPlan: PlanType) => {
-    if (!isAdmin || !user) return;
+    const isUserAdmin = isAdmin || user?.email?.toLowerCase().trim() === 'vinidoctor@gmail.com' || role === 'admin';
+    if (!isUserAdmin || !user) return;
     setAdminActionLoading(true);
     try {
       const { doc, updateDoc } = await import('firebase/firestore');
@@ -1066,8 +1067,9 @@ export default function Dashboard() {
       };
 
       if (isFree) {
+        const futureTrial = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
         updates.subscriptionEndsAt = null;
-        updates.trialEndsAt = null;
+        updates.trialEndsAt = futureTrial;
       } else {
         const futureDate = new Date();
         futureDate.setDate(futureDate.getDate() + 30);
@@ -1075,8 +1077,8 @@ export default function Dashboard() {
       }
 
       await updateDoc(doc(db, 'users', user.uid), updates);
-      setAdminFeedback({ type: 'success', msg: `Plano alterado para ${newPlan}` });
-      showToast(`Plano alterado para ${newPlan}`, 'success');
+      setAdminFeedback({ type: 'success', msg: `Plano alterado para ${newPlan}${isFree ? ' com 7 dias de teste' : ''}` });
+      showToast(`Plano alterado para ${newPlan}${isFree ? ' com período de teste ativo' : ''}`, 'success');
     } catch (error) {
       console.error("Error updating admin plan:", error);
       setAdminFeedback({ type: 'error', msg: 'Erro ao atualizar plano' });
@@ -1088,15 +1090,16 @@ export default function Dashboard() {
   };
 
   const handleResetSimulation = async () => {
-    if (!isAdmin || !user) {
+    const isUserAdmin = isAdmin || user?.email?.toLowerCase().trim() === 'vinidoctor@gmail.com' || role === 'admin';
+    if (!isUserAdmin || !user) {
       showToast('⚠️ Apenas administradores podem resetar o plano/simulação.', 'error');
       return;
     }
     setAdminActionLoading(true);
     try {
       const res = await resetSimulation();
-      setAdminFeedback({ type: 'success', msg: res.message || 'Simulação resetada para o plano FREE' });
-      showToast('🔄 Simulação resetada! Você voltou ao plano FREE com sucesso.', 'success');
+      setAdminFeedback({ type: 'success', msg: res.message || 'Período de teste de 7 dias renovado com sucesso!' });
+      showToast('🔄 Período de teste de 7 dias renovado no plano FREE com sucesso!', 'success');
     } catch (error: any) {
       console.error("Error resetting simulation:", error);
       setAdminFeedback({ type: 'error', msg: 'Erro ao resetar simulação' });
@@ -1420,15 +1423,15 @@ export default function Dashboard() {
           </div>
         </div>
         
-        {isAdmin && (
+        {(isAdmin || user?.email?.toLowerCase().trim() === 'vinidoctor@gmail.com') && (
           <button 
             onClick={handleResetSimulation}
             disabled={adminActionLoading}
             className="mt-8 text-red-500 hover:text-red-400 font-bold uppercase tracking-widest text-xs hover:underline flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-            title="Resetar nível de acesso e voltar para o plano FREE"
+            title="Resetar nível de acesso e voltar para o período de teste de 7 dias (FREE)"
           >
             <RotateCcw className={`w-4 h-4 ${adminActionLoading ? 'animate-spin' : ''}`} /> 
-            {adminActionLoading ? 'Resetando...' : 'Resetar Simulação (Admin - Voltar para FREE)'}
+            {adminActionLoading ? 'Resetando...' : 'Resetar Simulação (Voltar ao Período de Teste - 7 Dias)'}
           </button>
         )}
       </div>
@@ -3776,10 +3779,11 @@ export default function Dashboard() {
                     <button
                       onClick={handleResetSimulation}
                       disabled={adminActionLoading}
-                      className="text-xs font-black bg-red-600/20 text-red-500 border border-red-500/30 px-3 py-1.5 rounded-xl hover:bg-red-600/30 transition-all flex items-center gap-1.5"
+                      className="text-xs font-black bg-red-600/20 text-red-500 border border-red-500/30 px-3 py-1.5 rounded-xl hover:bg-red-600/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Resetar para o plano FREE com 7 dias de período de teste ativos"
                     >
                       <RotateCcw className={`w-3.5 h-3.5 ${adminActionLoading ? 'animate-spin' : ''}`} />
-                      Resetar para FREE
+                      Resetar para Período de Teste (7d)
                     </button>
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -4696,10 +4700,11 @@ export default function Dashboard() {
                     <button
                       onClick={handleResetSimulation}
                       disabled={adminActionLoading}
-                      className="text-xs font-bold text-red-500 hover:text-red-400 flex items-center gap-1 hover:underline transition-all cursor-pointer"
+                      className="text-xs font-bold text-red-500 hover:text-red-400 flex items-center gap-1 hover:underline transition-all cursor-pointer disabled:opacity-50"
+                      title="Resetar para o plano FREE com 7 dias de período de teste ativos"
                     >
                       <RotateCcw className={`w-3.5 h-3.5 ${adminActionLoading ? 'animate-spin' : ''}`} />
-                      Resetar para FREE
+                      Resetar Período de Teste (7d)
                     </button>
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
