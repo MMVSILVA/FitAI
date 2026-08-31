@@ -1826,156 +1826,164 @@ export default function Dashboard() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 sm:gap-4 mb-8 border-b border-white/10 pb-4 overflow-x-auto no-scrollbar -mx-3 px-3 scroll-smooth">
-          <div className="flex gap-2 sm:gap-4 min-w-max">
+        <div className="flex gap-2.5 sm:gap-4 mb-8 border-b border-gray-200 dark:border-white/10 pb-4 overflow-x-auto no-scrollbar -mx-3 px-3 scroll-smooth touch-pan-x">
+          <div className="flex items-center gap-2.5 sm:gap-4 min-w-max py-1">
             {isAdmin && (
               <button 
                 onClick={() => handleTabChange('admin')}
-                className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-8 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-base whitespace-nowrap ${
+                className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-8 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
                   activeTab === 'admin' 
-                  ? 'bg-red-600 text-white shadow-xl shadow-red-600/20' 
-                  : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+                  ? 'bg-red-600 text-white shadow-xl shadow-red-600/30 ring-2 ring-red-400/40' 
+                  : 'bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/30 hover:bg-red-500/20'
                 }`}
               >
-                <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
                 Painel ADM
               </button>
             )}
             <button 
               onClick={() => handleTabChange('routine')}
-              className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-8 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-base whitespace-nowrap ${
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-8 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
                 activeTab === 'routine' 
-                  ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20' 
-                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                  ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/30 ring-2 ring-orange-400/40' 
+                  : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
               }`}
             >
-              <LayoutDashboard className="w-4 h-4 sm:w-5 sm:h-5" />
+              <LayoutDashboard className="w-5 h-5 sm:w-6 sm:h-6" />
               Início
             </button>
-          <button 
-            onClick={() => handleTabChange('workout')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'workout' ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6" />
-            Treino
-          </button>
-          <button 
-            onClick={() => handleTabChange('calendar')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'calendar' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
-            Calendário
-          </button>
-          <button 
-            onClick={() => handleTabChange('library')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'library' ? 'bg-zinc-700 text-white border border-white/20 shadow-xl' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
-            Biblioteca
-          </button>
-          <button 
-            onClick={() => handleTabChange('diet')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'diet' ? 'bg-green-500 text-black shadow-xl shadow-green-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Apple className="w-5 h-5 sm:w-6 sm:h-6" />
-            Dieta
-          </button>
-          <button 
-            onClick={() => handleTabChange('evolution')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'evolution' 
-                ? 'bg-blue-500 text-white shadow-xl shadow-blue-500/20' 
-                : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" />
-            Evolução
-          </button>
-          
-          {/* Personal Tab */}
-          <button 
-            onClick={() => handleTabChange('personal')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'personal' 
-                ? (hasProfessionalAccess ? 'bg-purple-900 border border-purple-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
-                : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${hasProfessionalAccess ? '' : 'text-gray-600'}`} />
-            {isAdmin || role === 'trainer' ? 'Gestão Trainer' : 'Personal'}
-            {!hasProfessionalAccess && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
-          </button>
+            <button 
+              onClick={() => handleTabChange('workout')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'workout' 
+                  ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/30 ring-2 ring-purple-400/40' 
+                  : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6" />
+              Treino
+            </button>
+            <button 
+              onClick={() => handleTabChange('calendar')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'calendar' 
+                  ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 ring-2 ring-indigo-400/40' 
+                  : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+              Calendário
+            </button>
+            <button 
+              onClick={() => handleTabChange('library')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'library' 
+                  ? 'bg-zinc-800 dark:bg-zinc-700 text-white border-2 border-purple-500/50 shadow-xl shadow-purple-900/20 ring-2 ring-purple-400/40' 
+                  : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500 dark:text-purple-400" />
+              Biblioteca
+            </button>
+            <button 
+              onClick={() => handleTabChange('diet')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'diet' 
+                  ? 'bg-green-500 text-black shadow-xl shadow-green-600/30 ring-2 ring-green-400/50' 
+                  : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <Apple className="w-5 h-5 sm:w-6 sm:h-6" />
+              Dieta
+            </button>
+            <button 
+              onClick={() => handleTabChange('evolution')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'evolution' 
+                  ? 'bg-blue-500 text-white shadow-xl shadow-blue-500/30 ring-2 ring-blue-400/40' 
+                  : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" />
+              Evolução
+            </button>
+            
+            {/* Personal Tab */}
+            <button 
+              onClick={() => handleTabChange('personal')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'personal' 
+                  ? (hasProfessionalAccess ? 'bg-purple-900 border border-purple-500 text-white shadow-xl ring-2 ring-purple-400/40' : 'bg-zinc-800 text-gray-500 border border-white/5') 
+                  : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${hasProfessionalAccess ? '' : 'text-gray-500'}`} />
+              {isAdmin || role === 'trainer' ? 'Gestão Trainer' : 'Personal'}
+              {!hasProfessionalAccess && <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-1 text-gray-500" />}
+            </button>
 
-          {/* Nutritionist Tab */}
-          <button 
-            onClick={() => handleTabChange('nutrition')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'nutrition' 
-              ? (hasNutriAccess ? 'bg-green-900 border border-green-500 text-white shadow-xl' : 'bg-zinc-800 text-gray-500 border border-white/5') 
-              : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${hasNutriAccess ? '' : 'text-gray-600'}`} />
-            {isAdmin || role === 'nutritionist' ? 'Gestão Nutri' : 'Nutri'}
-            {!hasNutriAccess && <Lock className="w-3 h-3 sm:w-4 sm:h-4 ml-1 text-gray-600" />}
-          </button>
-          <button 
-            onClick={() => handleTabChange('chat')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'chat' 
-              ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/20' 
-              : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-            Chat
-          </button>
-          
-          <button 
-            onClick={() => handleTabChange('ranking')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'ranking' 
-              ? 'bg-yellow-500 text-black shadow-xl shadow-yellow-600/20' 
-              : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
-            Ranking
-          </button>
+            {/* Nutritionist Tab */}
+            <button 
+              onClick={() => handleTabChange('nutrition')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'nutrition' 
+                ? (hasNutriAccess ? 'bg-green-900 border border-green-500 text-white shadow-xl ring-2 ring-green-400/40' : 'bg-zinc-800 text-gray-500 border border-white/5') 
+                : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <Apple className={`w-5 h-5 sm:w-6 sm:h-6 ${hasNutriAccess ? '' : 'text-gray-500'}`} />
+              {isAdmin || role === 'nutritionist' ? 'Gestão Nutri' : 'Nutri'}
+              {!hasNutriAccess && <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-1 text-gray-500" />}
+            </button>
+            <button 
+              onClick={() => handleTabChange('chat')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'chat' 
+                ? 'bg-purple-600 text-white shadow-xl shadow-purple-600/30 ring-2 ring-purple-400/40' 
+                : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+              Chat
+            </button>
+            
+            <button 
+              onClick={() => handleTabChange('ranking')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'ranking' 
+                ? 'bg-yellow-500 text-black shadow-xl shadow-yellow-600/30 ring-2 ring-yellow-400/50' 
+                : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
+              Ranking
+            </button>
 
-          <button 
-            onClick={() => handleTabChange('gyms')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'gyms' 
-              ? 'bg-red-500 text-white shadow-xl shadow-red-600/20' 
-              : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
-            Academias
-          </button>
+            <button 
+              onClick={() => handleTabChange('gyms')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'gyms' 
+                ? 'bg-red-500 text-white shadow-xl shadow-red-600/30 ring-2 ring-red-400/40' 
+                : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
+              Academias
+            </button>
 
-          <button 
-            onClick={() => handleTabChange('professionals')}
-            className={`flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-10 py-3 sm:py-4 rounded-full font-black transition-all text-sm sm:text-lg whitespace-nowrap ${
-              activeTab === 'professionals' 
-              ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' 
-              : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Users className="w-5 h-5 sm:w-6 sm:h-6" />
-            Profissionais
-          </button>
+            <button 
+              onClick={() => handleTabChange('professionals')}
+              className={`flex items-center justify-center gap-2.5 sm:gap-3.5 px-6 sm:px-9 py-3.5 sm:py-4.5 min-h-[48px] sm:min-h-[56px] rounded-full font-black transition-all text-base sm:text-lg whitespace-nowrap active:scale-95 shrink-0 ${
+                activeTab === 'professionals' 
+                ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 ring-2 ring-blue-400/40' 
+                : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+              }`}
+            >
+              <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+              Profissionais
+            </button>
+          </div>
         </div>
-      </div>
 
         {/* Content */}
         <motion.div

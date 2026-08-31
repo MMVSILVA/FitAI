@@ -49,7 +49,9 @@ export function evaluateUserGamification(profile: UserProfile | null): Gamificat
   const favoritesCount = profile.favorites?.length || 0;
   const joinedChallengesCount = profile.joinedChallenges?.length || 0;
   const weightHistoryCount = profile.weightHistory?.length || (profile.weight ? 1 : 0);
-  const hydrationStreak = profile.hydration?.streakDays || (profile.hydration && profile.hydration.currentMl >= profile.hydration.targetMl ? 1 : 0);
+  const totalHydrationMl = profile.hydration?.logs?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
+  const hydrationGoal = profile.hydration?.goal || 2000;
+  const hydrationStreak = profile.hydration?.streakDays || (totalHydrationMl >= hydrationGoal && hydrationGoal > 0 ? 1 : 0);
   
   const currentWeight = profile.weight || 0;
   const targetWeight = profile.targetWeight || 0;

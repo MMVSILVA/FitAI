@@ -58,22 +58,101 @@ export const ExerciseLibrary = () => {
 
   const [error, setError] = useState<string | null>(null);
 
+  // Client-side cache of the full database for offline or direct fallback
+  const clientDbRef = React.useRef<any[] | null>(null);
+
+  const fetchDirectFallback = async (searchTerm: string, cursorIndex: number, limit = 20) => {
+    try {
+      if (!clientDbRef.current) {
+        const urls = [
+          'https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/dist/exercises.json',
+          'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json'
+        ];
+        for (const u of urls) {
+          try {
+            const resp = await fetch(u, { signal: AbortSignal.timeout(6000) });
+            if (resp.ok) {
+              const parsed = await resp.json();
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                clientDbRef.current = parsed;
+                break;
+              }
+            }
+          } catch (err) {}
+        }
+      }
+
+      if (clientDbRef.current && clientDbRef.current.length > 0) {
+        const query = searchTerm.toLowerCase().trim();
+        let filtered = clientDbRef.current;
+        if (query && query !== 'all') {
+          filtered = clientDbRef.current.filter((ex: any) => {
+            const name = (ex.name || '').toLowerCase();
+            const bodyPart = (ex.bodyPart || '').toLowerCase();
+            const target = (ex.target || '').toLowerCase();
+            const category = (ex.category || '').toLowerCase();
+            const muscles = Array.isArray(ex.primaryMuscles) ? ex.primaryMuscles.join(' ').toLowerCase() : '';
+            return name.includes(query) || bodyPart.includes(query) || target.includes(query) || category.includes(query) || muscles.includes(query);
+          });
+        }
+
+        const page = filtered.slice(cursorIndex, cursorIndex + limit);
+        const mapped: ExerciseDBItem[] = page.map((item: any) => ({
+          exerciseId: item.id || item.exerciseId || `ex-${Math.random().toString(36).substr(2, 9)}`,
+          name: item.name,
+          gifUrl: item.gifUrl || (item.images && item.images.length > 0 ? `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${item.images[0]}` : ''),
+          bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : (item.primaryMuscles || [item.bodyPart || 'other']),
+          equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
+          targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : (item.primaryMuscles || [item.target || 'various']),
+          secondaryMuscles: item.secondaryMuscles || [],
+          instructions: item.instructions || []
+        }));
+
+        return {
+          success: true,
+          data: mapped,
+          meta: {
+            hasNextPage: cursorIndex + limit < filtered.length,
+            nextCursor: cursorIndex + limit < filtered.length ? String(cursorIndex + limit) : null
+          }
+        };
+      }
+    } catch (e) {
+      console.warn("Direct fallback error:", e);
+    }
+    return null;
+  };
+
   const fetchExercises = async (isNewSearch = false, searchTermOverride?: string) => {
     setLoading(true);
     setError(null);
     try {
       const currentCursor = isNewSearch ? '' : cursor || '';
-      const apiSearchTerm = ptToEnSearch(searchTermOverride !== undefined ? searchTermOverride : search);
+      const termToSearch = searchTermOverride !== undefined ? searchTermOverride : search;
+      const apiSearchTerm = ptToEnSearch(termToSearch);
       const url = `/api/exercises/search?limit=20&name=${encodeURIComponent(apiSearchTerm)}&cursor=${currentCursor}`;
-      const res = await fetch(url);
       
-      if (!res.ok) {
-        throw new Error(`Erro na API: ${res.status}`);
+      let data: any = null;
+
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (networkError) {
+        console.warn("Primary API search route unavailable, using direct repository fallback...", networkError);
       }
 
-      const data = await res.json();
+      // If API returned empty or failed (404/500/timeout), use high-speed client-side repository fallback
+      if (!data || !data.success || !Array.isArray(data.data) || (isNewSearch && data.data.length === 0 && termToSearch)) {
+        const cursorNum = currentCursor ? parseInt(currentCursor) || 0 : 0;
+        const fallbackRes = await fetchDirectFallback(apiSearchTerm || termToSearch, cursorNum);
+        if (fallbackRes && fallbackRes.data.length > 0) {
+          data = fallbackRes;
+        }
+      }
       
-      if (data.success) {
+      if (data && data.success && Array.isArray(data.data)) {
         if (isNewSearch) {
           setExercises(data.data);
         } else {
@@ -83,14 +162,30 @@ export const ExerciseLibrary = () => {
             return [...prev, ...newExercises];
           });
         }
-        setCursor(data.meta.nextCursor);
-        setHasNextPage(data.meta.hasNextPage);
+        setCursor(data.meta?.nextCursor || null);
+        setHasNextPage(Boolean(data.meta?.hasNextPage));
       } else {
-        throw new Error(data.error || 'Erro desconhecido na busca');
+        // Safe empty state rather than breaking UI
+        if (isNewSearch) {
+          setExercises([]);
+        }
+        setHasNextPage(false);
       }
     } catch (error: any) {
       console.error("Error fetching library:", error);
-      setError(error.message);
+      // Try direct fallback one last time
+      try {
+        const termToSearch = searchTermOverride !== undefined ? searchTermOverride : search;
+        const fallbackRes = await fetchDirectFallback(termToSearch, 0);
+        if (fallbackRes && fallbackRes.data.length > 0) {
+          setExercises(fallbackRes.data);
+          setCursor(fallbackRes.meta.nextCursor);
+          setHasNextPage(fallbackRes.meta.hasNextPage);
+          setError(null);
+          return;
+        }
+      } catch (e) {}
+      setError("Não foi possível carregar os exercícios no momento. Verifique sua conexão e tente novamente.");
     } finally {
       setLoading(false);
     }

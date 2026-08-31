@@ -43,6 +43,7 @@ export interface UserProfile {
   subscriptionEndsAt?: string;
   planGenerationsLeft?: number; // For FREE tier limit
   createdAt: string;
+  updatedAt?: string;
   adherenceLogs?: AdherenceLog[];
   photoURL?: string;
   points?: number;

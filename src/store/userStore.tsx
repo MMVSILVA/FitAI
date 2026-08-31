@@ -1182,6 +1182,53 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
+  const addXp = async (amount: number, reason: string) => {
+    if (!profile) return;
+    const currentPoints = profile.points || 0;
+    const currentLevelInfo = calculateUserLevel(currentPoints);
+    const newPoints = Math.max(0, currentPoints + amount);
+    const newLevelInfo = calculateUserLevel(newPoints);
+    const leveledUp = newLevelInfo.currentLevel.level > currentLevelInfo.currentLevel.level;
+
+    const updates: Partial<UserProfile> = {
+      points: newPoints,
+      level: newLevelInfo.currentLevel.level,
+      lastXpGain: {
+        amount,
+        reason,
+        timestamp: new Date().toISOString()
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    setProfileState(prev => prev ? { ...prev, ...updates } : null);
+    await saveToFirestore(updates);
+
+    return {
+      newPoints,
+      newLevel: newLevelInfo.currentLevel.level,
+      leveledUp
+    };
+  };
+
+  const claimDailyMission = async (type: 'workout' | 'diet' | 'water' | 'weight') => {
+    if (!profile) return { success: false, xpEarned: 0, message: 'Perfil não carregado' };
+    const xpRewards: Record<string, number> = {
+      workout: 60,
+      diet: 40,
+      water: 30,
+      weight: 50
+    };
+    const xp = xpRewards[type] || 30;
+    const reason = `Missão diária: ${type === 'workout' ? 'Treino' : type === 'diet' ? 'Dieta' : type === 'water' ? 'Hidratação' : 'Pesagem'}`;
+    await addXp(xp, reason);
+    return {
+      success: true,
+      xpEarned: xp,
+      message: `+${xp} XP por completar a missão!`
+    };
+  };
+
   return (
     <UserContext.Provider value={{ 
       user, authLoading, profile, plan, planType, trialEndsAt, subscriptionEndsAt, role, 
@@ -1194,7 +1241,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addExerciseProgress, getExerciseProgress,
       toggleMealCheck, updateRealMealNotes, toggleWorkoutDayCheck, updateRealWorkoutNotes,
       addWorkoutReport, updateWorkoutReport, deleteWorkoutReport, doCheckIn,
-      addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge, leaveChallenge
+      addExerciseToDay, removeExerciseFromDay, addWorkoutDay, removeWorkoutDay, updateWorkoutDay, joinChallenge, leaveChallenge,
+      addXp, claimDailyMission
     }}>
       {children}
     </UserContext.Provider>
