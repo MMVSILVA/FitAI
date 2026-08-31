@@ -50,6 +50,8 @@ export interface UserProfile {
   streak?: number;
   checkInDates?: string[];
   badges?: string[];
+  unlockedAchievements?: string[];
+  lastXpGain?: { amount: number; reason: string; timestamp: string };
   joinedChallenges?: string[];
   medals?: { name: string; icon: string; earnedAt: string }[];
   targetWeight?: number;

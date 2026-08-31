@@ -51,6 +51,7 @@ import { WorkoutHistoryTracker } from '../components/WorkoutHistoryTracker';
 import { WeightProgressChart } from '../components/WeightProgressChart';
 import { WorkoutPostureCarousel } from '../components/WorkoutPostureCarousel';
 import { AiRecipeGenerator } from '../components/AiRecipeGenerator';
+import { GamificationSection } from '../components/GamificationSection';
 
 function ExerciseRow({ 
   exercise, 
@@ -2369,46 +2370,17 @@ export default function Dashboard() {
               />
 
               <div className="space-y-8">
-                  {/* Gamification Banner */}
-                  <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="grid grid-cols-1 md:grid-cols-3 gap-4"
-                  >
-                    <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 p-6 rounded-3xl flex items-center justify-between shadow-xl">
-                      <div>
-                        <p className="text-[10px] font-black text-yellow-600 dark:text-yellow-500 uppercase tracking-widest mb-1">Seu Ranking</p>
-                        <h4 className="text-3xl font-black text-black dark:text-white flex items-baseline gap-2">
-                           Lvl <span className="text-yellow-500">{profile.level || 1}</span>
-                        </h4>
-                      </div>
-                      <div className="w-16 h-16 bg-white dark:bg-black/40 rounded-2xl flex items-center justify-center shadow-lg">
-                        <Trophy className="w-8 h-8 text-yellow-500" />
-                      </div>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 p-6 rounded-3xl flex items-center justify-between shadow-xl">
-                      <div>
-                        <p className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1">Pontos Acumulados</p>
-                        <h4 className="text-3xl font-black text-black dark:text-white">
-                           {profile.points || 0} <span className="text-sm font-bold text-gray-500">pts</span>
-                        </h4>
-                      </div>
-                      <div className="w-16 h-16 bg-white dark:bg-black/40 rounded-2xl flex items-center justify-center shadow-lg">
-                        <Star className="w-8 h-8 text-purple-500" />
-                      </div>
-                    </div>
-                    <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-500/30 p-6 rounded-3xl flex items-center justify-between shadow-xl">
-                      <div>
-                        <p className="text-[10px] font-black text-orange-600 dark:text-orange-500 uppercase tracking-widest mb-1">Consistência 🔥</p>
-                        <h4 className="text-3xl font-black text-black dark:text-white">
-                           {profile.streak || 0} <span className="text-sm font-bold text-gray-500">Semanas</span>
-                        </h4>
-                      </div>
-                      <div className="w-16 h-16 bg-white dark:bg-black/40 rounded-2xl flex items-center justify-center shadow-lg">
-                        <Activity className="w-8 h-8 text-orange-500" />
-                      </div>
-                    </div>
-                  </motion.div>
+                  {/* Gamification Hub: Levels, XP, Consistency Streaks & Achievements */}
+                  <GamificationSection 
+                    onOpenShareModal={(badge) => {
+                      setShareInitialFormat('square');
+                      setShareAchievementBadge(badge ? { title: badge.title, description: badge.description } : undefined);
+                      setShowShareModal(true);
+                    }}
+                    onOpenStoriesModal={(badge) => {
+                      handleOpenStoriesShare(badge ? { title: badge.title, description: badge.description } : undefined);
+                    }}
+                  />
 
                   {/* Daily Check-in Form */}
                   <DailyCheckinForm 

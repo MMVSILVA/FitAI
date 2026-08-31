@@ -3,6 +3,7 @@ import { auth, db } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { UserProfile, WorkoutPlan, UserRole, PlanType } from '../types';
+import { calculateUserLevel } from '../constants/achievements';
 
 interface UserState {
   user: User | null;
@@ -67,6 +68,8 @@ interface UserState {
   updateWorkoutDay: (dayIndex: number, dayData: { day?: string; focus?: string }) => Promise<void>;
   joinChallenge: (challengeId: string) => Promise<void>;
   leaveChallenge: (challengeId: string) => Promise<void>;
+  addXp: (amount: number, reason: string) => Promise<{ newPoints: number; newLevel: number; leveledUp: boolean } | void>;
+  claimDailyMission: (type: 'workout' | 'diet' | 'water' | 'weight') => Promise<{ success: boolean; xpEarned: number; message: string }>;
 }
 
 const UserContext = createContext<UserState | undefined>(undefined);

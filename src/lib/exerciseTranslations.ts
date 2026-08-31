@@ -78,7 +78,7 @@ export const ptToEnExerciseMap: Record<string, string> = {
 };
 
 export const ptToEnSearch = (term: string): string => {
-  if (!term) return 'fitness';
+  if (!term) return '';
   const lowerTerm = term.toLowerCase().trim();
   
   // Try exact match first

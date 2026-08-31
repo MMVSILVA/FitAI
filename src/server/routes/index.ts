@@ -370,178 +370,162 @@ router.get('/exercises/search', async (req, res) => {
   try {
     let { name, limit, cursor } = req.query;
     const limitNum = parseInt(limit as string) || 20;
+    const rawSearch = (name as string || '').trim();
     
-    // Quick translation for common terms
-    const ptToEn: Record<string, string> = {
-      'peito': 'chest',
-      'peitoral': 'chest',
-      'costas': 'back',
-      'dorsal': 'back',
-      'perna': 'leg',
-      'pernas': 'leg',
-      'ombro': 'shoulder',
-      'ombros': 'shoulder',
-      'braço': 'arm',
-      'braços': 'arm',
-      'abdominal': 'abs',
-      'abdominais': 'abs',
-      'bíceps': 'biceps',
-      'tríceps': 'triceps',
-      'glúteo': 'glute',
-      'glúteos': 'glute',
-      'panturrilha': 'calf',
-      'panturrilhas': 'calf',
-      'coxa': 'thigh',
-      'quadríceps': 'quads',
-      'agachamento': 'squat',
-      'supino': 'bench press',
-      'rosca': 'curl',
-      'remada': 'row',
-      'puxada': 'pulldown',
-      'elevação': 'raise',
-      'extensão': 'extension',
-      'flexão': 'pushup',
-      'cardio': 'cardio'
+    // Comprehensive dictionary for Portuguese and English anatomical terms
+    const muscleSynonyms: Record<string, string[]> = {
+      'peito': ['chest', 'pectorals', 'bench', 'fly', 'pushup'],
+      'peitoral': ['chest', 'pectorals', 'bench', 'fly', 'pushup'],
+      'chest': ['chest', 'pectorals', 'bench', 'fly'],
+      'costas': ['back', 'lats', 'middle back', 'lower back', 'traps', 'row', 'pulldown'],
+      'dorsal': ['back', 'lats', 'row', 'pulldown'],
+      'back': ['back', 'lats', 'middle back', 'lower back', 'traps', 'row'],
+      'perna': ['quadriceps', 'hamstrings', 'calves', 'glutes', 'squat', 'leg', 'lunge'],
+      'pernas': ['quadriceps', 'hamstrings', 'calves', 'glutes', 'squat', 'leg', 'lunge'],
+      'leg': ['quadriceps', 'hamstrings', 'calves', 'glutes', 'squat', 'leg'],
+      'legs': ['quadriceps', 'hamstrings', 'calves', 'glutes', 'squat', 'leg'],
+      'ombro': ['shoulders', 'delts', 'shoulder', 'raise', 'military'],
+      'ombros': ['shoulders', 'delts', 'shoulder', 'raise', 'military'],
+      'shoulder': ['shoulders', 'delts', 'shoulder', 'raise'],
+      'shoulders': ['shoulders', 'delts', 'shoulder', 'raise'],
+      'braço': ['biceps', 'triceps', 'forearms', 'arm', 'curl', 'dip'],
+      'braços': ['biceps', 'triceps', 'forearms', 'arm', 'curl', 'dip'],
+      'arm': ['biceps', 'triceps', 'forearms', 'arm', 'curl'],
+      'arms': ['biceps', 'triceps', 'forearms', 'arm', 'curl'],
+      'abdominal': ['abdominals', 'crunch', 'plank', 'waist', 'sit-up', 'core'],
+      'abdominais': ['abdominals', 'crunch', 'plank', 'waist', 'sit-up', 'core'],
+      'abs': ['abdominals', 'crunch', 'plank', 'waist', 'sit-up', 'core'],
+      'biceps': ['biceps', 'curl'],
+      'bíceps': ['biceps', 'curl'],
+      'triceps': ['triceps', 'dip', 'extension', 'pushdown'],
+      'tríceps': ['triceps', 'dip', 'extension', 'pushdown'],
+      'glúteo': ['glutes', 'hip', 'bridge'],
+      'glúteos': ['glutes', 'hip', 'bridge'],
+      'glute': ['glutes', 'hip', 'bridge'],
+      'glutes': ['glutes', 'hip', 'bridge'],
+      'panturrilha': ['calves', 'calf'],
+      'panturrilhas': ['calves', 'calf'],
+      'calf': ['calves', 'calf'],
+      'agachamento': ['squat'],
+      'supino': ['bench press', 'chest press'],
+      'rosca': ['curl'],
+      'remada': ['row'],
+      'puxada': ['pulldown', 'pull-up'],
+      'elevação': ['raise'],
+      'extensão': ['extension'],
+      'flexão': ['pushup', 'curl'],
+      'cardio': ['cardio', 'run', 'bike', 'stair']
     };
-    
-    if (name && typeof name === 'string') {
-      const lower = name.toLowerCase().trim();
-      if (ptToEn[lower]) {
-        console.log(`Translating search: ${name} -> ${ptToEn[lower]}`);
-        name = ptToEn[lower];
-      }
-    }
 
-    const cacheKey = `search-${name}-${limit}-${cursor}`;
+    const lowerQuery = rawSearch.toLowerCase();
+    const synonyms = muscleSynonyms[lowerQuery] || [lowerQuery];
+    const primaryTerm = synonyms[0] || '';
+
+    const cacheKey = `search-${rawSearch}-${limit}-${cursor}`;
 
     // Check cache
     const cached = exerciseCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log(`Serving from cache: ${cacheKey}`);
       return res.json(cached.data);
     }
 
-    const mirrors = [
-      'https://oss.exercisedb.dev/api/v1/exercises',
-      'https://exercisedblist.vercel.app/api/v1/exercises',
-      'https://db.exercisedb.io/api/v1/exercises',
-      'https://v1.exercisedb.io/api/v1/exercises',
-      'https://v2.exercisedb.io/api/v1/exercises'
-    ];
-
     let finalData = null;
-    let lastError = null;
 
-    // Try mirrors first with a shorter timeout to failover faster
-    for (const base of mirrors) {
+    // Try OSS API first with primary keyword
+    if (primaryTerm && primaryTerm !== 'fitness') {
       try {
-        const searchStrategies = [];
-        
-        // Strategy 1: Path based /name/{name}
-        if (name) {
-          searchStrategies.push(`${base}/name/${encodeURIComponent(name as string)}`);
-        }
-        
-        // Strategy 2: Query param based ?name={name}
-        const params = new URLSearchParams();
-        params.append('limit', limitNum.toString());
-        if (cursor) params.append('cursor', cursor as string);
-        if (name) params.append('name', name as string);
-        searchStrategies.push(`${base}?${params.toString()}`);
-        
-        if (!name) {
-          searchStrategies.push(`${base}?limit=${limitNum}${cursor ? `&cursor=${cursor}` : ''}`);
-        }
+        const ossUrl = `https://oss.exercisedb.dev/api/v1/exercises?name=${encodeURIComponent(primaryTerm)}&limit=${limitNum}${cursor ? `&cursor=${cursor}` : ''}`;
+        const response = await fetch(ossUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) FitnessApp/1.0',
+            'Accept': 'application/json',
+            'Referer': 'https://exercisedb.io/'
+          },
+          signal: AbortSignal.timeout(3500)
+        });
 
-        for (const ossUrl of searchStrategies) {
-          try {
-            const response = await fetch(ossUrl, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) FitnessApp/1.0',
-                'Accept': 'application/json',
-                'Referer': 'https://exercisedb.io/'
-              },
-              signal: AbortSignal.timeout(4000) // Lowered to 4s for faster failover
-            });
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await response.json();
+            const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : []);
+            if (rawData.length > 0) {
+              const normalizedData = rawData.map((item: any) => ({
+                exerciseId: item.exerciseId || item.id || `ex-${Math.random().toString(36).substr(2, 9)}`,
+                name: item.name,
+                gifUrl: item.gifUrl,
+                bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
+                equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
+                targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
+                secondaryMuscles: item.secondaryMuscles || [],
+                instructions: item.instructions || []
+              }));
 
-            const contentType = response.headers.get('content-type');
-            if (response.ok && contentType && contentType.includes('application/json')) {
-              const textData = await response.text();
-              try {
-                const data = JSON.parse(textData);
-                const rawData = data.success ? (data.data || []) : (Array.isArray(data) ? data : (data.exercises || []));
-                
-                if (rawData.length > 0 || (!name && Array.isArray(rawData))) { 
-                  const normalizedData = rawData.map((item: any) => ({
-                    exerciseId: item.exerciseId || item.id || `ex-${Math.random().toString(36).substr(2, 9)}`,
-                    name: item.name,
-                    gifUrl: item.gifUrl,
-                    bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
-                    equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
-                    targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
-                    secondaryMuscles: item.secondaryMuscles || [],
-                    instructions: item.instructions || []
-                  }));
-
-                  finalData = {
-                    success: true,
-                    data: normalizedData,
-                    meta: data.meta || { hasNextPage: normalizedData.length >= limitNum, nextCursor: null }
-                  };
-                  break;
-                }
-              } catch (parseError) {
-                // Ignore silent parsing errors during strategies
-              }
+              finalData = {
+                success: true,
+                data: normalizedData,
+                meta: data.meta || { hasNextPage: normalizedData.length >= limitNum, nextCursor: null }
+              };
             }
-          } catch (strategyError) {
-            // Strategy failed, move to next
           }
         }
-        
-        if (finalData) break;
-      } catch (e: any) {
-        lastError = e;
+      } catch (e) {
+        // Fallback to local DB
       }
     }
 
-    // MEGA FALLBACK: Local Filtering of GitHub Dump
+    // MEGA ROBUST FALLBACK: Search complete local/GitHub exercise DB
     if (!finalData) {
-      console.log("Using backup exercise database...");
       const allExercises = await getFullDbFromGithub();
       if (allExercises && allExercises.length > 0) {
         let filtered = allExercises;
-        if (name) {
-          const searchLower = (name as string).toLowerCase().trim();
-          
-          // Improved Matching Strategy:
-          // 1. Prioritize exact name matches
-          // 2. Then name includes
-          // 3. Then bodyPart/target as fallback
-          
-          const exactMatches = allExercises.filter(ex => ex.name?.toLowerCase() === searchLower);
-          const nameIncludes = allExercises.filter(ex => ex.name?.toLowerCase().includes(searchLower) && !exactMatches.includes(ex));
-          const keywordsMatches = allExercises.filter(ex => 
-            (ex.bodyPart?.toLowerCase().includes(searchLower) ||
-             ex.target?.toLowerCase().includes(searchLower) ||
-             ex.equipment?.toLowerCase().includes(searchLower)) &&
-            !exactMatches.includes(ex) && !nameIncludes.includes(ex)
-          );
-          
-          filtered = [...exactMatches, ...nameIncludes, ...keywordsMatches];
+        if (rawSearch) {
+          const searchTokens = [lowerQuery, ...synonyms].filter(Boolean);
+
+          filtered = allExercises.filter((ex: any) => {
+            const exName = (ex.name || '').toLowerCase();
+            const exBodyPart = (ex.bodyPart || '').toLowerCase();
+            const exTarget = (ex.target || '').toLowerCase();
+            const exCategory = (ex.category || '').toLowerCase();
+            const exEquipment = (ex.equipment || '').toLowerCase();
+            const exPrimary = Array.isArray(ex.primaryMuscles) 
+              ? ex.primaryMuscles.map((m: any) => String(m).toLowerCase()).join(' ') 
+              : '';
+            const exSecondary = Array.isArray(ex.secondaryMuscles) 
+              ? ex.secondaryMuscles.map((m: any) => String(m).toLowerCase()).join(' ') 
+              : '';
+
+            return searchTokens.some(token => 
+              exName.includes(token) ||
+              exPrimary.includes(token) ||
+              exSecondary.includes(token) ||
+              exBodyPart.includes(token) ||
+              exTarget.includes(token) ||
+              exCategory.includes(token) ||
+              exEquipment.includes(token)
+            );
+          });
+
+          // Sort by relevance (exact name or primary muscle match first)
+          filtered.sort((a: any, b: any) => {
+            const aName = (a.name || '').toLowerCase();
+            const bName = (b.name || '').toLowerCase();
+            const aMatchesName = synonyms.some(s => aName.includes(s)) ? 1 : 0;
+            const bMatchesName = synonyms.some(s => bName.includes(s)) ? 1 : 0;
+            return bMatchesName - aMatchesName;
+          });
         }
 
-        // Handle pagination locally
-        const startIndex = cursor ? parseInt(cursor as string) : 0;
+        const startIndex = cursor ? parseInt(cursor as string) || 0 : 0;
         const pageData = filtered.slice(startIndex, startIndex + limitNum);
         
         const normalizedData = pageData.map((item: any) => ({
           exerciseId: item.id || item.exerciseId || `ex-${Math.random().toString(36).substr(2, 9)}`,
           name: item.name,
-          gifUrl: item.gifUrl,
-          bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : [item.bodyPart || 'other'],
+          gifUrl: item.gifUrl || (item.images && item.images.length > 0 ? `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${item.images[0]}` : undefined),
+          bodyParts: Array.isArray(item.bodyParts) ? item.bodyParts : (item.primaryMuscles || [item.bodyPart || 'other']),
           equipments: Array.isArray(item.equipments) ? item.equipments : [item.equipment || 'none'],
-          targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : [item.target || 'various'],
+          targetMuscles: Array.isArray(item.targetMuscles) ? item.targetMuscles : (item.primaryMuscles || [item.target || 'various']),
           secondaryMuscles: item.secondaryMuscles || [],
           instructions: item.instructions || []
         }));
@@ -557,17 +541,27 @@ router.get('/exercises/search', async (req, res) => {
       }
     }
 
+    // If still no results, return clean empty list (never 404 or 503)
     if (!finalData) {
-      if (lastError) throw lastError;
-      return res.status(503).json({ success: false, error: 'All exercise mirrors are unavailable' });
+      finalData = {
+        success: true,
+        data: [],
+        meta: { hasNextPage: false, nextCursor: null }
+      };
     }
 
-    // Save to cache
-    exerciseCache.set(cacheKey, { data: finalData, timestamp: Date.now() });
-    res.json(finalData);
+    // Only save non-empty results to cache
+    if (finalData && finalData.data && finalData.data.length > 0) {
+      exerciseCache.set(cacheKey, { data: finalData, timestamp: Date.now() });
+    }
+    return res.json(finalData);
   } catch (error: any) {
     console.error("Exercise Search Error:", error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.json({
+      success: true,
+      data: [],
+      meta: { hasNextPage: false, nextCursor: null }
+    });
   }
 });
 
@@ -611,78 +605,211 @@ router.get('/exercises/liveness', async (req, res) => {
 // Debug Ping
 router.get('/ping', (req, res) => res.json({ message: 'pong', timestamp: Date.now() }));
 
+// Generate clean SVG for exercises with no media
+function generateExerciseSvg(name: string): string {
+  const title = (name || 'Demonstração de Exercício').slice(0, 32);
+  return `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'>
+    <defs>
+      <linearGradient id='bg' x1='0%' y1='0%' x2='100%' y2='100%'>
+        <stop offset='0%' stop-color='#09090b'/>
+        <stop offset='50%' stop-color='#18181b'/>
+        <stop offset='100%' stop-color='#09090b'/>
+      </linearGradient>
+      <linearGradient id='accent' x1='0%' y1='0%' x2='100%' y2='100%'>
+        <stop offset='0%' stop-color='#a855f7'/>
+        <stop offset='100%' stop-color='#6366f1'/>
+      </linearGradient>
+    </defs>
+    <rect width='600' height='600' fill='url(#bg)' rx='24'/>
+    <circle cx='300' cy='240' r='85' fill='#a855f7' fill-opacity='0.08' stroke='#a855f7' stroke-opacity='0.3' stroke-width='2'/>
+    <path d='M230 240 L370 240 M260 205 L260 275 M340 205 L340 275 M220 220 L220 260 M380 220 L380 260' stroke='url(#accent)' stroke-width='7' stroke-linecap='round'/>
+    <text x='300' y='375' fill='#ffffff' font-family='system-ui, -apple-system, sans-serif' font-size='20' font-weight='800' text-anchor='middle' letter-spacing='0.5'>${title.toUpperCase()}</text>
+    <text x='300' y='410' fill='#a855f7' font-family='system-ui, -apple-system, sans-serif' font-size='12' font-weight='700' text-anchor='middle' letter-spacing='2'>GUIA DE MOVIMENTO</text>
+  </svg>`;
+}
+
+// Smart fallback resolver for exercise media
+async function resolveExerciseMedia(exerciseName?: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!exerciseName) return null;
+
+  const ptToEnMap: Record<string, string> = {
+    'supino': 'bench press',
+    'agachamento': 'squat',
+    'levantamento terra': 'deadlift',
+    'terra': 'deadlift',
+    'desenvolvimento': 'shoulder press',
+    'remada': 'row',
+    'rosca': 'curl',
+    'tríceps': 'triceps dip',
+    'triceps': 'triceps dip',
+    'bíceps': 'biceps curl',
+    'biceps': 'biceps curl',
+    'peito': 'chest press',
+    'costas': 'back row',
+    'ombro': 'shoulder press',
+    'perna': 'leg press',
+    'panturrilha': 'calf raise',
+    'abdominal': 'crunch',
+    'abdomen': 'crunch',
+    'glúteo': 'glute bridge',
+    'gluteo': 'glute bridge',
+    'crucifixo': 'chest fly',
+    'voador': 'chest fly',
+    'elevação': 'raise',
+    'extensão': 'extension',
+    'flexão': 'pushup',
+    'mergulho': 'dip',
+    'puxada': 'pulldown'
+  };
+
+  let searchName = exerciseName.toLowerCase();
+  for (const [pt, en] of Object.entries(ptToEnMap)) {
+    if (searchName.includes(pt)) {
+      searchName = searchName.replace(pt, en);
+    }
+  }
+
+  const rawWords = searchName
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !['extreme', 'variation', 'low', 'mini', 'micro', 'light', 'between', 'with', 'and', 'the', 'bars', 'high', 'male', 'female'].includes(w));
+
+  if (rawWords.length === 0) return null;
+
+  // 1. Search oss.exercisedb.dev with top 2 keywords
+  const primaryQuery = rawWords.slice(0, 2).join(' ');
+  try {
+    const res = await fetch(`https://oss.exercisedb.dev/api/v1/exercises?name=${encodeURIComponent(primaryQuery)}&limit=15`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(4000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      let candidates = data.data || [];
+      candidates = candidates.map((c: any) => {
+        const cWords = c.name.toLowerCase().split(/\s+/);
+        const score = rawWords.reduce((acc, w) => acc + (cWords.includes(w) ? 3 : (c.name.toLowerCase().includes(w) ? 1 : 0)), 0);
+        return { ...c, score };
+      }).sort((a: any, b: any) => b.score - a.score);
+
+      for (const item of candidates) {
+        if (!item.gifUrl) continue;
+        try {
+          const checkRes = await fetch(item.gifUrl, { 
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://exercisedb.io/' },
+            signal: AbortSignal.timeout(3500)
+          });
+          if (checkRes.ok) {
+            const ct = checkRes.headers.get('Content-Type') || '';
+            if (ct.includes('image')) {
+              const buf = await checkRes.arrayBuffer();
+              return { buffer: Buffer.from(buf), contentType: ct };
+            }
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (e) {}
+
+  // 2. Fallback to yuhonas exercise DB
+  try {
+    const allExercises = await getFullDbFromGithub();
+    const match = allExercises.find((ex: any) => 
+      rawWords.some(w => ex.name?.toLowerCase().includes(w)) && ex.images && ex.images.length > 0
+    );
+    if (match && match.images?.[0]) {
+      const imgUrl = `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${match.images[0]}`;
+      const imgRes = await fetch(imgUrl, { signal: AbortSignal.timeout(4000) });
+      if (imgRes.ok) {
+        const buf = await imgRes.arrayBuffer();
+        return { buffer: Buffer.from(buf), contentType: 'image/jpeg' };
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
 // GIF Proxy
 router.get('/exercises/proxy-gif', async (req, res) => {
   try {
-    const { url } = req.query;
-    if (!url) return res.status(400).send('No URL provided');
-    
-    const imageUrl = url as string;
-    console.log(`Proxying GIF: ${imageUrl}`);
-    
+    const { url, name } = req.query;
+    const imageUrl = (url as string) || '';
+    const exerciseName = (name as string) || '';
+
+    if (!imageUrl && !exerciseName) {
+      return res.status(400).send('No URL or name provided');
+    }
+
     const headers: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://exercisedb.io/'
     };
 
-    let response = await fetch(imageUrl, { headers });
-    
-    // If it's an ExerciseDB-style URL, try common mirrors
-    if (imageUrl.includes('exercisedb') || imageUrl.includes('media') || !response.ok) {
+    // 1. Direct fetch if URL provided
+    if (imageUrl && imageUrl.startsWith('http')) {
+      try {
+        const response = await fetch(imageUrl, { headers, signal: AbortSignal.timeout(4000) });
+        const contentType = response.headers.get('Content-Type') || '';
+        if (response.ok && contentType.includes('image')) {
+          const buffer = await response.arrayBuffer();
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          return res.send(Buffer.from(buffer));
+        }
+      } catch (e) {
+        console.warn(`Direct fetch failed for ${imageUrl}, falling back...`);
+      }
+    }
+
+    // 2. Try alternate mirrors if URL had a filename
+    if (imageUrl) {
       const fileName = imageUrl.split('/').pop();
-      if (fileName && fileName.endsWith('.gif')) {
+      if (fileName && (fileName.endsWith('.gif') || fileName.endsWith('.jpg') || fileName.endsWith('.png'))) {
         const mirrors = [
+          `https://static.exercisedb.dev/media/${fileName}`,
           `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${fileName}`,
           `https://v2.exercisedb.io/media/${fileName}`,
           `https://db.exercisedb.io/media/${fileName}`,
-          `https://oss.exercisedb.dev/media/${fileName}`,
-          `https://fitness-program-api.herokuapp.com/media/${fileName}`,
+          `https://oss.exercisedb.dev/media/${fileName}`
         ].filter(m => m !== imageUrl);
 
         for (const mirrorUrl of mirrors) {
-          console.log(`Trying alternate mirror: ${mirrorUrl}`);
           try {
-            // Increase timeout slightly to 5s and add more specific headers
-            const mirrorResponse = await fetch(mirrorUrl, { 
-              headers: {
-                ...headers,
-                'Referer': 'https://exercisedb.io/'
-              }, 
-              signal: AbortSignal.timeout(5000) 
-            });
-            
-            if (mirrorResponse.ok) {
-              const mContentType = mirrorResponse.headers.get('Content-Type');
-              if (mContentType && mContentType.includes('image')) {
-                response = mirrorResponse;
-                console.log(`Success with mirror: ${mirrorUrl}`);
-                break;
-              }
+            const mirrorRes = await fetch(mirrorUrl, { headers, signal: AbortSignal.timeout(3000) });
+            const mCt = mirrorRes.headers.get('Content-Type') || '';
+            if (mirrorRes.ok && mCt.includes('image')) {
+              const buf = await mirrorRes.arrayBuffer();
+              res.setHeader('Content-Type', mCt);
+              res.setHeader('Cache-Control', 'public, max-age=86400');
+              return res.send(Buffer.from(buf));
             }
-          } catch (e) {
-            console.warn(`Mirror failed or timed out: ${mirrorUrl}`);
-          }
+          } catch (e) {}
         }
       }
     }
-    
-    // Check if the resulting response is actually an image/gif
-    const contentType = response.headers.get('Content-Type');
-    if (!response.ok || (contentType && !contentType.includes('image'))) {
-      console.warn(`GIF Proxy Final Error [${response.status}] for ${imageUrl}. Content-Type: ${contentType}`);
-      
-      // Ultra-fallback: try searching by ID on Bodybuilding.com or similar if we can parse it
-      // But for now, let's just use a better placeholder
-      return res.redirect('https://placehold.co/400x400/000000/666666?text=Imagem+Nao+Disponivel');
+
+    // 3. Smart exercise media resolver by name
+    const queryName = exerciseName || imageUrl.split('/').pop()?.replace(/\.[^/.]+$/, '') || '';
+    if (queryName) {
+      const resolved = await resolveExerciseMedia(queryName);
+      if (resolved) {
+        res.setHeader('Content-Type', resolved.contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(resolved.buffer);
+      }
     }
-    
-    const buffer = await response.arrayBuffer();
-    
-    res.setHeader('Content-Type', response.headers.get('Content-Type') || 'image/gif');
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // 24h cache
-    res.send(Buffer.from(buffer));
+
+    // 4. Clean SVG fallback
+    const svg = generateExerciseSvg(exerciseName || 'Exercício');
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(svg);
   } catch (error: any) {
     console.error("GIF Proxy Error:", error);
-    res.status(500).send(error.message);
+    const svg = generateExerciseSvg('Exercício');
+    res.setHeader('Content-Type', 'image/svg+xml');
+    return res.send(svg);
   }
 });
 
@@ -690,90 +817,30 @@ router.get('/exercises/proxy-gif', async (req, res) => {
 router.get('/exercises/gif-by-name', async (req, res) => {
   try {
     const { name } = req.query;
-    if (!name) return res.status(400).send('No name provided');
+    if (!name) {
+      const svg = generateExerciseSvg('Exercício');
+      res.setHeader('Content-Type', 'image/svg+xml');
+      return res.send(svg);
+    }
     
     const searchName = name as string;
-    const cacheKey = `gif-name-${searchName}`;
-    const cached = exerciseCache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL * 24) {
-      return res.redirect(`/api/exercises/proxy-gif?url=${encodeURIComponent(cached.data)}`);
+    const resolved = await resolveExerciseMedia(searchName);
+    if (resolved) {
+      res.setHeader('Content-Type', resolved.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(resolved.buffer);
     }
 
-    // Search for the exercise
-    const normalizedSearch = searchName.toLowerCase().replace(/[-_]/g, ' ').trim();
-    const mirrors = [
-      'https://oss.exercisedb.dev/api/v1/exercises/name/',
-      'https://exercisedblist.vercel.app/api/v1/exercises/name/',
-      'https://db.exercisedb.io/api/v1/exercises/name/'
-    ];
-
-    let foundGif = null;
-    const searchTerms = [normalizedSearch];
-    
-    // Add variations if needed (e.g., if it has multiple words, try the first two)
-    if (normalizedSearch.split(' ').length > 2) {
-      searchTerms.push(normalizedSearch.split(' ').slice(0, 2).join(' '));
-    }
-
-    for (const term of searchTerms) {
-      if (foundGif) break;
-      for (const base of mirrors) {
-        try {
-          const response = await fetch(`${base}${encodeURIComponent(term)}`, {
-            signal: AbortSignal.timeout(3000)
-          });
-          if (response.ok) {
-            const data = await response.json();
-            const items = Array.isArray(data) ? data : (data.data || []);
-            if (items.length > 0 && items[0].gifUrl) {
-              foundGif = items[0].gifUrl;
-              break;
-            }
-          }
-        } catch (e) {
-          // Continue
-        }
-      }
-    }
-
-    // Fallback to GitHub dump if mirrors fail
-    if (!foundGif) {
-      const allExercises = await getFullDbFromGithub();
-      const term = normalizedSearch.toLowerCase();
-      
-      // 1. Precise match (includes)
-      let match = allExercises.find(ex => 
-        ex.name?.toLowerCase().includes(term) ||
-        (ex.id && ex.id.toLowerCase() === term.replace(/\s+/g, '-'))
-      );
-      
-      // 2. Keyword match (split by spaces and find if any word matches significantly)
-      if (!match) {
-        const words = term.split(' ').filter(w => w.length > 3);
-        if (words.length > 0) {
-          match = allExercises.find(ex => 
-            words.every(word => ex.name?.toLowerCase().includes(word))
-          );
-        }
-      }
-      
-      if (match && match.gifUrl) {
-        foundGif = match.gifUrl;
-      }
-    }
-
-    if (foundGif) {
-      exerciseCache.set(cacheKey, { data: foundGif, timestamp: Date.now() });
-      return res.redirect(`/api/exercises/proxy-gif?url=${encodeURIComponent(foundGif)}`);
-    }
-
-    // Final fallback: Better styled placeholder
-    console.warn(`GIF not found for: ${searchName} (normalized: ${normalizedSearch}). Redirecting to placeholder.`);
-    res.redirect(`https://placehold.co/600x600/111111/666666?text=Demonstracao+Indisponivel\n${encodeURIComponent(normalizedSearch.toUpperCase())}`);
+    // Fallback styled SVG
+    const svg = generateExerciseSvg(searchName);
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(svg);
   } catch (error: any) {
     console.error("GIF by Name Error:", error);
-    res.redirect('https://placehold.co/600x600/111111/666666?text=Erro+no+Servidor');
+    const svg = generateExerciseSvg('Exercício');
+    res.setHeader('Content-Type', 'image/svg+xml');
+    return res.send(svg);
   }
 });
 
