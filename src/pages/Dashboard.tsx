@@ -1026,20 +1026,21 @@ export default function Dashboard() {
     setUserProgress([]);
     
     try {
-      const { collection, query, where, getDocs, orderBy } = await import('firebase/firestore');
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
       const { db } = await import('../firebase');
       
       const q = query(
         collection(db, 'exercise_progress'), 
-        where('userId', '==', targetUser.id),
-        orderBy('date', 'desc')
+        where('userId', '==', targetUser.id)
       );
       
       const snap = await getDocs(q);
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const data = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
       setUserProgress(data);
     } catch (error) {
-      console.error("Error fetching user history:", error);
+      console.warn("Error fetching user history:", error);
       showToast("Não foi possível carregar o histórico completo deste usuário.", "error");
     } finally {
       setUserHistoryLoading(false);

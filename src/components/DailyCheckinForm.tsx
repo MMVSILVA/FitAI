@@ -83,9 +83,7 @@ export const DailyCheckinForm: React.FC<DailyCheckinFormProps> = ({ className = 
       try {
         const q = query(
           collection(db, 'daily_checkins'),
-          where('userId', '==', user.uid),
-          orderBy('date', 'desc'),
-          limit(5)
+          where('userId', '==', user.uid)
         );
         const snap = await getDocs(q);
         const logs: DailyCheckinEntry[] = [];
@@ -93,7 +91,11 @@ export const DailyCheckinForm: React.FC<DailyCheckinFormProps> = ({ className = 
           const d = doc.data() as DailyCheckinEntry;
           logs.push({ ...d, id: doc.id });
         });
-        setRecentLogs(logs);
+        
+        // Sort in memory by date descending and limit to latest 5
+        logs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const recent = logs.slice(0, 5);
+        setRecentLogs(recent);
 
         const todayLog = logs.find(l => l.date === todayStr);
         if (todayLog) {

@@ -90,40 +90,10 @@ export function WorkoutHistoryTracker({
 
   // Real-time listener for workout sessions
   useEffect(() => {
-    if (!effectiveUserId) {
-      setLoading(false);
-      return;
-    }
+    let isMounted = true;
 
-    setLoading(true);
-
-    const q = query(
-      collection(db, 'workout_sessions'),
-      where('userId', '==', effectiveUserId)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: WorkoutHistorySession[] = snapshot.docs.map(d => {
-        const data = d.data();
-        const rawDate = data.completedAt ? data.completedAt.split('T')[0] : (data.date || new Date().toISOString().split('T')[0]);
-        const dur = data.durationSeconds ? Math.round(data.durationSeconds / 60) : (Number(data.durationMinutes) || 45);
-        return {
-          id: d.id,
-          date: rawDate,
-          title: data.exerciseName || data.title || 'Sessão de Treino',
-          focus: data.focus || data.muscleGroup || '',
-          durationMinutes: dur,
-          exercisesCompleted: data.exercisesCompleted || (data.laps ? data.laps.length : (data.exercises ? data.exercises.length : 6)),
-          totalVolumeKg: Number(data.totalVolumeKg) || undefined,
-          exercises: data.exercises || [],
-          notes: data.notes || '',
-          intensity: data.intensity || 'intenso'
-        };
-      });
-
-      // Merge with profile.workoutSessions and checkInDates if not in collection
+    const buildFallbackSessions = () => {
       const mergedMap = new Map<string, WorkoutHistorySession>();
-      items.forEach(item => mergedMap.set(item.id, item));
 
       if (profile?.workoutSessions && Array.isArray(profile.workoutSessions)) {
         profile.workoutSessions.forEach(ws => {
@@ -144,7 +114,6 @@ export function WorkoutHistoryTracker({
         });
       }
 
-      // CheckInDates fallback
       if (profile?.checkInDates && Array.isArray(profile.checkInDates)) {
         profile.checkInDates.forEach((chkDate, idx) => {
           const id = `checkin-${chkDate}`;
@@ -163,15 +132,118 @@ export function WorkoutHistoryTracker({
         });
       }
 
-      const sorted = Array.from(mergedMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setSessions(sorted);
-      setLoading(false);
-    }, (err) => {
-      console.warn("Workout sessions fetch fallback:", err);
-      setLoading(false);
-    });
+      return Array.from(mergedMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    };
 
-    return () => unsubscribe();
+    if (!effectiveUserId) {
+      setSessions(buildFallbackSessions());
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    let unsubscribe = () => {};
+
+    try {
+      const q = query(
+        collection(db, 'workout_sessions'),
+        where('userId', '==', effectiveUserId)
+      );
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        try {
+          const items: WorkoutHistorySession[] = snapshot.docs.map(d => {
+            const data = d.data();
+            const rawDate = data.completedAt ? data.completedAt.split('T')[0] : (data.date || new Date().toISOString().split('T')[0]);
+            const dur = data.durationSeconds ? Math.round(data.durationSeconds / 60) : (Number(data.durationMinutes) || 45);
+            return {
+              id: d.id,
+              date: rawDate,
+              title: data.exerciseName || data.title || 'Sessão de Treino',
+              focus: data.focus || data.muscleGroup || '',
+              durationMinutes: dur,
+              exercisesCompleted: data.exercisesCompleted || (data.laps ? data.laps.length : (data.exercises ? data.exercises.length : 6)),
+              totalVolumeKg: Number(data.totalVolumeKg) || undefined,
+              exercises: data.exercises || [],
+              notes: data.notes || '',
+              intensity: data.intensity || 'intenso'
+            };
+          });
+
+          // Merge with profile.workoutSessions and checkInDates
+          const mergedMap = new Map<string, WorkoutHistorySession>();
+          items.forEach(item => mergedMap.set(item.id, item));
+
+          if (profile?.workoutSessions && Array.isArray(profile.workoutSessions)) {
+            profile.workoutSessions.forEach(ws => {
+              const rawDate = ws.completedAt ? ws.completedAt.split('T')[0] : new Date().toISOString().split('T')[0];
+              const dur = ws.durationSeconds ? Math.round(ws.durationSeconds / 60) : 45;
+              const id = ws.id || `profile-${rawDate}-${ws.exerciseName}`;
+              if (!mergedMap.has(id)) {
+                mergedMap.set(id, {
+                  id,
+                  date: rawDate,
+                  title: ws.exerciseName || 'Treino Concluído',
+                  durationMinutes: dur,
+                  exercisesCompleted: ws.laps ? ws.laps.length : 5,
+                  notes: ws.notes || '',
+                  intensity: 'intenso'
+                });
+              }
+            });
+          }
+
+          if (profile?.checkInDates && Array.isArray(profile.checkInDates)) {
+            profile.checkInDates.forEach((chkDate, idx) => {
+              const id = `checkin-${chkDate}`;
+              if (!Array.from(mergedMap.values()).some(s => s.date === chkDate)) {
+                mergedMap.set(id, {
+                  id,
+                  date: chkDate,
+                  title: `Treino Concluído #${profile.checkInDates!.length - idx}`,
+                  durationMinutes: 50,
+                  exercisesCompleted: 6,
+                  totalVolumeKg: 4500,
+                  notes: 'Check-in diário de treino confirmado.',
+                  intensity: 'intenso'
+                });
+              }
+            });
+          }
+
+          const sorted = Array.from(mergedMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setSessions(sorted);
+        } catch (err) {
+          console.warn("Error processing workout snapshot:", err);
+          setSessions(buildFallbackSessions());
+        } finally {
+          setLoading(false);
+        }
+      }, (err) => {
+        console.warn("Workout sessions fetch fallback:", err);
+        if (isMounted) {
+          setSessions(buildFallbackSessions());
+          setLoading(false);
+        }
+      });
+    } catch (err) {
+      console.warn("Failed to attach workout listener:", err);
+      if (isMounted) {
+        setSessions(buildFallbackSessions());
+        setLoading(false);
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      try {
+        unsubscribe();
+      } catch (err) {
+        // Ignore unmount cleanup errors
+      }
+    };
   }, [effectiveUserId, profile?.workoutSessions, profile?.checkInDates]);
 
   // Filtered Sessions

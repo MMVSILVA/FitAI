@@ -121,6 +121,24 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "date", "createdAt"]
+    },
+    "WorkoutSession": {
+      "title": "WorkoutSession",
+      "description": "Completed workout session log",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "exerciseName": { "type": "string" },
+        "date": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "durationSeconds": { "type": "number" },
+        "totalVolumeKg": { "type": "number" },
+        "notes": { "type": "string" },
+        "intensity": { "type": "string" }
+      },
+      "required": ["userId", "date"]
     }
   },
   "firestore": {
@@ -131,6 +149,10 @@
     "/daily_checkins/{checkinId}": {
       "schema": { "$ref": "DailyCheckin" },
       "description": "Daily check-in and readiness logs"
+    },
+    "/workout_sessions/{sessionId}": {
+      "schema": { "$ref": "WorkoutSession" },
+      "description": "Completed workout logs"
     },
     "/users/{userId}": {
       "schema": { "$ref": "UserProfile" },

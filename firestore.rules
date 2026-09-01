@@ -256,6 +256,18 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
+    // Workout Sessions
+    match /workout_sessions/{sessionId} {
+      allow read, list: if isSignedIn() && (
+        isOwner(resource.data.userId) || 
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedTrainerId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(resource.data.userId)).data.linkedNutritionistId == request.auth.uid
+      );
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
     // Hydration Logs
     match /hydration_logs/{logId} {
       allow read: if isSignedIn() && (
